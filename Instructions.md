@@ -98,7 +98,7 @@ Now, first check if the user's host archlinux system has arch-install-scripts in
 Now next comes the most crucial part for the python script. Once the script enter the chroot environment, it must also be able to execute the commands that follow after entering chroot. Furthermore, the user must have sudo access. I also want to disable the root account. The command for that is not available in the next block. You must search the web and find out best practices on how to achieve that.
 
 ```bash
-pacstrap /mnt base base-devel devtools git neovim arch-install-scripts reflector dracut yay python-pyalpm python-requests wget
+pacstrap /mnt base base-devel devtools git neovim arch-install-scripts reflector dracut yay wget
 
 genfstab -U /mnt >>/mnt/etc/fstab
 
@@ -138,20 +138,23 @@ You must execute the command 'lsblk -o name,uuid' and the corresponding UUIDs fo
 
 Then you must create a file called custom.conf /etc/dracut.conf.d/ directory and fill it with the following contents where you must replace all {} with the respective UUIDS from the last command
 
+vg0-swap = c74f12c3-9cfe-4469-9b7f-2270bf704879
+vg0-root = 11289bd2-113e-495a-9265-4a9ae7ed2340
+
 ```sh
 hostonly="yes"
 compress="zstd"
 add_dracutmodules+=" crypt dm rootfs-block resume lvm "
 omit_dracutmodules+=" network cifs nfs nbd brltty "
 force_drivers+=" btrfs "
-kernel_cmdline+=" rd.luks.uuid=luks-{nvme0n1p2} root=UUID={vg0-root} resume=UUID={vg0-swap} rd.lvm.lv=vg0/swap rd.lvm.lv=vg0/root "
+kernel_cmdline+=" rd.luks.uuid=luks-9687319d-3f60-4daf-8dcd-7e0ae6c6bf38 root=UUID=11289bd2-113e-495a-9265-4a9ae7ed2340 resume=UUID=c74f12c3-9cfe-4469-9b7f-2270bf704879 rd.lvm.lv=vg0/swap rd.lvm.lv=vg0/root "
 ```
 
 The next part is to start setting up grub. You will need to install the following packages: grub, efibootmgr. And then update the /etc/default/grub file with the contents from the next block with {} being used placeholders for UUID
 
 ```sh
 nvim /etc/default/grub
-GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=btrfs quiet loglevel=0 rw rd.vconsole.keymap=us rd.luks.uuid=luks-{nvme0n1p2} root=UUID={vg0-root} resume=UUID={vg0-swap} rd.lvm.lv=vg0/swap rd.lvm.lv=vg0/root"
+GRUB_CMDLINE_LINUX_DEFAULT="rootfstype=btrfs quiet loglevel=0 rw rd.vconsole.keymap=us rd.luks.uuid=luks-9687319d-3f60-4daf-8dcd-7e0ae6c6bf38 root=UUID=11289bd2-113e-495a-9265-4a9ae7ed2340 resume=UUID=c74f12c3-9cfe-4469-9b7f-2270bf704879 rd.lvm.lv=vg0/swap rd.lvm.lv=vg0/root"
 GRUB_CMDLINE_LINUX=""
 ```
 
