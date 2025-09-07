@@ -46,7 +46,7 @@ The file structure is the same. All subsequent code blocks should be saved with 
     ├── packages.py
     ├── system_config.py
     ├── user_config.py
-    ├── user_services.py      # Definitive module for all user services
+    ├── user_services.py
     ├── engine.py
     └── install.py
 ```
