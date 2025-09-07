@@ -111,9 +111,9 @@ class SetupManager:
                 list(set(packages_to_install).union(extra_packages))
             )
         print_info(f"Found {len(packages_to_install)} unique packages to install.")
+        # FIX: Removed "--needed" and "--noconfirm" to allow re-installation and require user confirmation.
         return execute_command(
-            ["yay", "-S", "--needed", "--noconfirm"] + packages_to_install,
-            "Installing all packages.",
+            ["yay", "-S"] + packages_to_install, "Installing all packages."
         )
 
     def prompt_for_asus_setup(self) -> Tuple[list, list]:
@@ -134,16 +134,23 @@ class SetupManager:
             ["sudo", "pacman-key", "--lsign-key", key_id], "Signing g14 repo key."
         ):
             return [], []
-        try:
-            with open("/etc/pacman.conf", "r+", encoding="utf-8") as f:
-                if "[g14]" not in f.read():
-                    f.write("\n[g14]\nServer = https://arch.asus-linux.org\n")
-                    print_success("Added [g14] repo.")
-        except IOError as e:
-            print_error(f"Could not access /etc/pacman.conf: {e}")
+
+        repo_config_script = 'grep -q -E "^\\[g14\\]" /etc/pacman.conf || echo -e "\\n[g14]\\nServer = https://arch.asus-linux.org" | sudo tee -a /etc/pacman.conf > /dev/null'
+        if not execute_command(
+            ["/bin/bash", "-c", repo_config_script],
+            "Adding [g14] repository to /etc/pacman.conf.",
+        ):
+            print_error("Failed to update pacman.conf for the [g14] repository.")
             return [], []
-        execute_command(["sudo", "pacman", "-Syyu"], "Synchronizing package databases.")
+
+        if not execute_command(
+            ["sudo", "pacman", "-Syyu"], "Synchronizing package databases."
+        ):
+            print_error("Failed to synchronize databases after adding new repository.")
+            return [], []
+
         return ["asusctl", "supergfxctl", "rog-control-center"], [
             "supergfxd.service",
             "switcheroo-control.service",
         ]
+
