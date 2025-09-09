@@ -1,3 +1,5 @@
+# **Instructions Set 1**
+
 The bash script in the attached setup.txt file already contains a separate function and a corresponding flag to setup nix, home-manager and flakes in fedora/nobara linux. Keeping this function and flag but replace the contents in this function with the following new instructions:
 
 1. Install nix using the determinate nix installer with the following command `curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate`
@@ -17,3 +19,7 @@ This concludes the instructions for setting up nix, home-manager and flakes. Rep
 Furthermore, remove the fedora flaptak repository, if it exists, from the system. Also remove flathub system remote repo if it exists. If the flathub user repo does not exist, add it to the system using the following command `flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo`. All these must occur in the flatpak part of the bash script.
 
 Keep in mind that this bash script is intended for Fedora Linux 42. Make any changes that are necessary that optimize the script and make it useful to run in fedora
+
+---
+
+# **Instructions Set 2**

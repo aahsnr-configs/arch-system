@@ -299,9 +299,26 @@ task_install_flatpaks() {
     print_success "Flatpak is already installed."
   fi
 
-  # Ensure the Flathub remote is configured for the target user
-  print_info "Ensuring Flathub repository is configured for user '$TARGET_USER'..."
-  run_as_user "flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo"
+  # Remove Fedora system remote if it exists
+  if flatpak remotes --system | grep -q "^fedora\s"; then
+    print_info "Removing Fedora system flatpak remote."
+    sudo flatpak remote-delete fedora
+  else
+    print_success "Fedora system flatpak remote not found."
+  fi
+
+  # Remove Flathub system remote if it exists
+  if flatpak remotes --system | grep -q "^flathub\s"; then
+    print_info "Removing Flathub system flatpak remote."
+    sudo flatpak remote-delete flathub
+  else
+    print_success "Flathub system flatpak remote not found."
+  fi
+
+  # Add Flathub user remote if it does not exist
+  print_info "Ensuring Flathub user repository is configured for user '$TARGET_USER'..."
+  run_as_user "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+  print_success "Flathub user remote is configured."
 
   local flatpak_file="flatpaks.txt"
   if [[ ! -f "$flatpak_file" ]]; then
@@ -423,47 +440,51 @@ task_manual_installations() {
 
 # Installs and configures Nix, Flakes, and Home-Manager.
 task_setup_nix() {
-  print_step "Setting up Nix and Home-Manager"
+  print_step "Setting up Nix, Home-Manager, and Flakes"
 
-  # Step 1: Install Nix package manager
+  local nix_daemon_profile="/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+
+  # Step 1: Install Nix using the Determinate Systems installer
   if command_exists nix; then
     print_success "Nix is already installed."
   else
-    print_info "Nix not found. Installing Nix..."
+    print_info "Nix not found. Installing with the Determinate Systems installer..."
     if ! command_exists curl; then
-      print_warning "'curl' is required for this step. Installing it now."
+      print_warning "'curl' is required. Installing it now."
       sudo dnf install -y curl
     fi
-    print_warning "The Nix installer will now run and will ask for your password to set up the Nix daemon."
-    # Use --yes to run non-interactively
-    sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon --yes
 
-    # Make the 'nix' command available to the current shell session.
-    local nix_profile="/etc/profile.d/nix.sh"
-    if [ -f "$nix_profile" ]; then
-      print_info "Sourcing Nix profile to make 'nix' command available..."
-      # Use '.' for POSIX compatibility
-      . "$nix_profile"
+    # The installer uses 'sudo' internally when needed.
+    if curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate; then
+      print_success "Nix installed successfully."
     else
-      print_error "Nix profile script not found at '$nix_profile'. Cannot proceed."
-      exit 1
+      print_error "Nix installation failed. Aborting Nix setup."
+      return 1
     fi
-
-    if ! command_exists nix; then
-      print_error "Nix installation failed or 'nix' is not in PATH. Aborting Nix setup."
-      exit 1
-    fi
-    print_success "Nix installed successfully."
   fi
 
-  # Step 2: Configure Nix to enable experimental features (flakes)
+  # Step 2: Make sure nix is immediately available to the shell
+  if [ -f "$nix_daemon_profile" ]; then
+    print_info "Sourcing Nix profile to make commands available for this session..."
+    # Use '.' for POSIX compatibility.
+    . "$nix_daemon_profile"
+  else
+    print_error "Nix daemon profile script not found at '$nix_daemon_profile'. Cannot proceed."
+    return 1
+  fi
+  # Verify nix command is now available after sourcing
+  if ! command_exists nix; then
+    print_error "Nix command is not available even after sourcing the profile. Aborting Nix setup."
+    return 1
+  fi
+
+  # Step 3: Create nix.conf with experimental features
   local nix_config_dir="$USER_HOME/.config/nix"
   local nix_config_file="$nix_config_dir/nix.conf"
   local nix_config_content="experimental-features = nix-command flakes"
-
-  print_info "Configuring Nix to enable flakes..."
+  print_info "Ensuring Nix is configured to use flakes..."
   run_as_user "mkdir -p '$nix_config_dir'"
-
+  # Idempotently write the configuration
   if run_as_user "[ -f '$nix_config_file' ]" && run_as_user "grep -qFx '$nix_config_content' '$nix_config_file'"; then
     print_success "Nix flake features are already configured."
   else
@@ -471,28 +492,42 @@ task_setup_nix() {
     print_success "Enabled Nix experimental features (flakes)."
   fi
 
-  # Step 3: Install and initialize Home-Manager
-  local hm_dir="$USER_HOME/.config/home-manager"
-  print_info "Setting up Home-Manager..."
-  if [ -d "$hm_dir" ]; then
-    print_success "Home-Manager configuration directory already exists."
-  else
-    print_info "Cloning Home-Manager configuration repository..."
-    if ! command_exists git; then
-      print_warning "'git' is required for this step. Installing it now."
-      sudo dnf install -y git
-    fi
-    run_as_user "git clone https://github.com/aahsnr-config/home-manager '$hm_dir'"
-    print_success "Cloned Home-Manager repository."
-  fi
+  # Sourcing the profile needs to be done inside 'run_as_user' for subsequent commands
+  local user_command_prefix=". $nix_daemon_profile;"
 
-  print_info "Initializing Home-Manager. This may take a while..."
-  # Source the nix profile within the subshell to ensure 'nix' command is available
-  if run_as_user ". /etc/profile.d/nix.sh && nix run home-manager/master -- init --switch"; then
-    print_success "Home-Manager has been initialized successfully."
+  # Step 4: Setup home-manager (and remove its initial config)
+  print_info "Initializing Home-Manager to set up its channels..."
+  run_as_user "$user_command_prefix nix run home-manager/master -- init --switch"
+  print_info "Removing initial Home-Manager configuration..."
+  run_as_user "rm -rf '$USER_HOME/.config/home-manager'"
+  print_success "Home-Manager bootstrap complete."
+
+  # Step 5: Clone the custom home-manager configuration
+  print_info "Cloning custom Home-Manager configuration repository..."
+  if ! command_exists git; then
+    print_warning "'git' is required. Installing it now."
+    sudo dnf install -y git
+  fi
+  run_as_user "git clone https://github.com/aahsnr-configs/home-manager.git ~/.config/home-manager"
+  print_success "Cloned custom Home-Manager repository."
+
+  # Step 6: Run home-manager switch with backup logic
+  print_info "Attempting to switch to the new Home-Manager configuration..."
+  if run_as_user "$user_command_prefix home-manager switch"; then
+    print_success "Home-Manager switch completed successfully on the first try."
   else
-    print_error "Failed to initialize Home-Manager."
-    return 1
+    print_warning "Initial 'home-manager switch' failed, which can be expected if files conflict."
+    print_info "Retrying the switch with the backup flag '-b backup'..."
+    if ! run_as_user "$user_command_prefix home-manager switch -b backup"; then
+      print_error "The 'home-manager switch -b backup' command failed. Please check the logs."
+      return 1
+    fi
+    print_info "Re-running the switch command after creating backups..."
+    if ! run_as_user "$user_command_prefix home-manager switch"; then
+      print_error "'home-manager switch' failed on the second attempt. Please check the logs."
+      return 1
+    fi
+    print_success "Home-Manager switch completed successfully after handling backups."
   fi
 }
 
