@@ -1,0 +1,8 @@
+#!/bin/sh
+cd
+git clone https://github.com/desbma/shh.git
+cd shh
+cargo build --release
+sudo install -Dm 755 -t /usr/local/bin target/release/shh
+cd
+sudo rm -rf shh

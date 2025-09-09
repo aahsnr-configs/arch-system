@@ -1,0 +1,17 @@
+- [ ] Integrate the following user home configurations into the arch-installer program
+  - [ ]
+
+- [x] add sshd_config manually using python script
+- [x] integrated variables.sh file into /etc/profile.d/
+- [ ] setup texlive manually and make sure the script asks for prompt
+- [ ] Integrate user systemd files into the final-python script
+- [ ] Make sure --noconfirm is not enabled
+- [ ] Find out which services are needed by hyprland
+- [ ] Make sure custom user services are in the user services list
+- [ ] Write a separate module in final_script.py for user systemd services
+- [x] Add /etc/issue and /etc/issue.net content setup to python script
+- [x] At the end of the python script it should run this as root with confirmation and user prompt: pacman -Qdtq | pacman -Rns - . Default prompt should be Y
+- [ ] custom systemd user services
+  - [x] pyprland
+  - [x] cliphist-image
+  - [x] cliphist-text

@@ -1,0 +1,5 @@
+sudo dnf copr enable lukenukem/asus-linux
+sudo dnf update
+sudo dnf install asusctl supergfxctl power-profiles-daemon asusctl-rog-gui -y --allowerasing
+sudo dnf update --refresh
+sudo systemctl enable supergfxd.service power-profiles-daemon

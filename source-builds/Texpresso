@@ -1,0 +1,8 @@
+#!/bin/bash
+sudo dnf install make gcc mupdf-devel SDL2-devel g++ libjpeg-turbo-devel jbig2dec-devel openjpeg2-devel gumbo-parser-devel tesseract-devel leptonica-devel openssl-devel fontconfig-devel
+
+cd && git clone --recurse-submodules https://github.com/let-def/texpresso.git
+cd texpresso 
+make texpresso-tonic
+sudo install -Dm755 build/texpresso-tonic /usr/local/bin/texpresso-tonic
+cd && sudo rm -rf texpresso

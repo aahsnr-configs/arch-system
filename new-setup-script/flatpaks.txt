@@ -1,0 +1,13 @@
+# --- Flatpak Applications ---
+# This file lists the Flatpak applications to be installed by the setup script.
+# Add one Flatpak application ID per line.
+# Lines starting with '#' and empty lines are ignored.
+
+org.ferdium.Ferdium
+com.github.tchx84.Flatseal
+org.onlyoffice.desktopeditors
+tv.kodi.Kodi
+com.bitwarden.desktop
+io.github.alainm23.planify
+io.github.dvlv.boxbuddyrs
+org.zotero.Zotero

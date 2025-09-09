@@ -1,0 +1,22 @@
+#!/bin/bash
+echo "Setting Up Caelestia"
+sleep 3
+set -e
+sudo dnf install glib2-devel libqalculate-devel qt6-qtdeclarative-devel pipewire-devel aubio-devel hatch python3-hatch-vcs python3-pillow python3-build python3-installer libnotify-devel pulseaudio-utils glib2-devel
+
+cd
+git clone https://github.com/caelestia-dots/cli.git
+cd cli
+python -m build --wheel
+sudo python -m installer dist/*.whl
+sudo cp completions/caelestia.fish /usr/share/fish/vendor_completions.d/caelestia.fish
+cd
+sudo rm -rf cli
+
+mkdir -p "$HOME/.config/quickshell"
+cd "$HOME/.config/quickshell"
+git clone https://github.com/caelestia-dots/shell.git caelestia
+g++ -std=c++17 -Wall -Wextra -I/usr/include/pipewire-0.3 -I/usr/include/spa-0.2 -I/usr/include/aubio -o beat_detector caelestia/assets/beat_detector.cpp -lpipewire-0.3 -laubio
+sudo mkdir -p /usr/lib/caelestia
+sudo mv beat_detector /usr/lib/caelestia/beat_detector
+cd
