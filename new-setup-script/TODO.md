@@ -19,5 +19,6 @@
 - [ ] Install kde-material-you-colors from Fedora 42 of <https://software.opensuse.org/package/kde-material-you-colors>
 - [ ] Look at [Hyprland Nvidia](https://wiki.hypr.land/Nvidia/) before starting wayland
 - [ ] Look at <https://wiki.nobaraproject.org/en/modifications/packages> before starting install
+- [ ] Add nvidia drivers and codecs to bash scritp
 - [x] Integrate a custom script to install pia vpn manually using a separate function and separate flag
 - [ ] At the end integrate neovim and doom emacs setup using a separate function and a separate flag

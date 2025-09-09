@@ -22,4 +22,8 @@ Keep in mind that this bash script is intended for Fedora Linux 42. Make any cha
 
 ---
 
-# **Instructions Set 2**
+# Instructions Set 2
+
+Setup a new function and its corresponding flag to setup fedora media and codecs installation from rpm-fusion
+
+Setup a new function to install nvidia drivers using the rpmfusion instructions
