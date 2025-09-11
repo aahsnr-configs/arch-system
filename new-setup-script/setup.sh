@@ -1,29 +1,34 @@
 #!/usr/bin/env bash
 
-# This script automates the setup of a complete Nobara Hyprland Environment.
-# It is a robust, idempotent, and modular script that reads its package and
-# group lists from external '.txt' files for easy management.
+# This script automates the setup of a complete Hyprland Environment on Fedora 42.
+# It is a robust, idempotent, and modular script that reads package lists
+# from external '.txt' files for easy management.
 #
 # It should be run as a regular user with sudo privileges.
-# Use the --debug flag to enable verbose command tracing.
-# Use the --help flag to see all available commands.
+#
+# --- Features ---
+#   - Automatic hardware detection for NVIDIA and ASUS setups.
+#   - Full logging of all operations to a timestamped log file.
+#   - A '--yes' flag for fully non-interactive (automated) execution.
+#   - Upfront dependency checking and installation.
+#   - Idempotent design: safe to re-run without causing issues.
 #
 # --- Script Task Order ---
-# The script performs the following tasks in a specific order:
-#   1.  Pre-flight Checks: Verifies user privileges, sudo access, and internet connectivity.
-#   2.  Initial Files Setup: Deploys custom DNF and environment variable configurations.
-#   3.  Setup Repos: Enables COPR repositories for extra packages.
-#   4.  Install Groups: Installs package groups listed in 'groups.txt'.
-#   5.  Install Packages: Installs all individual packages listed in 'packages.txt'.
-#   6.  Install Flatpaks (Optional): Installs Flatpak applications from 'flatpaks.txt'.
-#   7.  Setup for ASUS Laptops (Optional): Installs asusctl and related tools.
-#   8.  Manual Installs: Installs third-party software like themes and VPNs.
-#   9.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes and home-manager.
-#   10. Harden System: Implements basic security enhancements for SSH, system limits, and kernel parameters.
-#   11. Configure User: Sets up the user's environment, including dotfiles, SSH keys, and the default shell.
-#   12. Enable System Services: Enables optional, system-wide services for monitoring and performance.
-#   13. Setup Hyprland: Enables the necessary systemd user services for the desktop environment to function.
-#   14. Cleanup: Removes orphaned packages to free up disk space.
+#   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
+#   2.  Initial Files Setup: Deploys custom DNF and environment configurations.
+#   3.  Setup Repos: Enables COPR and RPM Fusion repositories.
+#   4.  Setup NVIDIA Drivers (Optional): Installs proprietary NVIDIA drivers if hardware is detected.
+#   5.  Install Groups: Installs package groups from 'groups.txt'.
+#   6.  Install Packages: Installs individual packages from 'packages.txt'.
+#   7.  Install Flatpaks (Optional): Installs Flatpak applications from 'flatpaks.txt'.
+#   8.  Setup for ASUS Laptops (Optional): Installs asusctl if hardware is detected.
+#   9.  Manual Installs: Installs third-party software like themes and VPNs.
+#   10. Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
+#   11. Harden System: Implements basic security enhancements.
+#   12. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
+#   13. Enable System Services: Enables optional system-wide services.
+#   14. Setup Hyprland: Enables the necessary systemd user services.
+#   15. Cleanup: Removes orphaned packages.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -32,8 +37,6 @@ set -euo pipefail
 # Ensures temporary files are removed when the script exits for any reason.
 TEMP_FILES=()
 cleanup() {
-  # 'set +x' is used to turn off debug tracing during the cleanup phase
-  # to avoid unnecessary noise when the script exits.
   set +x
   if [ ${#TEMP_FILES[@]} -gt 0 ]; then
     rm -rf "${TEMP_FILES[@]}"
@@ -59,23 +62,16 @@ readonly I_ERROR="❌"
 readonly I_PROMPT="❓"
 readonly I_FINISH="🎉"
 readonly I_DEBUG="🐞"
+readonly I_LOG="📄"
 
 # --- Global Configuration ---
-# Variables are assigned first, then made readonly. This is a best practice
-# to ensure that 'set -e' correctly catches any errors from the commands
-# used in the assignments.
-
-TARGET_USER="$(logname)"
-readonly TARGET_USER
-
-USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
-readonly USER_HOME
-
-# Note: The following variables are essential and used in task functions.
-# A linter might incorrectly flag them as unused.
+readonly TARGET_USER="$(logname)"
+readonly USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 readonly DOTFILES_REPO_URL="https://github.com/aahsnr/.hyprdots.git"
 readonly DOTFILES_DIR="$USER_HOME/.hyprdots"
+readonly LOG_FILE="setup-log-$(date +%F_%H-%M).log"
 DEBUG_MODE=false
+NON_INTERACTIVE=false
 
 # --- UI Helper Functions ---
 print_step() { echo -e "\n${C_HEADER}${C_BOLD}═══ $I_STEP $1 ═══${C_END}"; }
@@ -92,13 +88,14 @@ print_debug() {
 # --- Usage Information ---
 print_usage() {
   echo -e "${C_BOLD}Usage: $0 [OPTIONS...]${C_END}"
-  echo "Automates the setup of a complete Nobara Hyprland Environment."
+  echo "Automates the setup of a complete Hyprland Environment on Fedora 42."
   echo ""
-  echo -e "${C_BOLD}If no options are provided, the script will run all setup tasks sequentially.${C_END}"
+  echo -e "${C_BOLD}If no options are provided, the script will run all setup tasks interactively.${C_END}"
   echo ""
   echo -e "${C_HEADER}Options:${C_END}"
   echo -e "  ${C_GREEN}--initial-setup${C_END}         Deploy custom DNF and environment variable configurations."
   echo -e "  ${C_GREEN}--setup-repos${C_END}           Enable COPR and other repositories."
+  echo -e "  ${C_GREEN}--setup-nvidia${C_END}          Install and configure NVIDIA drivers."
   echo -e "  ${C_GREEN}--install-groups${C_END}        Install package groups from 'groups.txt'."
   echo -e "  ${C_GREEN}--install-packages${C_END}      Install individual packages from 'packages.txt'."
   echo -e "  ${C_GREEN}--install-flatpaks${C_END}      Install Flatpak applications from 'flatpaks.txt'."
@@ -106,11 +103,12 @@ print_usage() {
   echo -e "  ${C_GREEN}--manual-installs${C_END}       Perform manual installation of third-party software."
   echo -e "  ${C_GREEN}--setup-nix${C_END}             Install and configure Nix with Home-Manager."
   echo -e "  ${C_GREEN}--harden-system${C_END}         Implement basic security enhancements."
-  echo -e "  ${C_GREEN}--configure-user${C_END}        Set up the user's environment (dotfiles, shell, SSH keys)."
-  echo -e "  ${C_GREEN}--enable-system-services${C_END}  Enable optional system-wide services (ensures packages are installed)."
+  echo -e "  ${C_GREEN}--configure-user${C_END}        Set up the user's environment."
+  echo -e "  ${C_GREEN}--enable-system-services${C_END}  Enable optional system-wide services."
   echo -e "  ${C_GREEN}--setup-hyprland${C_END}        Enable systemd user services for Hyprland."
   echo -e "  ${C_GREEN}--cleanup${C_END}               Remove orphaned packages from the system."
   echo -e "  ${C_YELLOW}--debug${C_END}                 Enable verbose command tracing for debugging."
+  echo -e "  ${C_YELLOW}--yes, -y${C_END}               Bypass all interactive prompts for automated runs."
   echo -e "  ${C_BLUE}--help${C_END}                  Display this help message and exit."
 }
 
@@ -146,7 +144,6 @@ write_file_idempotent() {
 # Verifies that the script is run in a valid environment.
 pre_flight_checks() {
   print_step "Running Pre-flight Checks"
-  print_debug "Effective UID: $EUID. Target user: $TARGET_USER."
   if [[ $EUID -eq 0 ]]; then
     print_error "This script must be run as a regular user, not root. Aborting."
     exit 1
@@ -159,44 +156,51 @@ pre_flight_checks() {
     print_error "No internet connection. Aborting."
     exit 1
   fi
+
+  # Check for necessary commands and prompt to install if missing
+  local missing_deps=()
+  for cmd in git curl wget lspci; do
+    if ! command_exists "$cmd"; then
+      missing_deps+=("$cmd")
+    fi
+  done
+  if ((${#missing_deps[@]} > 0)); then
+    print_warning "The following dependencies are missing: ${missing_deps[*]}"
+    sudo dnf install -y "${missing_deps[@]}"
+  fi
+
+  # Check for required input files
+  for file in dnf.conf.txt 99-custom-env.sh.txt packages.txt groups.txt flatpaks.txt; do
+    if [[ ! -f "$file" ]]; then
+      print_error "Required configuration file '$file' not found. Aborting."
+      exit 1
+    fi
+  done
+
+  print_info "Priming sudo. You may be asked for your password now."
+  sudo -v
   print_success "Checks passed. Configuring system for user: $TARGET_USER"
 }
 
 # Copies initial system configuration files from local '.txt' files.
 task_initial_files_setup() {
   print_step "Applying Initial System Configurations"
-
-  # DNF Configuration
-  if [[ ! -f "dnf.conf.txt" ]]; then
-    print_error "Configuration file 'dnf.conf.txt' not found."
-    exit 1
-  fi
   local dnf_conf_content
   dnf_conf_content=$(<dnf.conf.txt)
   write_file_idempotent "/etc/dnf/dnf.conf" "$dnf_conf_content"
 
-  # Custom Environment Script
-  if [[ ! -f "99-custom-env.sh.txt" ]]; then
-    print_error "Configuration file '99-custom-env.sh.txt' not found."
-    exit 1
-  fi
   local env_sh_content
   env_sh_content=$(<99-custom-env.sh.txt)
   write_file_idempotent "/etc/profile.d/99-custom-env.sh" "$env_sh_content"
-
-  print_info "Setting execute permissions on custom environment script."
   sudo chmod +x "/etc/profile.d/99-custom-env.sh"
 }
 
 # Configures DNF and enables third-party repositories.
 task_setup_repos() {
   print_step "Setting up System Repositories"
-
-  # COPR Repositories
   local copr_repos=("solopasha/hyprland" "errornointernet/quickshell" "deltacopy/darkly" "sneexy/zen-browser")
   for repo in "${copr_repos[@]}"; do
-    local repo_filename="_copr_${repo//\//-}.repo"
-    if [ -f "/etc/yum.repos.d/$repo_filename" ]; then
+    if [ -f "/etc/yum.repos.d/_copr_${repo//\//-}.repo" ]; then
       print_success "COPR repository '$repo' is already enabled."
     else
       print_info "Enabling COPR repository: $repo"
@@ -204,179 +208,122 @@ task_setup_repos() {
     fi
   done
 
-  # RPM Fusion Repositories (Nobara usually includes these by default)
+  # RPM Fusion
   for repo_type in free nonfree; do
-    if is_pkg_installed "rpmfusion-${repo_type}-release"; then
-      print_success "RPM Fusion $repo_type is already installed."
-    else
-      print_warning "RPM Fusion $repo_type is not installed. Attempting to install..."
+    if ! is_pkg_installed "rpmfusion-${repo_type}-release"; then
+      print_info "Installing RPM Fusion $repo_type repository..."
       sudo dnf install -y "https://mirrors.rpmfusion.org/${repo_type}/fedora/rpmfusion-${repo_type}-release-$(rpm -E %fedora).noarch.rpm"
+    else
+      print_success "RPM Fusion $repo_type is already installed."
     fi
   done
 
-  # OpenSUSE Build Service Repository
-  local fedora_version
-  fedora_version=$(rpm -E %fedora)
-  local obs_repo_url="https://download.opensuse.org/repositories/home:luisbocanegra/Fedora_${fedora_version}/home:luisbocanegra.repo"
-  local obs_repo_name="home:luisbocanegra"
-  local obs_repo_filename="${obs_repo_name}.repo"
-  if [ -f "/etc/yum.repos.d/$obs_repo_filename" ]; then
-    print_success "Repository '$obs_repo_name' is already enabled."
-  else
-    print_info "Enabling repository '$obs_repo_name' from OpenSUSE Build Service."
-    sudo dnf config-manager --addrepo "$obs_repo_url"
-  fi
-
-  # Update system packages after enabling new repositories.
   print_info "Updating system packages after repository setup..."
   sudo dnf update -y
 }
 
-# Reads the group list from 'groups.txt' and installs them using 'dnf install @group'.
-task_install_groups() {
-  print_step "Installing System Package Groups from File"
-  local group_file="groups.txt"
-
-  if [[ ! -f "$group_file" ]]; then
-    print_error "Group file '$group_file' not found. It must be in the same directory as this script."
-    exit 1
+# Installs and configures NVIDIA drivers.
+task_setup_nvidia() {
+  print_step "Setting up NVIDIA Drivers"
+  if ! lspci | grep -qi 'VGA compatible controller: NVIDIA'; then
+    print_warning "NVIDIA hardware not detected. Skipping driver installation."
+    return
   fi
-
-  print_info "Reading group list from '$group_file'..."
-  local group_ids
-  mapfile -t group_ids < <(grep -vE '^\s*#|^\s*$' "$group_file")
-
-  if ((${#group_ids[@]} == 0)); then
-    print_warning "No groups found in '$group_file'. Skipping group installation."
+  if [[ "$(rpm -E %fedora)" -ne 42 ]]; then
+    print_warning "This NVIDIA setup is intended for Fedora 42. Skipping driver installation."
     return
   fi
 
-  # Prepare the groups for 'dnf install' by prepending '@' to each group ID.
-  local groups_to_install=()
-  for id in "${group_ids[@]}"; do
-    groups_to_install+=("@${id}")
-  done
+  print_info "Installing NVIDIA driver packages..."
+  sudo dnf install -y --setopt=install_weak_deps=False \
+    akmod-nvidia xorg-x11-drv-nvidia-cuda xorg-x11-drv-nvidia-power \
+    vulkan xorg-x11-drv-nvidia-cuda-libs nvidia-vaapi-driver libva-utils vdpauinfo libva-nvidia-driver
 
-  print_debug "Final list of groups to install: ${groups_to_install[*]}"
+  print_info "Reloading systemd daemon to recognize new services..."
+  sudo systemctl daemon-reload
+
+  print_info "Marking 'akmod-nvidia' as a user-installed package."
+  sudo dnf mark user akmod-nvidia
+
+  print_info "Enabling NVIDIA power management services..."
+  sudo systemctl enable nvidia-{suspend,resume,hibernate}
+
+  print_info "Configuring RPM macros for open NVIDIA kernel modules..."
+  sudo sh -c 'echo "%_with_kmod_nvidia_open 1" > /etc/rpm/macros.nvidia-kmod'
+
+  print_info "Rebuilding akmods for the current kernel..."
+  sudo akmods --kernels "$(uname -r)" --rebuild
+
+  print_success "NVIDIA driver setup complete. A reboot is required."
+}
+
+# Reads the group list from 'groups.txt' and installs them.
+task_install_groups() {
+  print_step "Installing System Package Groups from File"
+  mapfile -t group_ids < <(grep -vE '^\s*#|^\s*$' "groups.txt")
+
+  if ((${#group_ids[@]} == 0)); then
+    print_warning "No groups found in 'groups.txt'. Skipping."
+    return
+  fi
+
+  local groups_to_install=("${group_ids[@]}")
   print_info "Installing ${#groups_to_install[@]} DNF groups..."
-  sudo dnf install -y "${groups_to_install[@]}"
+  sudo dnf group install -y "${groups_to_install[@]}"
 }
 
 # Reads the package list from 'packages.txt' and installs them.
 task_install_packages() {
   print_step "Installing Individual System Packages from File"
-  local package_file="packages.txt"
-
-  if [[ ! -f "$package_file" ]]; then
-    print_error "Package file '$package_file' not found."
-    exit 1
-  fi
-
-  print_info "Reading package list from '$package_file'..."
-  local packages_to_install
-  mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "$package_file")
-
+  mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "packages.txt")
   if ((${#packages_to_install[@]} == 0)); then
-    print_warning "No packages found in '$package_file'. Skipping installation."
+    print_warning "No packages found in 'packages.txt'. Skipping."
     return
   fi
-
-  print_debug "Final list of packages to install: ${packages_to_install[*]}"
-  print_info "Installing ${#packages_to_install[@]} DNF packages. This may take a while..."
-  # FIX: Added --allowerasing to handle potential package conflicts automatically.
+  print_info "Installing ${#packages_to_install[@]} DNF packages..."
   sudo dnf install -y --allowerasing "${packages_to_install[@]}"
 }
 
 # Installs Flatpaks from the 'flatpaks.txt' file.
 task_install_flatpaks() {
   print_step "Installing Flatpaks from File"
-
-  # Ensure flatpak is installed on the system
   if ! command_exists flatpak; then
-    print_info "Flatpak is not installed. Installing it now via DNF..."
     sudo dnf install -y flatpak
-  else
-    print_success "Flatpak is already installed."
   fi
 
-  # Remove Fedora system remote if it exists
-  if flatpak remotes --system | grep -q "^fedora\s"; then
-    print_info "Removing Fedora system flatpak remote."
-    sudo flatpak remote-delete fedora
-  else
-    print_success "Fedora system flatpak remote not found."
-  fi
-
-  # Remove Flathub system remote if it exists
-  if flatpak remotes --system | grep -q "^flathub\s"; then
-    print_info "Removing Flathub system flatpak remote."
-    sudo flatpak remote-delete flathub
-  else
-    print_success "Flathub system flatpak remote not found."
-  fi
-
-  # Add Flathub user remote if it does not exist
-  print_info "Ensuring Flathub user repository is configured for user '$TARGET_USER'..."
+  print_info "Configuring Flathub repository for user '$TARGET_USER'..."
   run_as_user "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
-  print_success "Flathub user remote is configured."
 
-  local flatpak_file="flatpaks.txt"
-  if [[ ! -f "$flatpak_file" ]]; then
-    print_error "Flatpak list file '$flatpak_file' not found. Aborting Flatpak setup."
-    return 1
-  fi
-
-  print_info "Reading Flatpak application list from '$flatpak_file'..."
-  local flatpaks_to_install
-  mapfile -t flatpaks_to_install < <(grep -vE '^\s*#|^\s*$' "$flatpak_file")
-
+  mapfile -t flatpaks_to_install < <(grep -vE '^\s*#|^\s*$' "flatpaks.txt")
   if ((${#flatpaks_to_install[@]} == 0)); then
-    print_warning "No applications found in '$flatpak_file'. Skipping installation."
+    print_warning "No applications found in 'flatpaks.txt'. Skipping."
     return
   fi
-
-  print_info "Installing ${#flatpaks_to_install[@]} Flatpaks as user '$TARGET_USER'. This may take a while..."
-  # Install all flatpaks in a single command for efficiency.
-  if ! run_as_user "flatpak install -y flathub ${flatpaks_to_install[*]}"; then
-    print_warning "Failed to install one or more Flatpaks. They might already be installed or there was a network issue."
-  fi
+  print_info "Installing ${#flatpaks_to_install[@]} Flatpaks..."
+  run_as_user "flatpak install -y flathub ${flatpaks_to_install[*]}"
   print_success "Flatpak installation process complete."
 }
 
 # Installs special drivers and tools for ASUS laptops.
 task_setup_asus() {
   print_step "Setting up for ASUS Laptops"
-  print_warning "This will install ASUS-specific software and may replace existing packages."
-
-  # Enable COPR Repository for asus-linux
-  local asus_repo="lukenukem/asus-linux"
-  local asus_repo_filename="_copr_${asus_repo//\//-}.repo"
-  if [ -f "/etc/yum.repos.d/$asus_repo_filename" ]; then
-    print_success "COPR repository '$asus_repo' is already enabled."
-  else
-    print_info "Enabling COPR repository for ASUS Linux: $asus_repo"
-    sudo dnf copr enable -y "$asus_repo"
+  if ! sudo lspci | grep -qi 'ASUSTek'; then
+    print_warning "ASUS hardware not detected. Skipping."
+    return
   fi
 
-  # Refresh repositories to ensure the new COPR repo is available.
-  print_info "Refreshing DNF repositories..."
-  sudo dnf update --refresh
+  local asus_repo="lukenukem/asus-linux"
+  if [ ! -f "/etc/yum.repos.d/_copr_lukenukem-asus-linux.repo" ]; then
+    print_info "Enabling COPR repository for ASUS Linux: $asus_repo"
+    sudo dnf copr enable -y "$asus_repo"
+    sudo dnf update --refresh -y
+  fi
 
-  # Install ASUS-specific packages.
   local asus_packages=("asusctl" "supergfxctl" "power-profiles-daemon" "asusctl-rog-gui")
-  print_info "Installing ASUS-specific packages: ${asus_packages[*]}"
-  # The --allowerasing flag is used as specified in the sample to handle potential conflicts.
+  print_info "Installing ASUS-specific packages..."
   sudo dnf install -y --allowerasing "${asus_packages[@]}"
-
-  # Reload the systemd daemon to ensure it finds the new service files.
-  print_info "Reloading systemd manager configuration to detect new services..."
   sudo systemctl daemon-reload
-
-  # Enable the necessary systemd services directly.
-  print_info "Enabling system services for ASUS: supergfxd and power-profiles-daemon..."
   sudo systemctl enable --now supergfxd.service power-profiles-daemon.service
-  print_success "Attempted to enable ASUS-related services."
-
   print_success "ASUS-specific setup complete."
 }
 
@@ -384,56 +331,35 @@ task_setup_asus() {
 task_manual_installations() {
   print_step "Performing Manual Installations (as User)"
 
-  # --- Install Breeze Plus Icons ---
-  local icon_dir="$USER_HOME/.local/share/icons/breeze-plus"
-  if [ -d "$icon_dir" ]; then
+  # Install Breeze Plus Icons
+  if [ -d "$USER_HOME/.local/share/icons/breeze-plus" ]; then
     print_success "Breeze Plus icons are already installed."
   else
-    print_info "Installing Breeze Plus icon theme."
-    if ! command_exists git; then
-      print_warning "'git' is required. Installing it now."
-      sudo dnf install -y git
-    fi
+    print_info "Installing Breeze Plus icon theme..."
     local tmp_repo_dir
     tmp_repo_dir=$(mktemp -d)
     TEMP_FILES+=("$tmp_repo_dir")
-
-    print_info "Cloning icon repository as user '$TARGET_USER'..."
     run_as_user "git clone https://github.com/mjkim0727/breeze-plus.git '$tmp_repo_dir'"
-
-    print_info "Copying icon files..."
     run_as_user "mkdir -p '$USER_HOME/.local/share/icons' && cp -r '$tmp_repo_dir'/src/breeze-plus* '$USER_HOME/.local/share/icons/'"
-
-    print_success "Breeze Plus icons installed successfully."
+    print_success "Breeze Plus icons installed."
   fi
 
-  # --- Install Private Internet Access (PIA) VPN ---
+  # Install Private Internet Access (PIA) VPN
   if command_exists pia-client; then
     print_success "Private Internet Access is already installed."
   else
     print_info "Installing Private Internet Access (PIA) VPN."
-    if ! command_exists wget; then
-      print_warning "'wget' is required. Installing it now."
-      sudo dnf install -y wget
-    fi
-
+    print_warning "The PIA installer URL is version-specific and may become outdated."
     local pia_url="https://installers.privateinternetaccess.com/download/pia-linux-3.6.2-08398.run"
     local pia_installer
-    # Create the temp file in a location the target user can access
-    pia_installer=$(run_as_user "mktemp --suffix=.run")
+    pia_installer=$(mktemp --suffix=.run)
     TEMP_FILES+=("$pia_installer")
-
     print_info "Downloading PIA installer..."
-    # Download the file as the user to avoid permission issues
-    run_as_user "wget -O '$pia_installer' '$pia_url'"
-    run_as_user "chmod +x '$pia_installer'"
-
-    print_warning "The PIA installer will now launch as user '$TARGET_USER'."
-    print_warning "The installer itself will likely prompt for an administrative password to set up system-level services."
-
-    # Run the installer as the target user. The installer will handle its own privilege escalation.
-    run_as_user "bash '$pia_installer'"
-
+    wget -O "$pia_installer" "$pia_url"
+    chmod +x "$pia_installer"
+    print_warning "The PIA installer will now launch. It may prompt for an administrative password."
+    # Installer handles its own privilege escalation.
+    bash "$pia_installer"
     print_success "PIA VPN installation process finished."
   fi
 }
@@ -444,120 +370,61 @@ task_setup_nix() {
 
   local nix_daemon_profile="/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
 
-  # Step 1: Install Nix using the Determinate Systems installer
-  if command_exists nix; then
-    print_success "Nix is already installed."
-  else
-    print_info "Nix not found. Installing with the Determinate Systems installer..."
-    if ! command_exists curl; then
-      print_warning "'curl' is required. Installing it now."
-      sudo dnf install -y curl
-    fi
-
-    # The installer uses 'sudo' internally when needed.
-    if curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate; then
-      print_success "Nix installed successfully."
-    else
-      print_error "Nix installation failed. Aborting Nix setup."
-      return 1
-    fi
-  fi
-
-  # Step 2: Make sure nix is immediately available to the shell
-  if [ -f "$nix_daemon_profile" ]; then
-    print_info "Sourcing Nix profile to make commands available for this session..."
-    # Use '.' for POSIX compatibility.
-    . "$nix_daemon_profile"
-  else
-    print_error "Nix daemon profile script not found at '$nix_daemon_profile'. Cannot proceed."
-    return 1
-  fi
-  # Verify nix command is now available after sourcing
   if ! command_exists nix; then
-    print_error "Nix command is not available even after sourcing the profile. Aborting Nix setup."
-    return 1
+    print_info "Installing Nix with the Determinate Systems installer..."
+    curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate --no-confirm
+  else
+    print_success "Nix is already installed."
   fi
 
-  # Step 3: Create nix.conf with experimental features
+  if [ ! -f "$nix_daemon_profile" ]; then
+    print_error "Nix daemon profile script not found. Cannot proceed."
+    return 1
+  fi
+  # Source the profile for the current shell to ensure commands are available.
+  . "$nix_daemon_profile"
+
+  print_info "Ensuring Nix is configured to use flakes..."
   local nix_config_dir="$USER_HOME/.config/nix"
   local nix_config_file="$nix_config_dir/nix.conf"
-  local nix_config_content="experimental-features = nix-command flakes"
-  print_info "Ensuring Nix is configured to use flakes..."
   run_as_user "mkdir -p '$nix_config_dir'"
-  # Idempotently write the configuration
-  if run_as_user "[ -f '$nix_config_file' ]" && run_as_user "grep -qFx '$nix_config_content' '$nix_config_file'"; then
-    print_success "Nix flake features are already configured."
-  else
-    run_as_user "echo '$nix_config_content' > '$nix_config_file'"
-    print_success "Enabled Nix experimental features (flakes)."
-  fi
+  run_as_user "echo 'experimental-features = nix-command flakes' > '$nix_config_file'"
 
-  # Sourcing the profile needs to be done inside 'run_as_user' for subsequent commands
-  local user_command_prefix=". $nix_daemon_profile;"
+  # Define the command prefix to correctly source the nix environment inside the subshell
+  local nix_cmd_prefix=". '$nix_daemon_profile';"
 
-  # Step 4: Setup home-manager (and remove its initial config)
-  print_info "Initializing Home-Manager to set up its channels..."
-  run_as_user "$user_command_prefix nix run home-manager/master -- init --switch"
-  print_info "Removing initial Home-Manager configuration..."
+  print_info "Initializing Home-Manager..."
+  run_as_user "$nix_cmd_prefix nix run home-manager/master -- init --switch"
   run_as_user "rm -rf '$USER_HOME/.config/home-manager'"
-  print_success "Home-Manager bootstrap complete."
 
-  # Step 5: Clone the custom home-manager configuration
   print_info "Cloning custom Home-Manager configuration repository..."
-  if ! command_exists git; then
-    print_warning "'git' is required. Installing it now."
-    sudo dnf install -y git
-  fi
   run_as_user "git clone https://github.com/aahsnr-configs/home-manager.git ~/.config/home-manager"
-  print_success "Cloned custom Home-Manager repository."
 
-  # Step 6: Run home-manager switch with backup logic
-  print_info "Attempting to switch to the new Home-Manager configuration..."
-  if run_as_user "$user_command_prefix home-manager switch"; then
-    print_success "Home-Manager switch completed successfully on the first try."
-  else
-    print_warning "Initial 'home-manager switch' failed, which can be expected if files conflict."
-    print_info "Retrying the switch with the backup flag '-b backup'..."
-    if ! run_as_user "$user_command_prefix home-manager switch -b backup"; then
-      print_error "The 'home-manager switch -b backup' command failed. Please check the logs."
-      return 1
-    fi
-    print_info "Re-running the switch command after creating backups..."
-    if ! run_as_user "$user_command_prefix home-manager switch"; then
-      print_error "'home-manager switch' failed on the second attempt. Please check the logs."
-      return 1
-    fi
-    print_success "Home-Manager switch completed successfully after handling backups."
+  print_info "Switching to the new Home-Manager configuration..."
+  if ! run_as_user "$nix_cmd_prefix home-manager switch"; then
+    print_warning "Initial 'home-manager switch' failed. Retrying with backup flag..."
+    run_as_user "$nix_cmd_prefix home-manager switch -b backup"
+    run_as_user "$nix_cmd_prefix home-manager switch"
   fi
+  print_success "Home-Manager switch complete."
 }
 
 # Applies system-wide security hardening configurations.
 task_harden_system() {
   print_step "Applying System Security Hardening"
-  write_file_idempotent "/etc/security/limits.d/99-custom-limits.conf" '# Custom security limits\n* soft nofile 65536\n* hard nofile 1048576'
-
-  # Define the new, detailed banner content.
-  local banner_content="-- WARNING -- This system is for the use of authorized users only. Individuals
-using this computer system without authority or in excess of their authority
-are subject to having all their activities on this system monitored and
-recorded by system personnel. Anyone using this system expressly consents to
-such monitoring and is advised that if such monitoring reveals possible
-evidence of criminal activity system personal may provide the evidence of such
-monitoring to law enforcement officials."
-
-  # Write the new banner to /etc/issue and /etc/issue.net, overwriting existing content.
-  write_file_idempotent "/etc/issue" "$banner_content"
-  write_file_idempotent "/etc/issue.net" "$banner_content"
-
-  local sshd_content="Include /etc/ssh/sshd_config.d/*.conf\nPermitRootLogin no\nPasswordAuthentication no\nPubkeyAuthentication yes\nChallengeResponseAuthentication no\nUsePAM yes\nX11Forwarding no\nPrintMotd no\nAcceptEnv LANG LC_*\nSubsystem sftp /usr/libexec/openssh/sftp-server\nMaxAuthTries 3"
+  write_file_idempotent "/etc/security/limits.d/99-custom-limits.conf" "* soft nofile 65536\n* hard nofile 1048576"
+  local sshd_content="PermitRootLogin no\nPasswordAuthentication no\nPubkeyAuthentication yes\nChallengeResponseAuthentication no"
   write_file_idempotent "/etc/ssh/sshd_config.d/99-hardened.conf" "$sshd_content"
 
-  # Define the sysctl settings to be appended.
-  local sysctl_content
-  sysctl_content=$(
-    cat <<'EOF'
-
-# --- Custom Hardening Settings Appended by Script ---
+  local sysctl_file="/etc/sysctl.d/99-custom-hardening.conf"
+  if [ -f "$sysctl_file" ] && grep -q "# --- Custom Hardening Settings ---" "$sysctl_file"; then
+    print_success "Custom sysctl settings already exist."
+  else
+    print_info "Appending custom sysctl settings to '$sysctl_file'..."
+    local sysctl_content
+    sysctl_content=$(
+      cat <<'EOF'
+# --- Custom Hardening Settings ---
 dev.tty.ldisc_autoload = 0
 fs.protected_fifos = 2
 fs.protected_regular = 2
@@ -567,32 +434,14 @@ kernel.sysrq = 0
 kernel.unprivileged_bpf_disabled = 1
 kernel.yama.ptrace_scope = 2
 net.core.bpf_jit_harden = 2
-net.ipv4.conf.all.log_martians = 1
 net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.all.log_martians = 1
 net.ipv4.conf.default.log_martians = 1
 EOF
-  )
-
-  local sysctl_file="/etc/sysctl.d/99-custom.conf"
-
-  # Append settings idempotently. Check for a unique line to see if we've run before.
-  if [ -f "$sysctl_file" ] && grep -q -F "kernel.unprivileged_bpf_disabled = 1" "$sysctl_file"; then
-    print_success "Custom sysctl settings already exist in '$sysctl_file'."
-  else
-    print_info "Appending custom sysctl settings to '$sysctl_file'..."
-    # Create the directory if it doesn't exist, then append.
-    sudo mkdir -p "$(dirname "$sysctl_file")"
-    echo "$sysctl_content" | sudo tee -a "$sysctl_file" >/dev/null
-    print_success "Appended settings."
-  fi
-
-  # Apply the settings from the file.
-  print_info "Applying kernel settings from '$sysctl_file'..."
-  if sudo sysctl -p "$sysctl_file"; then
-    print_success "Kernel settings applied."
-  else
-    # Some settings might fail on certain systems; this is usually not critical.
-    print_warning "There was a non-critical issue applying some kernel settings."
+    )
+    echo "$sysctl_content" | sudo tee "$sysctl_file" >/dev/null
+    print_info "Applying kernel settings..."
+    sudo sysctl -p "$sysctl_file"
   fi
 }
 
@@ -600,14 +449,9 @@ EOF
 task_configure_user() {
   print_step "Configuring User Environment for $TARGET_USER"
 
-  # Run the custom command to set up GitHub SSH keys if it exists.
-  print_info "Checking for 'setup-github-keys' command..."
   if command_exists setup-github-keys; then
     print_info "Executing 'setup-github-keys' for user '$TARGET_USER'..."
     run_as_user "setup-github-keys"
-    print_success "Finished GitHub key setup."
-  else
-    print_warning "'setup-github-keys' command not found. Skipping automatic Git/SSH setup."
   fi
 
   if [ -d "$DOTFILES_DIR" ]; then
@@ -617,80 +461,47 @@ task_configure_user() {
     run_as_user "git clone $DOTFILES_REPO_URL $DOTFILES_DIR"
   fi
 
-  # Define the path for the Nix-managed Zsh.
   local nix_zsh_path="$USER_HOME/.nix-profile/bin/zsh"
-  local target_shell="/usr/bin/zsh" # Default to system Zsh.
-
-  # Prefer the Nix-managed Zsh if it has been installed.
-  if [ -f "$nix_zsh_path" ]; then
-    print_info "Nix-managed Zsh found. Configuring it as the default shell."
-    target_shell="$nix_zsh_path"
-
-    # Idempotently add the Nix Zsh path to /etc/shells to make it a valid login shell.
-    if grep -qFx "$target_shell" /etc/shells; then
-      print_success "Nix Zsh path already exists in /etc/shells."
-    else
-      print_info "Adding Nix Zsh to /etc/shells..."
-      echo "$target_shell" | sudo tee -a /etc/shells >/dev/null
-      print_success "Nix Zsh added as a valid shell."
-    fi
-  else
-    print_info "Nix-managed Zsh not found. Defaulting to system Zsh."
+  if [ -f "$nix_zsh_path" ] && ! grep -qFx "$nix_zsh_path" /etc/shells; then
+    print_info "Adding Nix Zsh to /etc/shells..."
+    echo "$nix_zsh_path" | sudo tee -a /etc/shells >/dev/null
   fi
 
+  local target_shell
+  target_shell=$([ -f "$nix_zsh_path" ] && echo "$nix_zsh_path" || echo "/usr/bin/zsh")
   print_info "Setting default shell for '$TARGET_USER' to '$target_shell'."
   sudo chsh -s "$target_shell" "$TARGET_USER"
-  print_success "Default shell has been set."
 
   print_info "Configuring NPM global directory."
-  run_as_user "mkdir -p '$USER_HOME/.npm-global'"
-  run_as_user "npm config set prefix '$USER_HOME/.npm-global'"
+  run_as_user "mkdir -p '$USER_HOME/.npm-global' && npm config set prefix '$USER_HOME/.npm-global'"
 }
 
 # Enables optional system-wide services for monitoring and performance.
 task_enable_system_services() {
   print_step "Enabling System-wide Services"
   local system_services=("psacct.service" "sysstat.service" "rngd.service" "haveged.service")
-
   for service in "${system_services[@]}"; do
-    print_info "Attempting to enable system service: $service"
-    # Attempt to enable the service directly. If it fails, print a warning but continue.
-    if sudo systemctl enable --now "$service"; then
+    if sudo systemctl enable --now "$service" 2>/dev/null; then
       print_success "Successfully enabled '$service'."
     else
-      print_warning "Could not enable '$service'. The package providing it may not be installed."
+      print_warning "Could not enable '$service'. The package may not be installed."
     fi
   done
-  print_success "System service setup complete."
 }
 
 # Enables systemd services required for the Hyprland desktop.
 task_setup_hyprland() {
   print_step "Setting up Hyprland Desktop Services"
-
-  if [ ! -d "$DOTFILES_DIR" ]; then
-    print_error "Dotfiles not found. Run --configure-user first."
-    return 1
-  fi
-
-  run_as_user "mkdir -p '$USER_HOME/.config/systemd/user'"
   run_as_user "systemctl --user daemon-reload"
-
-  print_info "Enabling core desktop services for the user."
   local user_services=("pipewire.service" "pipewire-pulse.service" "wireplumber.service" "hypridle.service" "hyprpaper.service")
-
-  local available_services
-  available_services=$(run_as_user "systemctl --user list-unit-files --no-legend")
-
   for service in "${user_services[@]}"; do
-    if echo "$available_services" | grep -q "^${service}"; then
+    if run_as_user "systemctl --user list-unit-files | grep -q '^${service}'"; then
       print_info "Enabling user service: $service"
       run_as_user "systemctl --user enable --now '$service'"
     else
       print_warning "Service unit '$service' not found. Skipping."
     fi
   done
-  print_success "Desktop service setup complete."
 }
 
 # Removes orphaned packages from the system.
@@ -702,129 +513,153 @@ task_cleanup() {
 }
 
 # --- Main Execution Logic ---
-# Boolean flags to control which tasks are run.
-RUN_ALL=true
-RUN_INITIAL_SETUP=false
-RUN_SETUP_REPOS=false
-RUN_INSTALL_GROUPS=false
-RUN_INSTALL_PACKAGES=false
-RUN_INSTALL_FLATPAKS=false
-RUN_SETUP_ASUS=false
-RUN_MANUAL_INSTALLS=false
-RUN_SETUP_NIX=false
-RUN_HARDEN_SYSTEM=false
-RUN_CONFIGURE_USER=false
-RUN_ENABLE_SYSTEM_SERVICES=false
-RUN_SETUP_HYPRLAND=false
-RUN_CLEANUP=false
-
-# Parses command-line arguments to determine which tasks to run.
-parse_args_and_plan_tasks() {
-  # If any flag other than --debug is passed, don't run all tasks.
-  local flags_provided=false
-  for arg in "$@"; do
-    if [[ "$arg" != "--debug" ]]; then
-      flags_provided=true
-      break
-    fi
-  done
-
-  if [ "$flags_provided" = true ]; then
-    RUN_ALL=false
-  fi
-
-  # Use a case statement for robust argument parsing.
-  for arg in "$@"; do
-    case "$arg" in
-    --initial-setup) RUN_INITIAL_SETUP=true ;;
-    --setup-repos) RUN_SETUP_REPOS=true ;;
-    --install-groups) RUN_INSTALL_GROUPS=true ;;
-    --install-packages) RUN_INSTALL_PACKAGES=true ;;
-    --install-flatpaks) RUN_INSTALL_FLATPAKS=true ;;
-    --setup-asus) RUN_SETUP_ASUS=true ;;
-    --manual-installs) RUN_MANUAL_INSTALLS=true ;;
-    --setup-nix) RUN_SETUP_NIX=true ;;
-    --harden-system) RUN_HARDEN_SYSTEM=true ;;
-    --configure-user) RUN_CONFIGURE_USER=true ;;
-    --enable-system-services) RUN_ENABLE_SYSTEM_SERVICES=true ;;
-    --setup-hyprland) RUN_SETUP_HYPRLAND=true ;;
-    --cleanup) RUN_CLEANUP=true ;;
-    --debug) DEBUG_MODE=true ;;
-    --help)
-      print_usage
-      exit 0
-      ;;
-    *)
-      print_error "Unknown flag: $arg"
-      print_usage
-      exit 1
-      ;;
-    esac
-  done
-
-  # If --enable-system-services is specified, ensure package installation is also queued.
-  if [ "$RUN_ENABLE_SYSTEM_SERVICES" = true ] && [ "$RUN_ALL" = false ]; then
-    print_info "The --enable-system-services flag requires packages to be installed."
-    print_info "Queuing package installation tasks..."
-    RUN_INSTALL_GROUPS=true
-    RUN_INSTALL_PACKAGES=true
-  fi
-}
-
-# The main orchestrator of the script.
 main() {
-  parse_args_and_plan_tasks "$@"
+  # Redirect all output to a log file and the terminal
+  exec &> >(tee -a "$LOG_FILE")
+  print_info "$I_LOG Logging output to: $LOG_FILE"
+
+  # --- Argument Parsing and Direct Action ---
+  local RUN_ALL=true
+  if (($# > 0)); then
+    while (("$#")); do
+      case "$1" in
+      --initial-setup)
+        RUN_ALL=false
+        task_initial_files_setup
+        shift
+        ;;
+      --setup-repos)
+        RUN_ALL=false
+        task_setup_repos
+        shift
+        ;;
+      --setup-nvidia)
+        RUN_ALL=false
+        task_setup_nvidia
+        shift
+        ;;
+      --install-groups)
+        RUN_ALL=false
+        task_install_groups
+        shift
+        ;;
+      --install-packages)
+        RUN_ALL=false
+        task_install_packages
+        shift
+        ;;
+      --install-flatpaks)
+        RUN_ALL=false
+        task_install_flatpaks
+        shift
+        ;;
+      --setup-asus)
+        RUN_ALL=false
+        task_setup_asus
+        shift
+        ;;
+      --manual-installs)
+        RUN_ALL=false
+        task_manual_installations
+        shift
+        ;;
+      --setup-nix)
+        RUN_ALL=false
+        task_setup_nix
+        shift
+        ;;
+      --harden-system)
+        RUN_ALL=false
+        task_harden_system
+        shift
+        ;;
+      --configure-user)
+        RUN_ALL=false
+        task_configure_user
+        shift
+        ;;
+      --enable-system-services)
+        RUN_ALL=false
+        task_enable_system_services
+        shift
+        ;;
+      --setup-hyprland)
+        RUN_ALL=false
+        task_setup_hyprland
+        shift
+        ;;
+      --cleanup)
+        RUN_ALL=false
+        task_cleanup
+        shift
+        ;;
+      --debug)
+        DEBUG_MODE=true
+        shift
+        ;;
+      -y | --yes)
+        NON_INTERACTIVE=true
+        shift
+        ;;
+      --help)
+        print_usage
+        exit 0
+        ;;
+      *)
+        print_error "Unknown flag: $1"
+        print_usage
+        exit 1
+        ;;
+      esac
+    done
+  fi
 
   if [ "$DEBUG_MODE" = true ]; then
     print_debug "Debug mode enabled. Activating verbose command tracing (set -x)."
-    set -x # Enable xtrace debugging.
+    set -x
   fi
 
   pre_flight_checks
 
-  local ASUS_SETUP_REQUESTED=false
-  local FLATPAK_SETUP_REQUESTED=false
+  # --- Full Interactive Execution Plan (only if no task flags were passed) ---
   if [ "$RUN_ALL" = true ]; then
     print_step "Full Installation Plan Summary"
-    echo -e """
-This script will perform a full, opinionated setup of a Nobara Hyprland desktop.
-It will configure the system, install packages, harden security,
-and configure the user environment.
-${C_YELLOW}You will be prompted for your password for 'sudo' commands.${C_END}
-"""
-    read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Do you want to begin? [y/N]: ${C_END}")" -r choice
-    if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+    echo "This script will perform a full setup of a Hyprland desktop."
+    [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Do you want to begin? [y/N]: ${C_END}")" -r choice
+    if [[ "$NON_INTERACTIVE" = false && ! "$choice" =~ ^[Yy]$ ]]; then
       print_info "Aborting."
       exit 0
     fi
 
-    read -p "$(echo -e "${C_CYAN}${I_PROMPT} Is this an ASUS laptop? (This will install specific drivers and tools) [y/N]: ${C_END}")" -r asus_choice
-    if [[ "$asus_choice" =~ ^[Yy]$ ]]; then
-      ASUS_SETUP_REQUESTED=true
+    task_initial_files_setup
+    task_setup_repos
+
+    # Ask about optional, hardware-specific tasks
+    if lspci | grep -qi 'VGA compatible controller: NVIDIA'; then
+      [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} NVIDIA hardware detected. Install drivers (for Fedora 42)? [Y/n]: ${C_END}")" -r nvidia_choice
+      if [[ "$NON_INTERACTIVE" = true || ! "$nvidia_choice" =~ ^[Nn]$ ]]; then task_setup_nvidia; fi
+    fi
+    if lspci | grep -qi 'ASUSTek'; then
+      [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} ASUS hardware detected. Install specific tools? [Y/n]: ${C_END}")" -r asus_choice
+      if [[ "$NON_INTERACTIVE" = true || ! "$asus_choice" =~ ^[Nn]$ ]]; then task_setup_asus; fi
     fi
 
-    read -p "$(echo -e "${C_CYAN}${I_PROMPT} Do you want to install Flatpak applications from flatpaks.txt? [y/N]: ${C_END}")" -r flatpak_choice
-    if [[ "$flatpak_choice" =~ ^[Yy]$ ]]; then
-      FLATPAK_SETUP_REQUESTED=true
-    fi
+    task_install_groups
+    task_install_packages
+
+    [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} Do you want to install Flatpak applications? [y/N]: ${C_END}")" -r flatpak_choice
+    if [[ "$NON_INTERACTIVE" = true || "$flatpak_choice" =~ ^[Yy]$ ]]; then task_install_flatpaks; fi
+
+    task_manual_installations
+    task_setup_nix
+    task_harden_system
+    task_configure_user
+    task_enable_system_services
+    task_setup_hyprland
+    task_cleanup
   fi
 
-  # Execute tasks based on flags or full run mode.
-  if [ "$RUN_ALL" = true ] || [ "$RUN_INITIAL_SETUP" = true ]; then task_initial_files_setup; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_SETUP_REPOS" = true ]; then task_setup_repos; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_INSTALL_GROUPS" = true ]; then task_install_groups; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_INSTALL_PACKAGES" = true ]; then task_install_packages; fi
-  if [ "$FLATPAK_SETUP_REQUESTED" = true ] || [ "$RUN_INSTALL_FLATPAKS" = true ]; then task_install_flatpaks; fi
-  if [ "$ASUS_SETUP_REQUESTED" = true ] || [ "$RUN_SETUP_ASUS" = true ]; then task_setup_asus; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_MANUAL_INSTALLS" = true ]; then task_manual_installations; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_SETUP_NIX" = true ]; then task_setup_nix; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_HARDEN_SYSTEM" = true ]; then task_harden_system; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_CONFIGURE_USER" = true ]; then task_configure_user; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_ENABLE_SYSTEM_SERVICES" = true ]; then task_enable_system_services; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_SETUP_HYPRLAND" = true ]; then task_setup_hyprland; fi
-  if [ "$RUN_ALL" = true ] || [ "$RUN_CLEANUP" = true ]; then task_cleanup; fi
-
-  set +x # Disable xtrace at the end of the script.
+  set +x
   print_step "$I_FINISH Run Complete!"
   print_success "All requested tasks finished successfully."
   print_warning "A final reboot is highly recommended to apply all changes."

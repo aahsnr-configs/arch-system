@@ -5,6 +5,7 @@ bc
 bluedevil
 bluez
 brightnessctl
+btop
 cava
 clang
 cliphist

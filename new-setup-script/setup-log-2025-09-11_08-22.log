@@ -1,0 +1,24 @@
+[94mℹ️ 📄 Logging output to: setup-log-2025-09-11_08-22.log[0m
+
+[95m[1m═══ ⚙️ Setting up Nix, Home-Manager, and Flakes ═══[0m
+[94mℹ️ Installing Nix with the Determinate Systems installer...[0m
+info: downloading installer
+ INFO nix-installer v3.11.1
+[2m[33m`nix-installer` needs to run as `root`, attempting to escalate now via `sudo`...[39m[0m
+ INFO nix-installer v3.11.1
+ INFO Step: Create directory `/nix`
+ INFO Step: Install Determinate Nixd
+ INFO Step: Provision Nix
+ INFO Step: Create build users (UID 30001-30032) and group (GID 30000)
+ INFO Step: Configure Nix
+ INFO Step: Install an SELinux Policy for Nix
+ INFO Step: Create directory `/etc/tmpfiles.d`
+ INFO Step: Configure the Determinate Nix daemon
+ INFO Step: Remove directory `/nix/temp-install-dir`
+[1m[32mNix was installed successfully![39m[0m
+To get started using Nix, open a new shell or run `[1m. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh[0m`
+
+[94mℹ️ Sourcing Nix environment script to activate Nix...[0m
+[94mℹ️ Ensuring Nix is configured to use flakes...[0m
+[94mℹ️ Initializing Home-Manager...[0m
+bash: line 1: nix: command not found
