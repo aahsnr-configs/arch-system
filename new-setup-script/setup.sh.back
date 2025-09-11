@@ -24,10 +24,11 @@
 #   8.  Setup for ASUS Laptops (Optional): Installs asusctl if hardware is detected.
 #   9.  Manual Installs: Installs third-party software like themes and VPNs.
 #   10. Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
-#   11. Harden System: Implements basic security enhancements and enables services.
+#   11. Harden System: Implements basic security enhancements.
 #   12. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
-#   13. Setup Hyprland: Enables the necessary systemd user services.
-#   14. Cleanup: Removes orphaned packages.
+#   13. Enable System Services: Enables optional system-wide services.
+#   14. Setup Hyprland: Enables the necessary systemd user services.
+#   15. Cleanup: Removes orphaned packages.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -103,6 +104,7 @@ print_usage() {
   echo -e "  ${C_GREEN}--setup-nix${C_END}             Install and configure Nix with Home-Manager."
   echo -e "  ${C_GREEN}--harden-system${C_END}         Implement basic security enhancements."
   echo -e "  ${C_GREEN}--configure-user${C_END}        Set up the user's environment."
+  echo -e "  ${C_GREEN}--enable-system-services${C_END}  Enable optional system-wide services."
   echo -e "  ${C_GREEN}--setup-hyprland${C_END}        Enable systemd user services for Hyprland."
   echo -e "  ${C_GREEN}--cleanup${C_END}               Remove orphaned packages from the system."
   echo -e "  ${C_YELLOW}--debug${C_END}                 Enable verbose command tracing for debugging."
@@ -146,10 +148,6 @@ write_file_idempotent() {
   if [[ "$owner" == "root:root" ]]; then
     sudo mv "$tmp_file" "$path"
     sudo chown "$owner" "$path"
-    if command_exists restorecon && [[ "$path" == "/etc"* ]]; then
-      print_info "Restoring SELinux context for '$path'..."
-      sudo restorecon "$path"
-    fi
   else # For user-owned files, move as user
     run_as_user "mv '$tmp_file' '$path'"
     run_as_user "chown '$owner' '$path'"
@@ -175,28 +173,16 @@ pre_flight_checks() {
     exit 1
   fi
 
-  # Check for necessary commands/packages and prompt to install if missing
-  declare -A required_commands
-  required_commands=(
-    [git]="git-core"
-    [curl]="curl"
-    [wget]="wget"
-    [lspci]="pciutils"
-    [dmidecode]="dmidecode"
-    [semanage]="policycoreutils-python-utils"
-  )
-  local missing_pkgs=()
-  for cmd in "${!required_commands[@]}"; do
+  # Check for necessary commands and prompt to install if missing
+  local missing_deps=()
+  for cmd in git curl wget lspci; do
     if ! command_exists "$cmd"; then
-      missing_pkgs+=("${required_commands[$cmd]}")
+      missing_deps+=("$cmd")
     fi
   done
-  if ((${#missing_pkgs[@]} > 0)); then
-    # Create a unique list of packages to install
-    local unique_pkgs
-    unique_pkgs=$(echo "${missing_pkgs[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')
-    print_warning "The following dependencies are missing and will be installed: ${unique_pkgs[*]}"
-    sudo dnf install -y ${unique_pkgs[*]}
+  if ((${#missing_deps[@]} > 0)); then
+    print_warning "The following dependencies are missing: ${missing_deps[*]}"
+    sudo dnf install -y "${missing_deps[@]}"
   fi
 
   # Check for required input files
@@ -337,8 +323,7 @@ task_install_flatpaks() {
 # Installs special drivers and tools for ASUS laptops.
 task_setup_asus() {
   print_step "Setting up for ASUS Laptops"
-  # Use dmidecode for a more reliable manufacturer check instead of lspci.
-  if ! sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
+  if ! sudo lspci | grep -qi 'ASUSTek'; then
     print_warning "ASUS hardware not detected. Skipping."
     return
   fi
@@ -403,7 +388,11 @@ task_setup_nix() {
 
   if ! command_exists nix; then
     print_info "Installing Nix with the Determinate Systems installer..."
+    # The installer sets up Nix, creates /nix, sets up multi-user Nix daemon,
+    # and typically adds /etc/profile.d/nix.sh (which sources nix-daemon.sh).
     curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate --no-confirm
+    # After initial install, source the profile script to make `nix` command available
+    # for the rest of this function in the current script's shell.
     if [ -f "$nix_daemon_profile" ]; then
       . "$nix_daemon_profile"
     else
@@ -412,6 +401,8 @@ task_setup_nix() {
     fi
   else
     print_success "Nix is already installed."
+    # If Nix is already installed, ensure its profile is sourced for the current script's session.
+    # This might be redundant if /etc/profile.d/nix.sh already sourced it, but ensures it.
     if [ -f "$nix_daemon_profile" ]; then
       . "$nix_daemon_profile"
     else
@@ -427,30 +418,35 @@ task_setup_nix() {
   nix_conf_content=$(
     cat <<'EOF'
 experimental-features = nix-command flakes
-auto-optimise-store = true
 max-jobs = 4
 EOF
   )
-  run_as_user "mkdir -p '$nix_config_dir'"
+  run_as_user "mkdir -p '$nix_config_dir'" # Ensure directory exists for write_file_idempotent
   write_file_idempotent "$nix_config_file" "$nix_conf_content" "$TARGET_USER:$TARGET_USER"
 
+  # Define the command prefix to correctly source the nix environment inside the subshell.
+  # This ensures that `nix` and `home-manager` commands are always available in the `run_as_user` calls.
   local nix_cmd_prefix=". '$nix_daemon_profile';"
 
   print_info "Initializing Home-Manager..."
+  # The `init --switch` command performs an initial switch and sets up default Home-Manager config.
+  # It also modifies the user's shell configuration (e.g., .zshrc) to source `hm-session-vars.sh`.
+  # Check if Home-Manager is already initialized (by checking for its configuration directory).
   if run_as_user "[ -d '$USER_HOME/.config/home-manager' ]" && command_exists home-manager; then
     print_success "Home-Manager seems to be already initialized."
   else
     run_as_user "$nix_cmd_prefix nix run home-manager/master -- init --switch"
-    run_as_user "rm -rf '$USER_HOME/.config/home-manager'"
+    run_as_user "rm -rf '$USER_HOME/.config/home-manager'" # Remove default config created by init
   fi
 
+  # Clone custom Home-Manager configuration repository
   local hm_config_repo_url="https://github.com/aahsnr-configs/home-manager.git"
   local hm_config_dir="$USER_HOME/.config/home-manager"
   if run_as_user "[ -d '$hm_config_dir' ]"; then
     print_success "Custom Home-Manager configuration already cloned to '$hm_config_dir'."
     print_info "Attempting to pull latest changes for Home-Manager configuration..."
     if ! run_as_user "git -C '$hm_config_dir' pull origin master"; then
-      print_warning "Failed to pull latest Home-Manager configuration."
+      print_warning "Failed to pull latest Home-Manager configuration. This might indicate local changes or connectivity issues."
     else
       print_success "Pulled latest Home-Manager configuration."
     fi
@@ -463,19 +459,23 @@ EOF
   if ! run_as_user "$nix_cmd_prefix home-manager switch"; then
     print_warning "Initial 'home-manager switch' failed. Retrying with backup flag..."
     run_as_user "$nix_cmd_prefix home-manager switch -b backup"
-    run_as_user "$nix_cmd_prefix home-manager switch"
+    run_as_user "$nix_cmd_prefix home-manager switch" # Final attempt
   fi
   print_success "Home-Manager switch complete."
 
+  # Source Home-Manager session variables into the current script's environment.
+  # This makes newly installed Home-Manager packages and environment settings
+  # immediately available to subsequent commands within this script without restarting the shell.
   local hm_session_vars="$USER_HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
   if run_as_user "[ -f '$hm_session_vars' ]"; then
     print_info "Sourcing Home-Manager session variables for the current script's environment."
+    # Read the content of the user's hm-session-vars.sh and evaluate it in the current shell.
     local hm_vars_content
     hm_vars_content=$(run_as_user "cat '$hm_session_vars'")
     eval "$hm_vars_content"
     print_success "Home-Manager environment variables applied to current script session."
   else
-    print_warning "Home-Manager session variables file '$hm_session_vars' not found after switch."
+    print_warning "Home-Manager session variables file '$hm_session_vars' not found after switch. Some Home-Manager managed programs might not be immediately available."
   fi
 
   print_success "Nix, Home-Manager, and Flakes setup complete."
@@ -484,107 +484,15 @@ EOF
 # Applies system-wide security hardening configurations.
 task_harden_system() {
   print_step "Applying System Security Hardening"
-
-  # --- Set Login Banner ---
-  print_info "Setting system login banner..."
-  local issue_content
-  issue_content=$(
-    cat <<'EOF'
--- WARNING -- This system is for the use of authorized users only. Individuals
-using this computer system without authority or in excess of their authority
-are subject to having all their activities on this system monitored and
-recorded by system personnel. Anyone using this system expressly consents to
-such monitoring and is advised that if such monitoring reveals possible
-evidence of criminal activity system personal may provide the evidence of such
-monitoring to law enforcement officials.
-EOF
-  )
-  write_file_idempotent "/etc/issue" "$issue_content"
-  write_file_idempotent "/etc/issue.net" "$issue_content"
-
-  # --- Harden OpenSSH Server ---
-  print_info "Hardening OpenSSH server configuration..."
-  local sshd_hardening_content
-  sshd_hardening_content=$(
-    cat <<'EOF'
-# --- Custom Hardening Settings ---
-# Changed port to non-standard to reduce bot traffic.
-Port 47
-# Set logging to verbose for better auditing.
-LogLevel VERBOSE
-# Disable root login and password-based authentication.
-PermitRootLogin no
-PasswordAuthentication no
-PubkeyAuthentication yes
-ChallengeResponseAuthentication no
-# Reduce attack surface and resource exhaustion vectors.
-X11Forwarding no
-AllowTcpForwarding no
-AllowAgentForwarding no
-TCPKeepAlive no
-ClientAliveCountMax 2
-MaxAuthTries 3
-MaxSessions 2
-EOF
-  )
-  write_file_idempotent "/etc/ssh/sshd_config.d/99-hardening.conf" "$sshd_hardening_content"
-
-  # --- Configure Firewall for new SSH port ---
-  if command_exists firewall-cmd && systemctl is-active --quiet firenalld; then
-    print_info "Configuring firewalld for hardened SSH port..."
-    local firewall_changed=false
-    # Add new port if not already present
-    if ! sudo firewall-cmd --permanent --query-port=47/tcp >/dev/null; then
-      print_info "Opening new SSH port 47/tcp in firewall."
-      sudo firewall-cmd --add-port=47/tcp --permanent
-      firewall_changed=true
-    else
-      print_success "Firewall port 47/tcp is already open."
-    fi
-    # Remove old service if still present
-    if sudo firewall-cmd --permanent --query-service=ssh >/dev/null; then
-      print_info "Removing default 'ssh' service (port 22) from firewall."
-      sudo firewall-cmd --remove-service=ssh --permanent
-      firewall_changed=true
-    else
-      print_success "Default 'ssh' service is already removed from firewall."
-    fi
-
-    if [ "$firewall_changed" = true ]; then
-      print_info "Reloading firewalld to apply changes..."
-      sudo firewall-cmd --reload
-    fi
-  else
-    print_warning "firewalld is not active. Skipping firewall configuration. Please open TCP port 47 manually."
-  fi
-
-  # --- Configure SELinux for new SSH port ---
-  if command_exists semanage; then
-    print_info "Configuring SELinux policy for hardened SSH port..."
-    if sudo semanage port -l | grep -q "ssh_port_t.*47"; then
-      print_success "SELinux already allows sshd on TCP port 47."
-    else
-      print_info "Adding SELinux rule to allow sshd on TCP port 47..."
-      sudo semanage port -a -t ssh_port_t -p tcp 47
-      print_success "SELinux policy updated for port 47."
-    fi
-  else
-    print_warning "'semanage' command not found. Skipping SELinux port configuration. SSH may fail to start."
-  fi
-
-  # --- Reload SSH daemon to apply changes ---
-  print_info "Reloading SSH daemon to apply all hardening configurations..."
-  sudo systemctl reload sshd
-
-  # --- Set File Creation limits ---
   write_file_idempotent "/etc/security/limits.d/99-custom-limits.conf" "* soft nofile 65536\n* hard nofile 1048576"
+  local sshd_content="PermitRootLogin no\nPasswordAuthentication no\nPubkeyAuthentication yes\nChallengeResponseAuthentication no"
+  write_file_idempotent "/etc/ssh/sshd_config.d/99-hardened.conf" "$sshd_content"
 
-  # --- Harden Kernel Parameters via sysctl ---
   local sysctl_file="/etc/sysctl.d/99-custom-hardening.conf"
   if [ -f "$sysctl_file" ] && grep -q "# --- Custom Hardening Settings ---" "$sysctl_file"; then
     print_success "Custom sysctl settings already exist."
   else
-    print_info "Applying custom sysctl kernel settings..."
+    print_info "Appending custom sysctl settings to '$sysctl_file'..."
     local sysctl_content
     sysctl_content=$(
       cat <<'EOF'
@@ -607,20 +515,6 @@ EOF
     print_info "Applying kernel settings..."
     sudo sysctl -p "$sysctl_file"
   fi
-
-  # --- Install and Enable System Monitoring and Entropy Services ---
-  print_info "Installing monitoring and entropy services..."
-  sudo dnf install -y psacct sysstat rng-tools haveged
-
-  print_info "Enabling system-wide services for monitoring and performance..."
-  local system_services=("psacct" "sysstat" "rngd" "haveged" "sshd")
-  for service in "${system_services[@]}"; do
-    if sudo systemctl enable --now "$service" 2>/dev/null; then
-      print_success "Successfully enabled '$service'."
-    else
-      print_warning "Could not enable '$service'. The package may not be installed."
-    fi
-  done
 }
 
 # Sets up the user's shell, dotfiles, and application configs.
@@ -654,6 +548,19 @@ task_configure_user() {
   run_as_user "mkdir -p '$USER_HOME/.npm-global' && npm config set prefix '$USER_HOME/.npm-global'"
 }
 
+# Enables optional system-wide services for monitoring and performance.
+task_enable_system_services() {
+  print_step "Enabling System-wide Services"
+  local system_services=("psacct.service" "sysstat.service" "rngd.service" "haveged.service")
+  for service in "${system_services[@]}"; do
+    if sudo systemctl enable --now "$service" 2>/dev/null; then
+      print_success "Successfully enabled '$service'."
+    else
+      print_warning "Could not enable '$service'. The package may not be installed."
+    fi
+  done
+}
+
 # Enables systemd services required for the Hyprland desktop.
 task_setup_hyprland() {
   print_step "Setting up Hyprland Desktop Services"
@@ -679,9 +586,11 @@ task_cleanup() {
 
 # --- Main Execution Logic ---
 main() {
+  # Redirect all output to a log file and the terminal
   exec &> >(tee -a "$LOG_FILE")
   print_info "$I_LOG Logging output to: $LOG_FILE"
 
+  # --- Argument Parsing and Direct Action ---
   local RUN_ALL=true
   if (($# > 0)); then
     while (("$#")); do
@@ -741,6 +650,11 @@ main() {
         task_configure_user
         shift
         ;;
+      --enable-system-services)
+        RUN_ALL=false
+        task_enable_system_services
+        shift
+        ;;
       --setup-hyprland)
         RUN_ALL=false
         task_setup_hyprland
@@ -779,6 +693,7 @@ main() {
 
   pre_flight_checks
 
+  # --- Full Interactive Execution Plan (only if no task flags were passed) ---
   if [ "$RUN_ALL" = true ]; then
     print_step "Full Installation Plan Summary"
     echo "This script will perform a full setup of a Hyprland desktop."
@@ -791,12 +706,12 @@ main() {
     task_initial_files_setup
     task_setup_repos
 
-    # Hardware-specific checks
+    # Ask about optional, hardware-specific tasks
     if lspci | grep -qi 'VGA compatible controller: NVIDIA'; then
       [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} NVIDIA hardware detected. Install drivers (for Fedora 42)? [Y/n]: ${C_END}")" -r nvidia_choice
       if [[ "$NON_INTERACTIVE" = true || ! "$nvidia_choice" =~ ^[Nn]$ ]]; then task_setup_nvidia; fi
     fi
-    if sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
+    if lspci | grep -qi 'ASUSTek'; then
       [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} ASUS hardware detected. Install specific tools? [Y/n]: ${C_END}")" -r asus_choice
       if [[ "$NON_INTERACTIVE" = true || ! "$asus_choice" =~ ^[Nn]$ ]]; then task_setup_asus; fi
     fi
@@ -811,6 +726,7 @@ main() {
     task_setup_nix
     task_harden_system
     task_configure_user
+    task_enable_system_services
     task_setup_hyprland
     task_cleanup
   fi

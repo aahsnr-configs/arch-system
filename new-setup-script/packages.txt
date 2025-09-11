@@ -18,6 +18,7 @@ dolphin
 dolphin-plugins
 ffmpeg
 file-devel
+firewall-config
 fish
 fontconfig
 fuzzel
