@@ -67,7 +67,7 @@ readonly I_LOG="📄"
 # --- Global Configuration ---
 readonly TARGET_USER="$(logname)"
 readonly USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
-readonly DOTFILES_REPO_URL="https://github.com/aahsnr/.hyprdots.git"
+readonly DOTFILES_REPO_URL="https://github.com/aahsnr-configs/.hyprdots.git"
 readonly DOTFILES_DIR="$USER_HOME/.hyprdots"
 readonly LOG_FILE="setup-log-$(date +%F_%H-%M).log"
 DEBUG_MODE=false
@@ -128,14 +128,30 @@ write_file_idempotent() {
   TEMP_FILES+=("$tmp_file")
   echo -e "$content" >"$tmp_file"
 
+  # Ensure target directory exists for root-owned files
+  if [[ "$(dirname "$path")" == "/etc"* ]]; then
+    sudo mkdir -p "$(dirname "$path")"
+  else # For user-owned files, directory should be created by run_as_user first.
+    if ! run_as_user "[ -d \"$(dirname "$path")\" ]"; then
+      print_error "Directory for '$path' does not exist and cannot be created by root. Ensure user creates it first."
+      return 1
+    fi
+  fi
+
+  # Check if file exists and content is identical
   if [ -f "$path" ] && diff -q "$path" "$tmp_file" &>/dev/null; then
     print_success "File '$path' is already up to date."
     return 0
   fi
 
-  sudo mkdir -p "$(dirname "$path")"
-  sudo mv "$tmp_file" "$path"
-  sudo chown "$owner" "$path"
+  # Use sudo for moving and changing ownership if target path is system-wide
+  if [[ "$owner" == "root:root" ]]; then
+    sudo mv "$tmp_file" "$path"
+    sudo chown "$owner" "$path"
+  else # For user-owned files, move as user
+    run_as_user "mv '$tmp_file' '$path'"
+    run_as_user "chown '$owner' '$path'"
+  fi
   print_success "Wrote configuration to '$path'."
 }
 
@@ -372,41 +388,98 @@ task_setup_nix() {
 
   if ! command_exists nix; then
     print_info "Installing Nix with the Determinate Systems installer..."
+    # The installer sets up Nix, creates /nix, sets up multi-user Nix daemon,
+    # and typically adds /etc/profile.d/nix.sh (which sources nix-daemon.sh).
     curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate --no-confirm
+    # After initial install, source the profile script to make `nix` command available
+    # for the rest of this function in the current script's shell.
+    if [ -f "$nix_daemon_profile" ]; then
+      . "$nix_daemon_profile"
+    else
+      print_error "Nix daemon profile script '$nix_daemon_profile' not found after installation. Cannot proceed."
+      return 1
+    fi
   else
     print_success "Nix is already installed."
+    # If Nix is already installed, ensure its profile is sourced for the current script's session.
+    # This might be redundant if /etc/profile.d/nix.sh already sourced it, but ensures it.
+    if [ -f "$nix_daemon_profile" ]; then
+      . "$nix_daemon_profile"
+    else
+      print_error "Nix daemon profile script '$nix_daemon_profile' not found, but 'nix' command exists. This is unexpected."
+      return 1
+    fi
   fi
 
-  if [ ! -f "$nix_daemon_profile" ]; then
-    print_error "Nix daemon profile script not found. Cannot proceed."
-    return 1
-  fi
-  # Source the profile for the current shell to ensure commands are available.
-  . "$nix_daemon_profile"
-
-  print_info "Ensuring Nix is configured to use flakes..."
+  print_info "Ensuring Nix is configured with flakes and optimizations..."
   local nix_config_dir="$USER_HOME/.config/nix"
   local nix_config_file="$nix_config_dir/nix.conf"
-  run_as_user "mkdir -p '$nix_config_dir'"
-  run_as_user "echo 'experimental-features = nix-command flakes' > '$nix_config_file'"
+  local nix_conf_content
+  nix_conf_content=$(
+    cat <<'EOF'
+experimental-features = nix-command flakes
+auto-optimise-store = true
+max-jobs = 4
+EOF
+  )
+  run_as_user "mkdir -p '$nix_config_dir'" # Ensure directory exists for write_file_idempotent
+  write_file_idempotent "$nix_config_file" "$nix_conf_content" "$TARGET_USER:$TARGET_USER"
 
-  # Define the command prefix to correctly source the nix environment inside the subshell
+  # Define the command prefix to correctly source the nix environment inside the subshell.
+  # This ensures that `nix` and `home-manager` commands are always available in the `run_as_user` calls.
   local nix_cmd_prefix=". '$nix_daemon_profile';"
 
   print_info "Initializing Home-Manager..."
-  run_as_user "$nix_cmd_prefix nix run home-manager/master -- init --switch"
-  run_as_user "rm -rf '$USER_HOME/.config/home-manager'"
+  # The `init --switch` command performs an initial switch and sets up default Home-Manager config.
+  # It also modifies the user's shell configuration (e.g., .zshrc) to source `hm-session-vars.sh`.
+  # Check if Home-Manager is already initialized (by checking for its configuration directory).
+  if run_as_user "[ -d '$USER_HOME/.config/home-manager' ]" && command_exists home-manager; then
+    print_success "Home-Manager seems to be already initialized."
+  else
+    run_as_user "$nix_cmd_prefix nix run home-manager/master -- init --switch"
+    run_as_user "rm -rf '$USER_HOME/.config/home-manager'" # Remove default config created by init
+  fi
 
-  print_info "Cloning custom Home-Manager configuration repository..."
-  run_as_user "git clone https://github.com/aahsnr-configs/home-manager.git ~/.config/home-manager"
+  # Clone custom Home-Manager configuration repository
+  local hm_config_repo_url="https://github.com/aahsnr-configs/home-manager.git"
+  local hm_config_dir="$USER_HOME/.config/home-manager"
+  if run_as_user "[ -d '$hm_config_dir' ]"; then
+    print_success "Custom Home-Manager configuration already cloned to '$hm_config_dir'."
+    print_info "Attempting to pull latest changes for Home-Manager configuration..."
+    if ! run_as_user "git -C '$hm_config_dir' pull origin master"; then
+      print_warning "Failed to pull latest Home-Manager configuration. This might indicate local changes or connectivity issues."
+    else
+      print_success "Pulled latest Home-Manager configuration."
+    fi
+  else
+    print_info "Cloning custom Home-Manager configuration repository..."
+    run_as_user "git clone '$hm_config_repo_url' '$hm_config_dir'"
+  fi
 
   print_info "Switching to the new Home-Manager configuration..."
   if ! run_as_user "$nix_cmd_prefix home-manager switch"; then
     print_warning "Initial 'home-manager switch' failed. Retrying with backup flag..."
     run_as_user "$nix_cmd_prefix home-manager switch -b backup"
-    run_as_user "$nix_cmd_prefix home-manager switch"
+    run_as_user "$nix_cmd_prefix home-manager switch" # Final attempt
   fi
   print_success "Home-Manager switch complete."
+
+  # Source Home-Manager session variables into the current script's environment.
+  # This makes newly installed Home-Manager packages and environment settings
+  # immediately available to subsequent commands within this script without restarting the shell.
+  local hm_session_vars="$USER_HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
+  if run_as_user "[ -f '$hm_session_vars' ]"; then
+    print_info "Sourcing Home-Manager session variables for the current script's environment."
+    # Read the content of the user's hm-session-vars.sh and evaluate it in the current shell.
+    local hm_vars_content
+    hm_vars_content=$(run_as_user "cat '$hm_session_vars'")
+    eval "$hm_vars_content"
+    print_success "Home-Manager environment variables applied to current script session."
+  else
+    print_warning "Home-Manager session variables file '$hm_session_vars' not found after switch. Some Home-Manager managed programs might not be immediately available."
+  fi
+
+  print_success "Nix, Home-Manager, and Flakes setup complete."
 }
 
 # Applies system-wide security hardening configurations.
