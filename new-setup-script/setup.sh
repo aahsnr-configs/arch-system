@@ -8,7 +8,7 @@
 #
 # --- Features ---
 #   - Automatic hardware detection for NVIDIA and ASUS setups.
-#   - ASUS setup now uses the official g14 repository for better package support.
+#   - ASUS setup uses the g14 repo with an interactive pacman session.
 #   - Full logging of all operations to a timestamped log file.
 #   - A '--yes' flag for fully non-interactive (automated) execution.
 #   - Upfront dependency checking and installation.
@@ -132,7 +132,7 @@ pre_flight_checks() {
 
   # Check for necessary commands/packages and prompt to install if missing
   local missing_pkgs=()
-  for pkg in git curl wget lspci dmidecode base-devel; do
+  for pkg in git curl wget pciutils dmidecode base-devel; do
     if ! is_pkg_installed "$pkg" && [[ "$pkg" != "base-devel" ]]; then
       missing_pkgs+=("$pkg")
     elif [[ "$pkg" == "base-devel" ]] && ! is_pkg_installed "make"; then # Check for a key package from the group
@@ -339,12 +339,15 @@ EOF
     )
     echo "$g14_repo_conf" | sudo tee -a /etc/pacman.conf >/dev/null
     print_info "Synchronizing pacman databases with the new repository..."
+    # Run interactively
     sudo pacman -Sy
   fi
 
   print_info "Installing ASUS-specific packages from the g14 repository..."
+  print_warning "You will now be prompted by pacman to confirm the installation."
   local asus_packages=("asusctl" "power-profiles-daemon" "supergfxctl" "switcheroo-control" "rog-control-center")
-  sudo pacman -S --needed --noconfirm "${asus_packages[@]}"
+  # Run interactively by removing --noconfirm
+  sudo pacman -S --needed "${asus_packages[@]}"
 
   print_info "Enabling required system services for ASUS hardware..."
   local asus_services=("power-profiles-daemon.service" "supergfxd.service" "switcheroo-control.service")
@@ -417,7 +420,6 @@ max-jobs = 4
 EOF
   )
   run_as_user "mkdir -p '$nix_config_dir'"
-  # A simple echo is sufficient here; the original's write_file_idempotent is overkill for user files.
   run_as_user "echo -e \"$nix_conf_content\" > \"$nix_config_file\""
 
   local nix_cmd_prefix=". '$nix_daemon_profile';"
@@ -469,22 +471,98 @@ EOF
 task_harden_system() {
   print_step "Applying System Security Hardening"
 
-  # --- Harden OpenSSH Server ---
+  # --- 1. Install Security Packages and Enable Services ---
+  print_info "Installing security and monitoring packages..."
+  local security_packages=(
+    acct apparmor apparmor.d-git audit arch-audit openssh procps-ng rng-tools
+    sysstat haveged lynis-git libpwquality bleachbit xorg-xinit stacer-bin
+    ssh-audit python-notify2 python-psutil
+  )
+  paru -S --needed --noconfirm "${security_packages[@]}"
+
+  print_info "Enabling system-wide services for security and performance..."
+  local system_services=(acct auditd apparmor haveged rngd sshd)
+  for service in "${system_services[@]}"; do
+    if sudo systemctl enable --now "$service" 2>/dev/null; then
+      print_success "Successfully enabled '$service'."
+    else
+      print_warning "Could not enable '$service'."
+    fi
+  done
+
+  # --- 2. Configure Kernel Parameters, Auditd, and AppArmor Notifier ---
+  print_info "Configuring kernel parameters for enhanced security..."
+  local kernel_params="lsm=landlock,lockdown,yama,integrity,apparmor,bpf audit=1"
+  local grub_cfg="/etc/default/grub"
+  # For systemd-boot, find the conf file in the entries directory
+  local systemd_boot_entry
+  systemd_boot_entry=$(find /boot/loader/entries -type f -name "*.conf" 2>/dev/null | head -n 1)
+
+  if [ -f "$grub_cfg" ]; then
+    print_info "GRUB bootloader detected. Modifying $grub_cfg..."
+    if ! grep -q "GRUB_CMDLINE_LINUX.*$kernel_params" "$grub_cfg"; then
+      sudo sed -i "s/^\(GRUB_CMDLINE_LINUX=\"\)/\1$kernel_params /" "$grub_cfg"
+      print_info "Regenerating GRUB configuration..."
+      sudo grub-mkconfig -o /boot/grub/grub.cfg
+    else
+      print_success "Kernel parameters already set in GRUB."
+    fi
+  elif [ -n "$systemd_boot_entry" ]; then
+    print_info "systemd-boot detected. Modifying $systemd_boot_entry..."
+    if ! grep -q "options.*$kernel_params" "$systemd_boot_entry"; then
+      sudo sed -i "s/^\(options.*\)/\1 $kernel_params/" "$systemd_boot_entry"
+      print_success "Kernel parameters added to systemd-boot entry."
+    else
+      print_success "Kernel parameters already set in systemd-boot."
+    fi
+  else
+    print_warning "Could not detect GRUB or systemd-boot. Please add the following to your kernel cmdline manually:"
+    print_warning "$kernel_params"
+  fi
+
+  print_info "Configuring audit framework..."
+  if ! grep -q '^audit:' /etc/group; then
+    sudo groupadd -r audit
+    print_success "Created 'audit' group."
+  fi
+  sudo gpasswd -a "$TARGET_USER" audit
+  if ! grep -q "^log_group = audit" /etc/audit/auditd.conf; then
+    sudo sed -i '1s/^/log_group = audit\n/' /etc/audit/auditd.conf
+    print_success "Set audit log group."
+  else
+    print_success "Audit log group already configured."
+  fi
+
+  print_info "Creating AppArmor notification service for user $TARGET_USER..."
+  run_as_user "mkdir -p '$USER_HOME/.config/autostart'"
+  local apparmor_desktop_content
+  apparmor_desktop_content=$(
+    cat <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=AppArmor Notify
+Comment=Receive on screen notifications of AppArmor denials
+TryExec=aa-notify
+Exec=aa-notify -p -s 1 -w 60 -f /var/log/audit/audit.log
+StartupNotify=false
+NoDisplay=true
+EOF
+  )
+  run_as_user "echo -e \"$apparmor_desktop_content\" > \"$USER_HOME/.config/autostart/apparmor-notify.desktop\""
+  print_success "AppArmor notifier created."
+
+  # --- 3. Harden OpenSSH Server ---
   print_info "Hardening OpenSSH server configuration..."
   local sshd_hardening_content
   sshd_hardening_content=$(
     cat <<'EOF'
 # --- Custom Hardening Settings ---
-# Changed port to non-standard to reduce bot traffic.
 Port 47
-# Set logging to verbose for better auditing.
 LogLevel VERBOSE
-# Disable root login and password-based authentication.
 PermitRootLogin no
 PasswordAuthentication no
 PubkeyAuthentication yes
 ChallengeResponseAuthentication no
-# Reduce attack surface and resource exhaustion vectors.
 X11Forwarding no
 AllowTcpForwarding no
 AllowAgentForwarding no
@@ -494,10 +572,9 @@ MaxAuthTries 3
 MaxSessions 2
 EOF
   )
-  # Use a drop-in config file for idempotency and easier management.
   echo "$sshd_hardening_content" | sudo tee /etc/ssh/sshd_config.d/99-hardening.conf >/dev/null
 
-  # --- Configure Firewall (using ufw as a common Arch choice) ---
+  # --- 4. Configure Firewall ---
   if command_exists ufw; then
     print_info "Configuring UFW firewall for hardened SSH port..."
     sudo ufw allow 47/tcp comment 'Custom SSH Port'
@@ -507,12 +584,9 @@ EOF
   else
     print_warning "'ufw' is not installed. Skipping firewall configuration. Please open TCP port 47 manually."
   fi
-
-  # --- Reload SSH daemon to apply changes ---
-  print_info "Reloading SSH daemon to apply all hardening configurations..."
   sudo systemctl reload sshd
 
-  # --- Harden Kernel Parameters via sysctl ---
+  # --- 5. Harden Kernel Parameters via sysctl ---
   local sysctl_file="/etc/sysctl.d/99-custom-hardening.conf"
   print_info "Applying custom sysctl kernel settings..."
   local sysctl_content
@@ -534,22 +608,33 @@ net.ipv4.conf.default.log_martians = 1
 EOF
   )
   echo "$sysctl_content" | sudo tee "$sysctl_file" >/dev/null
-  print_info "Applying kernel settings..."
   sudo sysctl -p "$sysctl_file"
 
-  # --- Install and Enable System Monitoring and Entropy Services ---
-  print_info "Installing monitoring and entropy services..."
-  paru -S --needed --noconfirm procps-ng sysstat rng-tools haveged
-
-  print_info "Enabling system-wide services for monitoring and performance..."
-  local system_services=("rngd" "haveged" "sshd")
-  for service in "${system_services[@]}"; do
-    if sudo systemctl enable --now "$service" 2>/dev/null; then
-      print_success "Successfully enabled '$service'."
+  # --- 6. Harden /proc and logind for process hiding ---
+  print_info "Hardening /proc filesystem with hidepid..."
+  if grep -q "^\s*proc\s*/proc" /etc/fstab; then
+    if ! grep "^\s*proc\s*/proc" /etc/fstab | grep -q "hidepid=2"; then
+      sudo sed -i 's|^\s*proc\s*/proc.*|proc /proc proc nosuid,nodev,noexec,hidepid=2,gid=proc 0 0|' /etc/fstab
+      print_success "Modified /proc entry in /etc/fstab."
     else
-      print_warning "Could not enable '$service'."
+      print_success "/proc entry in /etc/fstab is already hardened."
     fi
-  done
+  else
+    echo "proc /proc proc nosuid,nodev,noexec,hidepid=2,gid=proc 0 0" | sudo tee -a /etc/fstab
+    print_success "Added hardened /proc entry to /etc/fstab."
+  fi
+
+  print_info "Creating systemd-logind override for hidepid compatibility..."
+  sudo mkdir -p /etc/systemd/system/systemd-logind.service.d/
+  local logind_override_content
+  logind_override_content=$(
+    cat <<'EOF'
+[Service]
+SupplementaryGroups=proc
+EOF
+  )
+  echo "$logind_override_content" | sudo tee /etc/systemd/system/systemd-logind.service.d/hidepid.conf >/dev/null
+  print_success "systemd-logind override created."
 }
 
 # Sets up the user's shell, dotfiles, and application configs.
