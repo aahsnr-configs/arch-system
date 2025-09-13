@@ -1,2 +1,3 @@
 .hyprdots/.config/home-manager/flake.lock
 new-setup-script/setup-log*
+new-setup-script/requirements.txt
