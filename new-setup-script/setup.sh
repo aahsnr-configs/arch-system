@@ -8,6 +8,7 @@
 #
 # --- Features ---
 #   - Automatic hardware detection for NVIDIA and ASUS setups.
+#   - ASUS setup now uses the official g14 repository for better package support.
 #   - Full logging of all operations to a timestamped log file.
 #   - A '--yes' flag for fully non-interactive (automated) execution.
 #   - Upfront dependency checking and installation.
@@ -19,7 +20,7 @@
 #   3.  Setup AUR Helper: Installs 'paru' for seamless access to the Arch User Repository.
 #   4.  Setup NVIDIA Drivers (Optional): Installs proprietary NVIDIA drivers if hardware is detected.
 #   5.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
-#   6.  Setup for ASUS Laptops (Optional): Installs asusctl if hardware is detected.
+#   6.  Setup for ASUS Laptops (Optional): Adds the g14 repo and installs specific tools.
 #   7.  Manual Installs: Installs third-party software like themes and VPNs.
 #   8.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
 #   9.  Harden System: Implements basic security enhancements and enables services.
@@ -304,38 +305,60 @@ task_install_packages() {
   paru -S --needed --noconfirm "${packages_to_install[@]}"
 }
 
-# Installs special drivers and tools for ASUS laptops.
+# Installs special drivers and tools for ASUS laptops from the g14 repo.
 task_setup_asus() {
-  print_step "Setting up for ASUS Laptops"
+  print_step "Setting up for ASUS Laptops (using g14 Repository)"
   if ! sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
     print_warning "ASUS hardware not detected. Skipping."
     return
   fi
 
-  print_info "Installing ASUS-specific packages from the AUR..."
-  # asusctl and supergfxctl are in the AUR. power-profiles-daemon is in official repos.
-  paru -S --needed --noconfirm asusctl supergfxctl power-profiles-daemon
+  local g14_key_id="8F654886F17D497FEFE3DB448B15A6B0E9A3FA35"
+  print_info "Configuring GPG key for the g14 repository..."
+  if sudo pacman-key --list-keys | grep -q "$g14_key_id"; then
+    print_success "GPG key '$g14_key_id' is already present."
+  else
+    print_info "Receiving and signing GPG key '$g14_key_id'..."
+    sudo pacman-key --recv-keys "$g14_key_id"
+    sudo pacman-key --lsign-key "$g14_key_id"
+    print_success "GPG key setup complete."
+  fi
+
+  print_info "Configuring the [g14] repository in /etc/pacman.conf..."
+  if grep -q "\[g14\]" /etc/pacman.conf; then
+    print_success "The [g14] repository is already configured."
+  else
+    print_info "Adding [g14] repository to /etc/pacman.conf..."
+    local g14_repo_conf
+    g14_repo_conf=$(
+      cat <<'EOF'
+
+[g14]
+Server = https://arch.asus-linux.org
+EOF
+    )
+    echo "$g14_repo_conf" | sudo tee -a /etc/pacman.conf >/dev/null
+    print_info "Synchronizing pacman databases with the new repository..."
+    sudo pacman -Sy
+  fi
+
+  print_info "Installing ASUS-specific packages from the g14 repository..."
+  local asus_packages=("asusctl" "power-profiles-daemon" "supergfxctl" "switcheroo-control" "rog-control-center")
+  sudo pacman -S --needed --noconfirm "${asus_packages[@]}"
+
+  print_info "Enabling required system services for ASUS hardware..."
+  local asus_services=("power-profiles-daemon.service" "supergfxd.service" "switcheroo-control.service")
   sudo systemctl daemon-reload
-  sudo systemctl enable --now supergfxd.service power-profiles-daemon.service
+  for service in "${asus_services[@]}"; do
+    sudo systemctl enable --now "$service"
+  done
+
   print_success "ASUS-specific setup complete."
 }
 
 # Installs third-party software that is not available in standard repositories.
 task_manual_installations() {
   print_step "Performing Manual Installations (as User)"
-
-  # Install Breeze Plus Icons
-  if [ -d "$USER_HOME/.local/share/icons/breeze-plus" ]; then
-    print_success "Breeze Plus icons are already installed."
-  else
-    print_info "Installing Breeze Plus icon theme..."
-    local tmp_repo_dir
-    tmp_repo_dir=$(mktemp -d)
-    TEMP_FILES+=("$tmp_repo_dir")
-    run_as_user "git clone https://github.com/mjkim0727/breeze-plus.git '$tmp_repo_dir'"
-    run_as_user "mkdir -p '$USER_HOME/.local/share/icons' && cp -r '$tmp_repo_dir'/src/breeze-plus* '$USER_HOME/.local/share/icons/'"
-    print_success "Breeze Plus icons installed."
-  fi
 
   # Install Private Internet Access (PIA) VPN
   if command_exists pia-client; then
