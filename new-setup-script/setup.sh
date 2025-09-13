@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# This script automates the setup of a complete Hyprland Environment on Fedora 42.
+# This script automates the setup of a complete Hyprland Environment on Arch Linux.
 # It is a robust, idempotent, and modular script that reads package lists
 # from external '.txt' files for easy management.
 #
@@ -15,19 +15,17 @@
 #
 # --- Script Task Order ---
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
-#   2.  Initial Files Setup: Deploys custom DNF and environment configurations.
-#   3.  Setup Repos: Enables COPR and RPM Fusion repositories.
+#   2.  Configure Pacman: Optimizes pacman.conf and makepkg.conf with interactive verification.
+#   3.  Setup AUR Helper: Installs 'paru' for seamless access to the Arch User Repository.
 #   4.  Setup NVIDIA Drivers (Optional): Installs proprietary NVIDIA drivers if hardware is detected.
-#   5.  Install Groups: Installs package groups from 'groups.txt'.
-#   6.  Install Packages: Installs individual packages from 'packages.txt'.
-#   7.  Install Flatpaks (Optional): Installs Flatpak applications from 'flatpaks.txt'.
-#   8.  Setup for ASUS Laptops (Optional): Installs asusctl if hardware is detected.
-#   9.  Manual Installs: Installs third-party software like themes and VPNs.
-#   10. Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
-#   11. Harden System: Implements basic security enhancements and enables services.
-#   12. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
-#   13. Setup Hyprland: Enables the necessary systemd user services.
-#   14. Cleanup: Removes orphaned packages.
+#   5.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
+#   6.  Setup for ASUS Laptops (Optional): Installs asusctl if hardware is detected.
+#   7.  Manual Installs: Installs third-party software like themes and VPNs.
+#   8.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
+#   9.  Harden System: Implements basic security enhancements and enables services.
+#   10. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
+#   11. Setup Hyprland: Enables the necessary systemd user services.
+#   12. Cleanup: Removes orphaned packages.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -87,17 +85,15 @@ print_debug() {
 # --- Usage Information ---
 print_usage() {
   echo -e "${C_BOLD}Usage: $0 [OPTIONS...]${C_END}"
-  echo "Automates the setup of a complete Hyprland Environment on Fedora 42."
+  echo "Automates the setup of a complete Hyprland Environment on Arch Linux."
   echo ""
   echo -e "${C_BOLD}If no options are provided, the script will run all setup tasks interactively.${C_END}"
   echo ""
   echo -e "${C_HEADER}Options:${C_END}"
-  echo -e "  ${C_GREEN}--initial-setup${C_END}         Deploy custom DNF and environment variable configurations."
-  echo -e "  ${C_GREEN}--setup-repos${C_END}           Enable COPR and other repositories."
+  echo -e "  ${C_GREEN}--configure-pacman${C_END}      Optimize pacman.conf and makepkg.conf."
+  echo -e "  ${C_GREEN}--setup-aur${C_END}             Install and configure the 'paru' AUR helper."
   echo -e "  ${C_GREEN}--setup-nvidia${C_END}          Install and configure NVIDIA drivers."
-  echo -e "  ${C_GREEN}--install-groups${C_END}        Install package groups from 'groups.txt'."
-  echo -e "  ${C_GREEN}--install-packages${C_END}      Install individual packages from 'packages.txt'."
-  echo -e "  ${C_GREEN}--install-flatpaks${C_END}      Install Flatpak applications from 'flatpaks.txt'."
+  echo -e "  ${C_GREEN}--install-packages${C_END}      Install packages from 'packages.txt'."
   echo -e "  ${C_GREEN}--setup-asus${C_END}            Run specific setup for ASUS laptops."
   echo -e "  ${C_GREEN}--manual-installs${C_END}       Perform manual installation of third-party software."
   echo -e "  ${C_GREEN}--setup-nix${C_END}             Install and configure Nix with Home-Manager."
@@ -112,50 +108,8 @@ print_usage() {
 
 # --- Utility Functions ---
 command_exists() { command -v "$1" &>/dev/null; }
-is_pkg_installed() { rpm -q "$1" &>/dev/null; }
+is_pkg_installed() { pacman -Q "$1" &>/dev/null; }
 run_as_user() { sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export USER='$TARGET_USER'; $*"; }
-
-# Writes content to a file only if it's different from the existing content.
-write_file_idempotent() {
-  local path="$1" content="$2" owner="${3:-root:root}"
-  print_info "Configuring file: $path"
-  print_debug "Content for '$path':\n---\n$content\n---"
-
-  local tmp_file
-  tmp_file=$(mktemp)
-  TEMP_FILES+=("$tmp_file")
-  echo -e "$content" >"$tmp_file"
-
-  # Ensure target directory exists for root-owned files
-  if [[ "$(dirname "$path")" == "/etc"* ]]; then
-    sudo mkdir -p "$(dirname "$path")"
-  else # For user-owned files, directory should be created by run_as_user first.
-    if ! run_as_user "[ -d \"$(dirname "$path")\" ]"; then
-      print_error "Directory for '$path' does not exist and cannot be created by root. Ensure user creates it first."
-      return 1
-    fi
-  fi
-
-  # Check if file exists and content is identical
-  if [ -f "$path" ] && diff -q "$path" "$tmp_file" &>/dev/null; then
-    print_success "File '$path' is already up to date."
-    return 0
-  fi
-
-  # Use sudo for moving and changing ownership if target path is system-wide
-  if [[ "$owner" == "root:root" ]]; then
-    sudo mv "$tmp_file" "$path"
-    sudo chown "$owner" "$path"
-    if command_exists restorecon && [[ "$path" == "/etc"* ]]; then
-      print_info "Restoring SELinux context for '$path'..."
-      sudo restorecon "$path"
-    fi
-  else # For user-owned files, move as user
-    run_as_user "mv '$tmp_file' '$path'"
-    run_as_user "chown '$owner' '$path'"
-  fi
-  print_success "Wrote configuration to '$path'."
-}
 
 # --- Task Functions ---
 
@@ -176,31 +130,21 @@ pre_flight_checks() {
   fi
 
   # Check for necessary commands/packages and prompt to install if missing
-  declare -A required_commands
-  required_commands=(
-    [git]="git-core"
-    [curl]="curl"
-    [wget]="wget"
-    [lspci]="pciutils"
-    [dmidecode]="dmidecode"
-    [semanage]="policycoreutils-python-utils"
-  )
   local missing_pkgs=()
-  for cmd in "${!required_commands[@]}"; do
-    if ! command_exists "$cmd"; then
-      missing_pkgs+=("${required_commands[$cmd]}")
+  for pkg in git curl wget lspci dmidecode base-devel; do
+    if ! is_pkg_installed "$pkg" && [[ "$pkg" != "base-devel" ]]; then
+      missing_pkgs+=("$pkg")
+    elif [[ "$pkg" == "base-devel" ]] && ! is_pkg_installed "make"; then # Check for a key package from the group
+      missing_pkgs+=("base-devel")
     fi
   done
   if ((${#missing_pkgs[@]} > 0)); then
-    # Create a unique list of packages to install
-    local unique_pkgs
-    unique_pkgs=$(echo "${missing_pkgs[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')
-    print_warning "The following dependencies are missing and will be installed: ${unique_pkgs[*]}"
-    sudo dnf install -y ${unique_pkgs[*]}
+    print_warning "The following dependencies are missing and will be installed: ${missing_pkgs[*]}"
+    sudo pacman -S --needed --noconfirm "${missing_pkgs[@]}"
   fi
 
   # Check for required input files
-  for file in dnf.conf.txt 99-custom-env.sh.txt packages.txt groups.txt flatpaks.txt; do
+  for file in packages.txt; do
     if [[ ! -f "$file" ]]; then
       print_error "Required configuration file '$file' not found. Aborting."
       exit 1
@@ -212,147 +156,165 @@ pre_flight_checks() {
   print_success "Checks passed. Configuring system for user: $TARGET_USER"
 }
 
-# Copies initial system configuration files from local '.txt' files.
-task_initial_files_setup() {
-  print_step "Applying Initial System Configurations"
-  local dnf_conf_content
-  dnf_conf_content=$(<dnf.conf.txt)
-  write_file_idempotent "/etc/dnf/dnf.conf" "$dnf_conf_content"
+# Modifies pacman and makepkg configurations with user verification.
+task_configure_pacman() {
+  print_step "Configuring Pacman and Makepkg"
 
-  local env_sh_content
-  env_sh_content=$(<99-custom-env.sh.txt)
-  write_file_idempotent "/etc/profile.d/99-custom-env.sh" "$env_sh_content"
-  sudo chmod +x "/etc/profile.d/99-custom-env.sh"
+  # --- Modify pacman.conf ---
+  print_info "Modifying /etc/pacman.conf..."
+  sudo sed -i 's/^#\(Color\)/\1/' /etc/pacman.conf
+  sudo sed -i '/^#\(Color\)/a ILoveCandy' /etc/pacman.conf
+  sudo sed -i 's/^#\(VerbosePkgLists\)/\1/' /etc/pacman.conf
+  sudo sed -i 's/^#\(DisableDownloadTimeout\)/\1/' /etc/pacman.conf
+  sudo sed -i 's/^#\(ParallelDownloads\).*/\1 = 10/' /etc/pacman.conf
+  # Add DownloadUser if it doesn't exist under the [options] section
+  if ! grep -q "^DownloadUser" /etc/pacman.conf; then
+    sudo sed -i '/^\[options\]/a DownloadUser = alpm' /etc/pacman.conf
+  else
+    sudo sed -i 's/^DownloadUser.*/DownloadUser = alpm/' /etc/pacman.conf
+  fi
+  print_success "pacman.conf modifications applied."
+
+  # --- Modify makepkg.conf ---
+  print_info "Modifying /etc/makepkg.conf..."
+  sudo sed -i 's/^CARCH=.*/CARCH="x86_64"/' /etc/makepkg.conf
+  sudo sed -i 's/^CHOST=.*/CHOST="x86_64-pc-linux-gnu"/' /etc/makepkg.conf
+  sudo sed -i 's/^#PACKAGECARCH=.*/PACKAGECARCH="x86_64"/' /etc/makepkg.conf
+  sudo sed -i "s|^CFLAGS=.*|CFLAGS=\"-march=native -O3 -pipe -fno-plt -fexceptions -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security -fstack-clash-protection -fcf-protection\"|" /etc/makepkg.conf
+  sudo sed -i "s|^CXXFLAGS=.*|CXXFLAGS=\"\$CFLAGS -Wp,-D_GLIBCXX_ASSERTIONS\"|" /etc/makepkg.conf
+  sudo sed -i "s|^LDFLAGS=.*|LDFLAGS=\"-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-z,pack-relative-relocs\"|" /etc/makepkg.conf
+  sudo sed -i "s|^#LTOFLAGS=.*|LTOFLAGS=\"-flto=auto\"|" /etc/makepkg.conf
+  sudo sed -i "s/^#MAKEFLAGS=.*/MAKEFLAGS=\"-j\$(nproc)\"/" /etc/makepkg.conf
+  sudo sed -i "s/^#NINJAFLAGS=.*/NINJAFLAGS=\"-j\$(nproc)\"/" /etc/makepkg.conf
+  sudo sed -i "s/^#DEBUG_CFLAGS=.*/DEBUG_CFLAGS=\"-g\"/" /etc/makepkg.conf
+  sudo sed -i "s/^#DEBUG_CXXFLAGS=.*/DEBUG_CXXFLAGS=\"\$DEBUG_CFLAGS\"/" /etc/makepkg.conf
+  print_success "makepkg.conf modifications applied."
+
+  # --- Interactive Verification Loop ---
+  local verified=false
+  while [ "$verified" = false ]; do
+    print_step "Verify Configuration Files"
+    echo -e "${C_HEADER}Current /etc/pacman.conf:${C_END}"
+    echo "--------------------------------------------------"
+    cat /etc/pacman.conf
+    echo "--------------------------------------------------"
+    echo -e "\n${C_HEADER}Current /etc/makepkg.conf:${C_END}"
+    echo "--------------------------------------------------"
+    cat /etc/makepkg.conf
+    echo "--------------------------------------------------"
+
+    if [ "$NON_INTERACTIVE" = true ]; then
+      print_info "--yes flag detected. Proceeding automatically."
+      break
+    fi
+
+    read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Are these configurations okay? [Y/n/edit]: ${C_END}")" -r choice
+    case "$choice" in
+    [Yy]* | "") # Default to Yes
+      print_success "Configuration approved."
+      verified=true
+      ;;
+    [Nn]*)
+      print_error "Configuration rejected. Aborting script."
+      exit 1
+      ;;
+    [Ee]*)
+      read -p "$(echo -e "${C_CYAN}${I_PROMPT} Which file to edit? [p(acman)/m(akepkg)]: ${C_END}")" -r edit_choice
+      case "$edit_choice" in
+      [Pp]*)
+        print_info "Opening /etc/pacman.conf in vim..."
+        sudo vim /etc/pacman.conf
+        ;;
+      [Mm]*)
+        print_info "Opening /etc/makepkg.conf in vim..."
+        sudo vim /etc/makepkg.conf
+        ;;
+      *)
+        print_warning "Invalid selection. Returning to verification."
+        ;;
+      esac
+      ;;
+    *)
+      print_warning "Invalid input. Please choose Y, n, or edit."
+      ;;
+    esac
+  done
 }
 
-# Configures DNF and enables third-party repositories.
-task_setup_repos() {
-  print_step "Setting up System Repositories"
-  local copr_repos=("solopasha/hyprland" "errornointernet/quickshell" "deltacopy/darkly" "sneexy/zen-browser")
-  for repo in "${copr_repos[@]}"; do
-    if [ -f "/etc/yum.repos.d/_copr_${repo//\//-}.repo" ]; then
-      print_success "COPR repository '$repo' is already enabled."
-    else
-      print_info "Enabling COPR repository: $repo"
-      sudo dnf copr enable -y "$repo"
-    fi
-  done
+# Installs 'paru' as the AUR helper.
+task_setup_aur_helper() {
+  print_step "Setting up AUR Helper (paru)"
+  if command_exists paru; then
+    print_success "AUR helper 'paru' is already installed."
+    return
+  fi
 
-  # RPM Fusion
-  for repo_type in free nonfree; do
-    if ! is_pkg_installed "rpmfusion-${repo_type}-release"; then
-      print_info "Installing RPM Fusion $repo_type repository..."
-      sudo dnf install -y "https://mirrors.rpmfusion.org/${repo_type}/fedora/rpmfusion-${repo_type}-release-$(rpm -E %fedora).noarch.rpm"
-    else
-      print_success "RPM Fusion $repo_type is already installed."
-    fi
-  done
-
-  print_info "Updating system packages after repository setup..."
-  sudo dnf update -y
+  print_info "Installing 'paru' from the AUR..."
+  local tmp_dir
+  tmp_dir=$(mktemp -d)
+  TEMP_FILES+=("$tmp_dir")
+  run_as_user "git clone https://aur.archlinux.org/paru.git '$tmp_dir'"
+  (
+    cd "$tmp_dir"
+    run_as_user "makepkg -si --noconfirm"
+  )
+  print_success "'paru' has been installed successfully."
 }
 
-# Installs and configures NVIDIA drivers.
+# Installs and configures NVIDIA drivers for Arch Linux.
 task_setup_nvidia() {
   print_step "Setting up NVIDIA Drivers"
   if ! lspci | grep -qi 'VGA compatible controller: NVIDIA'; then
     print_warning "NVIDIA hardware not detected. Skipping driver installation."
     return
   fi
-  if [[ "$(rpm -E %fedora)" -ne 42 ]]; then
-    print_warning "This NVIDIA setup is intended for Fedora 42. Skipping driver installation."
-    return
-  fi
 
   print_info "Installing NVIDIA driver packages..."
-  sudo dnf install -y --setopt=install_weak_deps=False \
-    akmod-nvidia xorg-x11-drv-nvidia-cuda xorg-x11-drv-nvidia-power \
-    vulkan xorg-x11-drv-nvidia-cuda-libs nvidia-vaapi-driver libva-utils vdpauinfo libva-nvidia-driver
+  # Use paru to handle potential conflicts and dependencies smoothly
+  paru -S --needed --noconfirm nvidia-dkms nvidia-utils lib32-nvidia-utils \
+    nvidia-settings vulkan-icd-loader lib32-vulkan-icd-loader libva-nvidia-driver
 
-  print_info "Reloading systemd daemon to recognize new services..."
-  sudo systemctl daemon-reload
+  print_info "Configuring kernel modules and initramfs..."
+  # This part is crucial for Arch. We need to tell mkinitcpio to load nvidia modules.
+  local mkinitcpio_conf="/etc/mkinitcpio.conf"
+  if grep -q "^MODULES=.*nvidia" "$mkinitcpio_conf"; then
+    print_success "NVIDIA modules already configured in mkinitcpio.conf."
+  else
+    print_info "Adding NVIDIA modules to mkinitcpio.conf..."
+    sudo sed -i 's/^\(MODULES=.*\))$/\1 nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' "$mkinitcpio_conf"
+  fi
 
-  print_info "Marking 'akmod-nvidia' as a user-installed package."
-  sudo dnf mark user akmod-nvidia
+  print_info "Rebuilding the initramfs..."
+  sudo mkinitcpio -P
 
-  print_info "Enabling NVIDIA power management services..."
-  sudo systemctl enable nvidia-{suspend,resume,hibernate}
-
-  print_info "Configuring RPM macros for open NVIDIA kernel modules..."
-  sudo sh -c 'echo "%_with_kmod_nvidia_open 1" > /etc/rpm/macros.nvidia-kmod'
-
-  print_info "Rebuilding akmods for the current kernel..."
-  sudo akmods --kernels "$(uname -r)" --rebuild
-
+  print_warning "For the NVIDIA driver to load correctly, you may need to add 'nvidia_drm.modeset=1' to your kernel parameters."
+  print_warning "This is typically done in /boot/loader/entries/arch.conf (for systemd-boot) or by regenerating your GRUB config."
   print_success "NVIDIA driver setup complete. A reboot is required."
 }
 
-# Reads the group list from 'groups.txt' and installs them.
-task_install_groups() {
-  print_step "Installing System Package Groups from File"
-  mapfile -t group_ids < <(grep -vE '^\s*#|^\s*$' "groups.txt")
-
-  if ((${#group_ids[@]} == 0)); then
-    print_warning "No groups found in 'groups.txt'. Skipping."
-    return
-  fi
-
-  local groups_to_install=("${group_ids[@]}")
-  print_info "Installing ${#groups_to_install[@]} DNF groups..."
-  sudo dnf group install -y "${groups_to_install[@]}"
-}
-
-# Reads the package list from 'packages.txt' and installs them.
+# Reads the package list from 'packages.txt' and installs them using paru.
 task_install_packages() {
-  print_step "Installing Individual System Packages from File"
+  print_step "Installing System Packages from File"
   mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "packages.txt")
   if ((${#packages_to_install[@]} == 0)); then
     print_warning "No packages found in 'packages.txt'. Skipping."
     return
   fi
-  print_info "Installing ${#packages_to_install[@]} DNF packages..."
-  sudo dnf install -y --allowerasing "${packages_to_install[@]}"
-}
-
-# Installs Flatpaks from the 'flatpaks.txt' file.
-task_install_flatpaks() {
-  print_step "Installing Flatpaks from File"
-  if ! command_exists flatpak; then
-    sudo dnf install -y flatpak
-  fi
-
-  print_info "Configuring Flathub repository for user '$TARGET_USER'..."
-  run_as_user "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
-
-  mapfile -t flatpaks_to_install < <(grep -vE '^\s*#|^\s*$' "flatpaks.txt")
-  if ((${#flatpaks_to_install[@]} == 0)); then
-    print_warning "No applications found in 'flatpaks.txt'. Skipping."
-    return
-  fi
-  print_info "Installing ${#flatpaks_to_install[@]} Flatpaks..."
-  run_as_user "flatpak install -y flathub ${flatpaks_to_install[*]}"
-  print_success "Flatpak installation process complete."
+  print_info "Installing/updating ${#packages_to_install[@]} packages from official repos and the AUR..."
+  paru -S --needed --noconfirm "${packages_to_install[@]}"
 }
 
 # Installs special drivers and tools for ASUS laptops.
 task_setup_asus() {
   print_step "Setting up for ASUS Laptops"
-  # Use dmidecode for a more reliable manufacturer check instead of lspci.
   if ! sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
     print_warning "ASUS hardware not detected. Skipping."
     return
   fi
 
-  local asus_repo="lukenukem/asus-linux"
-  if [ ! -f "/etc/yum.repos.d/_copr_lukenukem-asus-linux.repo" ]; then
-    print_info "Enabling COPR repository for ASUS Linux: $asus_repo"
-    sudo dnf copr enable -y "$asus_repo"
-    sudo dnf update --refresh -y
-  fi
-
-  local asus_packages=("asusctl" "supergfxctl" "power-profiles-daemon" "asusctl-rog-gui")
-  print_info "Installing ASUS-specific packages..."
-  sudo dnf install -y --allowerasing "${asus_packages[@]}"
+  print_info "Installing ASUS-specific packages from the AUR..."
+  # asusctl and supergfxctl are in the AUR. power-profiles-daemon is in official repos.
+  paru -S --needed --noconfirm asusctl supergfxctl power-profiles-daemon
   sudo systemctl daemon-reload
   sudo systemctl enable --now supergfxd.service power-profiles-daemon.service
   print_success "ASUS-specific setup complete."
@@ -432,7 +394,8 @@ max-jobs = 4
 EOF
   )
   run_as_user "mkdir -p '$nix_config_dir'"
-  write_file_idempotent "$nix_config_file" "$nix_conf_content" "$TARGET_USER:$TARGET_USER"
+  # A simple echo is sufficient here; the original's write_file_idempotent is overkill for user files.
+  run_as_user "echo -e \"$nix_conf_content\" > \"$nix_config_file\""
 
   local nix_cmd_prefix=". '$nix_daemon_profile';"
 
@@ -470,9 +433,7 @@ EOF
   local hm_session_vars="$USER_HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
   if run_as_user "[ -f '$hm_session_vars' ]"; then
     print_info "Sourcing Home-Manager session variables for the current script's environment."
-    local hm_vars_content
-    hm_vars_content=$(run_as_user "cat '$hm_session_vars'")
-    eval "$hm_vars_content"
+    run_as_user ". '$hm_session_vars'"
     print_success "Home-Manager environment variables applied to current script session."
   else
     print_warning "Home-Manager session variables file '$hm_session_vars' not found after switch."
@@ -484,23 +445,6 @@ EOF
 # Applies system-wide security hardening configurations.
 task_harden_system() {
   print_step "Applying System Security Hardening"
-
-  # --- Set Login Banner ---
-  print_info "Setting system login banner..."
-  local issue_content
-  issue_content=$(
-    cat <<'EOF'
--- WARNING -- This system is for the use of authorized users only. Individuals
-using this computer system without authority or in excess of their authority
-are subject to having all their activities on this system monitored and
-recorded by system personnel. Anyone using this system expressly consents to
-such monitoring and is advised that if such monitoring reveals possible
-evidence of criminal activity system personal may provide the evidence of such
-monitoring to law enforcement officials.
-EOF
-  )
-  write_file_idempotent "/etc/issue" "$issue_content"
-  write_file_idempotent "/etc/issue.net" "$issue_content"
 
   # --- Harden OpenSSH Server ---
   print_info "Hardening OpenSSH server configuration..."
@@ -527,67 +471,30 @@ MaxAuthTries 3
 MaxSessions 2
 EOF
   )
-  write_file_idempotent "/etc/ssh/sshd_config.d/99-hardening.conf" "$sshd_hardening_content"
+  # Use a drop-in config file for idempotency and easier management.
+  echo "$sshd_hardening_content" | sudo tee /etc/ssh/sshd_config.d/99-hardening.conf >/dev/null
 
-  # --- Configure Firewall for new SSH port ---
-  if command_exists firewall-cmd && systemctl is-active --quiet firenalld; then
-    print_info "Configuring firewalld for hardened SSH port..."
-    local firewall_changed=false
-    # Add new port if not already present
-    if ! sudo firewall-cmd --permanent --query-port=47/tcp >/dev/null; then
-      print_info "Opening new SSH port 47/tcp in firewall."
-      sudo firewall-cmd --add-port=47/tcp --permanent
-      firewall_changed=true
-    else
-      print_success "Firewall port 47/tcp is already open."
-    fi
-    # Remove old service if still present
-    if sudo firewall-cmd --permanent --query-service=ssh >/dev/null; then
-      print_info "Removing default 'ssh' service (port 22) from firewall."
-      sudo firewall-cmd --remove-service=ssh --permanent
-      firewall_changed=true
-    else
-      print_success "Default 'ssh' service is already removed from firewall."
-    fi
-
-    if [ "$firewall_changed" = true ]; then
-      print_info "Reloading firewalld to apply changes..."
-      sudo firewall-cmd --reload
-    fi
+  # --- Configure Firewall (using ufw as a common Arch choice) ---
+  if command_exists ufw; then
+    print_info "Configuring UFW firewall for hardened SSH port..."
+    sudo ufw allow 47/tcp comment 'Custom SSH Port'
+    sudo ufw deny 22/tcp comment 'Default SSH Port'
+    sudo ufw enable
+    print_success "UFW enabled and configured for SSH on port 47."
   else
-    print_warning "firewalld is not active. Skipping firewall configuration. Please open TCP port 47 manually."
-  fi
-
-  # --- Configure SELinux for new SSH port ---
-  if command_exists semanage; then
-    print_info "Configuring SELinux policy for hardened SSH port..."
-    if sudo semanage port -l | grep -q "ssh_port_t.*47"; then
-      print_success "SELinux already allows sshd on TCP port 47."
-    else
-      print_info "Adding SELinux rule to allow sshd on TCP port 47..."
-      sudo semanage port -a -t ssh_port_t -p tcp 47
-      print_success "SELinux policy updated for port 47."
-    fi
-  else
-    print_warning "'semanage' command not found. Skipping SELinux port configuration. SSH may fail to start."
+    print_warning "'ufw' is not installed. Skipping firewall configuration. Please open TCP port 47 manually."
   fi
 
   # --- Reload SSH daemon to apply changes ---
   print_info "Reloading SSH daemon to apply all hardening configurations..."
   sudo systemctl reload sshd
 
-  # --- Set File Creation limits ---
-  write_file_idempotent "/etc/security/limits.d/99-custom-limits.conf" "* soft nofile 65536\n* hard nofile 1048576"
-
   # --- Harden Kernel Parameters via sysctl ---
   local sysctl_file="/etc/sysctl.d/99-custom-hardening.conf"
-  if [ -f "$sysctl_file" ] && grep -q "# --- Custom Hardening Settings ---" "$sysctl_file"; then
-    print_success "Custom sysctl settings already exist."
-  else
-    print_info "Applying custom sysctl kernel settings..."
-    local sysctl_content
-    sysctl_content=$(
-      cat <<'EOF'
+  print_info "Applying custom sysctl kernel settings..."
+  local sysctl_content
+  sysctl_content=$(
+    cat <<'EOF'
 # --- Custom Hardening Settings ---
 dev.tty.ldisc_autoload = 0
 fs.protected_fifos = 2
@@ -602,23 +509,22 @@ net.ipv4.conf.all.rp_filter = 1
 net.ipv4.conf.all.log_martians = 1
 net.ipv4.conf.default.log_martians = 1
 EOF
-    )
-    echo "$sysctl_content" | sudo tee "$sysctl_file" >/dev/null
-    print_info "Applying kernel settings..."
-    sudo sysctl -p "$sysctl_file"
-  fi
+  )
+  echo "$sysctl_content" | sudo tee "$sysctl_file" >/dev/null
+  print_info "Applying kernel settings..."
+  sudo sysctl -p "$sysctl_file"
 
   # --- Install and Enable System Monitoring and Entropy Services ---
   print_info "Installing monitoring and entropy services..."
-  sudo dnf install -y psacct sysstat rng-tools haveged
+  paru -S --needed --noconfirm procps-ng sysstat rng-tools haveged
 
   print_info "Enabling system-wide services for monitoring and performance..."
-  local system_services=("psacct" "sysstat" "rngd" "haveged" "sshd")
+  local system_services=("rngd" "haveged" "sshd")
   for service in "${system_services[@]}"; do
     if sudo systemctl enable --now "$service" 2>/dev/null; then
       print_success "Successfully enabled '$service'."
     else
-      print_warning "Could not enable '$service'. The package may not be installed."
+      print_warning "Could not enable '$service'."
     fi
   done
 }
@@ -673,7 +579,10 @@ task_setup_hyprland() {
 task_cleanup() {
   print_step "Cleaning Up System"
   print_info "Removing any orphaned packages..."
-  sudo dnf autoremove -y
+  # Check if there are any orphans before trying to remove them
+  if pacman -Qtdq >/dev/null; then
+    sudo pacman -Rns --noconfirm "$(pacman -Qtdq)"
+  fi
   print_success "System cleanup complete."
 }
 
@@ -686,14 +595,14 @@ main() {
   if (($# > 0)); then
     while (("$#")); do
       case "$1" in
-      --initial-setup)
+      --configure-pacman)
         RUN_ALL=false
-        task_initial_files_setup
+        task_configure_pacman
         shift
         ;;
-      --setup-repos)
+      --setup-aur)
         RUN_ALL=false
-        task_setup_repos
+        task_setup_aur_helper
         shift
         ;;
       --setup-nvidia)
@@ -701,19 +610,9 @@ main() {
         task_setup_nvidia
         shift
         ;;
-      --install-groups)
-        RUN_ALL=false
-        task_install_groups
-        shift
-        ;;
       --install-packages)
         RUN_ALL=false
         task_install_packages
-        shift
-        ;;
-      --install-flatpaks)
-        RUN_ALL=false
-        task_install_flatpaks
         shift
         ;;
       --setup-asus)
@@ -781,19 +680,19 @@ main() {
 
   if [ "$RUN_ALL" = true ]; then
     print_step "Full Installation Plan Summary"
-    echo "This script will perform a full setup of a Hyprland desktop."
+    echo "This script will perform a full setup of a Hyprland desktop on Arch Linux."
     [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Do you want to begin? [y/N]: ${C_END}")" -r choice
     if [[ "$NON_INTERACTIVE" = false && ! "$choice" =~ ^[Yy]$ ]]; then
       print_info "Aborting."
       exit 0
     fi
 
-    task_initial_files_setup
-    task_setup_repos
+    task_configure_pacman
+    task_setup_aur_helper
 
     # Hardware-specific checks
     if lspci | grep -qi 'VGA compatible controller: NVIDIA'; then
-      [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} NVIDIA hardware detected. Install drivers (for Fedora 42)? [Y/n]: ${C_END}")" -r nvidia_choice
+      [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} NVIDIA hardware detected. Install drivers? [Y/n]: ${C_END}")" -r nvidia_choice
       if [[ "$NON_INTERACTIVE" = true || ! "$nvidia_choice" =~ ^[Nn]$ ]]; then task_setup_nvidia; fi
     fi
     if sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
@@ -801,12 +700,7 @@ main() {
       if [[ "$NON_INTERACTIVE" = true || ! "$asus_choice" =~ ^[Nn]$ ]]; then task_setup_asus; fi
     fi
 
-    task_install_groups
     task_install_packages
-
-    [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} Do you want to install Flatpak applications? [y/N]: ${C_END}")" -r flatpak_choice
-    if [[ "$NON_INTERACTIVE" = true || "$flatpak_choice" =~ ^[Yy]$ ]]; then task_install_flatpaks; fi
-
     task_manual_installations
     task_setup_nix
     task_harden_system

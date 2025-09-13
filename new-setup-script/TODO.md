@@ -1,7 +1,7 @@
 # TODOS
 
 - [ ] Move to setting up end-4 dots manually then change the setting using GUI
-      -- [x] Remove git setup from main script
+- [x] Remove git setup from main script
 - [ ] Clone neovim and doom emacs configs into the setup
 - [ ] Use wallpapers from Matt-FTW/dotfiles
 - [ ] Use hyprland animations from him too
