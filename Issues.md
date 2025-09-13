@@ -1,1 +1,3 @@
-- [ ] How to launch flatpaks with app2unit
+# Issues
+
+- [ ] The hardened firewalld configuration is causing issues for AUR

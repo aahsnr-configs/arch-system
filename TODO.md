@@ -1,0 +1,6 @@
+- [ ] Checkout Rudder at a later date
+- [ ] Write a python script that automatically check AUR packages for any securiy issues
+- [ ] Bring some optimization features from gentoo to arch linux.
+- [ ] Update pkger.py
+- [ ] Convert all bash scripts to python scripts
+- [ ] How to use nix installed pkgs outside of nix

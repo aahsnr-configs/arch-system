@@ -117,6 +117,16 @@ run_as_user() { sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export
 # Verifies that the script is run in a valid environment.
 pre_flight_checks() {
   print_step "Running Pre-flight Checks"
+
+  # --- Check if the current shell is bash and re-execute if not ---
+  local current_shell
+  current_shell=$(ps -p $$ -o comm=)
+  if [ "$current_shell" != "bash" ]; then
+    print_warning "This script is designed for bash, but you are using '$current_shell'."
+    print_info "Switching to bash to continue execution..."
+    exec bash "$0" "$@"
+  fi
+
   if [[ $EUID -eq 0 ]]; then
     print_error "This script must be run as a regular user, not root. Aborting."
     exit 1
@@ -389,23 +399,29 @@ task_setup_nix() {
 
   local nix_daemon_profile="/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
 
-  if ! command_exists nix; then
-    print_info "Installing Nix with the Determinate Systems installer..."
+  # Check for the existence of the /nix/store directory as the primary indicator of installation.
+  if [ ! -d "/nix/store" ]; then
+    print_info "Nix installation not found. Installing with the Determinate Systems installer..."
+    # The installer is downloaded and executed here.
     curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate --no-confirm
-    if [ -f "$nix_daemon_profile" ]; then
-      . "$nix_daemon_profile"
-    else
-      print_error "Nix daemon profile script '$nix_daemon_profile' not found after installation. Cannot proceed."
-      return 1
-    fi
   else
-    print_success "Nix is already installed."
-    if [ -f "$nix_daemon_profile" ]; then
-      . "$nix_daemon_profile"
-    else
-      print_error "Nix daemon profile script '$nix_daemon_profile' not found, but 'nix' command exists. This is unexpected."
-      return 1
-    fi
+    print_success "Nix appears to be already installed. Skipping installation."
+  fi
+
+  # After installation (or if already installed), source the profile to set up the environment.
+  if [ -f "$nix_daemon_profile" ]; then
+    print_info "Sourcing Nix environment profile for this session..."
+    . "$nix_daemon_profile"
+  else
+    print_error "Nix profile script '$nix_daemon_profile' not found. Cannot proceed with Nix configuration."
+    print_warning "This might indicate a broken or incomplete Nix installation."
+    return 1
+  fi
+
+  # Verify that the 'nix' command is now available after sourcing the profile.
+  if ! command_exists nix; then
+    print_error "'nix' command is not available even after sourcing the profile. Aborting Nix setup."
+    return 1
   fi
 
   print_info "Ensuring Nix is configured with flakes and optimizations..."
@@ -415,13 +431,13 @@ task_setup_nix() {
   nix_conf_content=$(
     cat <<'EOF'
 experimental-features = nix-command flakes
-auto-optimise-store = true
 max-jobs = 4
 EOF
   )
   run_as_user "mkdir -p '$nix_config_dir'"
   run_as_user "echo -e \"$nix_conf_content\" > \"$nix_config_file\""
 
+  # Define a prefix to source the nix profile inside the 'run_as_user' subshell.
   local nix_cmd_prefix=". '$nix_daemon_profile';"
 
   print_info "Initializing Home-Manager..."
