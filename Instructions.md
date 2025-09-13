@@ -98,7 +98,7 @@ Now, first check if the user's host archlinux system has arch-install-scripts in
 Now next comes the most crucial part for the python script. Once the script enter the chroot environment, it must also be able to execute the commands that follow after entering chroot. Furthermore, the user must have sudo access. I also want to disable the root account. The command for that is not available in the next block. You must search the web and find out best practices on how to achieve that.
 
 ```bash
-pacstrap /mnt base base-devel devtools git neovim arch-install-scripts reflector dracut yay wget
+pacstrap /mnt base base-devel devtools git neovim arch-install-scripts reflector dracut  wget btrfs-progs lvm2
 
 genfstab -U /mnt >>/mnt/etc/fstab
 

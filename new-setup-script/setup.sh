@@ -564,7 +564,7 @@ task_harden_system() {
   paru -S --needed --noconfirm "${security_packages[@]}"
 
   print_info "Enabling system-wide services for security and performance..."
-  local system_services=(acct auditd apparmor haveged rngd sshd)
+  local system_services=(acct auditd apparmor bluetooth haveged rngd sshd)
   for service in "${system_services[@]}"; do
     if sudo systemctl enable --now "$service" 2>/dev/null; then
       print_success "Successfully enabled '$service'."

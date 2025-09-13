@@ -53,6 +53,7 @@ networkmanager
 nm-connection-editor
 otf-space-grotesk
 pavucontrol-qt
+plasma-browser-integration
 plasma-nm
 playerctl
 polkit-kde-agent
