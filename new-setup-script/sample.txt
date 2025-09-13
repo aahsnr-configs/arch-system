@@ -1,6 +1,13 @@
-sudo dnf update -y
-sudo dnf install akmod-nvidia xorg-x11-drv-nvidia-cuda xorg-x11-drv-nvidia-power vulkan xorg-x11-drv-nvidia-cuda-libs nvidia-vaapi-driver libva-utils vdpauinfo
-sudo dnf mark user akmod-nvidia
-sudo systemctl enable nvidia-{suspend,resume,hibernate}
-sudo sh -c 'echo "%_with_kmod_nvidia_open 1" > /etc/rpm/macros.nvidia-kmod'
-sudo akmods --kernels $(uname -r) --rebuild
+install-python-packages (){
+  uv pip compile requirements.in -o requirements.txt
+  UV_NO_MODIFY_PATH=1
+  ILLOGICAL_IMPULSE_VIRTUAL_ENV=$XDG_STATE_HOME/quickshell/.venv
+  mkdir -p $(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)
+  # we need python 3.12 https://github.com/python-pillow/Pillow/issues/8089
+  uv venv --prompt .venv $(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV) -p 3.12
+  source $(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate
+  uv pip install -r requirements.txt
+  deactivate # We don't need the virtual environment anymore
+}
+
+

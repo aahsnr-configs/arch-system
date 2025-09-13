@@ -14,10 +14,12 @@ coreutils
 curl
 darkly-bin
 ddcutil
+discover
 dolphin
 fish
 fontconfig
 fuzzel
+fwupd
 geoclue
 glib2
 gnome-keyring

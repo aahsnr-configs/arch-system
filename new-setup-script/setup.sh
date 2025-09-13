@@ -22,11 +22,12 @@
 #   5.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
 #   6.  Setup for ASUS Laptops (Optional): Adds the g14 repo and installs specific tools.
 #   7.  Manual Installs: Installs third-party software like themes and VPNs.
-#   8.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
-#   9.  Harden System: Implements basic security enhancements and enables services.
-#   10. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
-#   11. Setup Hyprland: Enables the necessary systemd user services.
-#   12. Cleanup: Removes orphaned packages.
+#   8.  Install Python Packages (Optional): Sets up a Python environment using 'uv'.
+#   9.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
+#   10. Harden System: Implements basic security enhancements and enables services.
+#   11. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
+#   12. Setup Hyprland: Enables the necessary systemd user services.
+#   13. Cleanup: Removes orphaned packages.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -91,20 +92,21 @@ print_usage() {
   echo -e "${C_BOLD}If no options are provided, the script will run all setup tasks interactively.${C_END}"
   echo ""
   echo -e "${C_HEADER}Options:${C_END}"
-  echo -e "  ${C_GREEN}--configure-pacman${C_END}      Optimize pacman.conf and makepkg.conf."
-  echo -e "  ${C_GREEN}--setup-aur${C_END}             Install and configure the 'paru' AUR helper."
-  echo -e "  ${C_GREEN}--setup-nvidia${C_END}          Install and configure NVIDIA drivers."
-  echo -e "  ${C_GREEN}--install-packages${C_END}      Install packages from 'packages.txt'."
-  echo -e "  ${C_GREEN}--setup-asus${C_END}            Run specific setup for ASUS laptops."
-  echo -e "  ${C_GREEN}--manual-installs${C_END}       Perform manual installation of third-party software."
-  echo -e "  ${C_GREEN}--setup-nix${C_END}             Install and configure Nix with Home-Manager."
-  echo -e "  ${C_GREEN}--harden-system${C_END}         Implement basic security enhancements."
-  echo -e "  ${C_GREEN}--configure-user${C_END}        Set up the user's environment."
-  echo -e "  ${C_GREEN}--setup-hyprland${C_END}        Enable systemd user services for Hyprland."
-  echo -e "  ${C_GREEN}--cleanup${C_END}               Remove orphaned packages from the system."
-  echo -e "  ${C_YELLOW}--debug${C_END}                 Enable verbose command tracing for debugging."
-  echo -e "  ${C_YELLOW}--yes, -y${C_END}               Bypass all interactive prompts for automated runs."
-  echo -e "  ${C_BLUE}--help${C_END}                  Display this help message and exit."
+  echo -e "  ${C_GREEN}--configure-pacman${C_END}        Optimize pacman.conf and makepkg.conf."
+  echo -e "  ${C_GREEN}--setup-aur${C_END}               Install and configure the 'paru' AUR helper."
+  echo -e "  ${C_GREEN}--setup-nvidia${C_END}            Install and configure NVIDIA drivers."
+  echo -e "  ${C_GREEN}--install-packages${C_END}        Install packages from 'packages.txt'."
+  echo -e "  ${C_GREEN}--setup-asus${C_END}              Run specific setup for ASUS laptops."
+  echo -e "  ${C_GREEN}--manual-installs${C_END}         Perform manual installation of third-party software."
+  echo -e "  ${C_GREEN}--install-python-packages${C_END} Install Python packages from 'requirements.in' using uv."
+  echo -e "  ${C_GREEN}--setup-nix${C_END}               Install and configure Nix with Home-Manager."
+  echo -e "  ${C_GREEN}--harden-system${C_END}           Implement basic security enhancements."
+  echo -e "  ${C_GREEN}--configure-user${C_END}          Set up the user's environment."
+  echo -e "  ${C_GREEN}--setup-hyprland${C_END}          Enable systemd user services for Hyprland."
+  echo -e "  ${C_GREEN}--cleanup${C_END}                 Remove orphaned packages from the system."
+  echo -e "  ${C_YELLOW}--debug${C_END}                   Enable verbose command tracing for debugging."
+  echo -e "  ${C_YELLOW}--yes, -y${C_END}                 Bypass all interactive prompts for automated runs."
+  echo -e "  ${C_BLUE}--help${C_END}                    Display this help message and exit."
 }
 
 # --- Utility Functions ---
@@ -391,6 +393,71 @@ task_manual_installations() {
     bash "$pia_installer"
     print_success "PIA VPN installation process finished."
   fi
+}
+
+# Compiles and installs python packages using uv.
+task_install_python_packages() {
+  print_step "Installing Python Packages via uv"
+
+  if [[ ! -f "requirements.in" ]]; then
+    print_warning "File 'requirements.in' not found in the current directory. Skipping Python package installation."
+    return
+  fi
+
+  # Ensure uv and pip are installed
+  print_info "Checking for Python tools 'uv' and 'pip'..."
+  local missing_py_tools=()
+  if ! command_exists uv; then
+    missing_py_tools+=("uv")
+  fi
+  if ! command_exists pip; then
+    missing_py_tools+=("python-pip")
+  fi
+
+  if ((${#missing_py_tools[@]} > 0)); then
+    print_info "Installing missing Python tools: ${missing_py_tools[*]}"
+    paru -S --needed --noconfirm "${missing_py_tools[@]}"
+    print_success "Python tools installed."
+  else
+    print_success "'uv' and 'pip' are already installed."
+  fi
+
+  print_info "Compiling 'requirements.in' to 'requirements.txt'..."
+  if ! run_as_user "uv pip compile requirements.in -o requirements.txt"; then
+    print_error "Failed to compile 'requirements.in'. Please check the file for errors."
+    return 1
+  fi
+  print_success "'requirements.txt' generated successfully."
+
+  print_info "Setting up Python virtual environment and installing packages..."
+  local setup_py_env_script
+  setup_py_env_script=$(
+    cat <<'EOF'
+# Set default XDG_STATE_HOME if not set
+export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+VENV_PATH="$XDG_STATE_HOME/quickshell/.venv"
+
+echo "Python virtual environment will be set up at: $VENV_PATH"
+mkdir -p "$VENV_PATH"
+
+# Create the virtual environment
+export UV_NO_MODIFY_PATH=1
+uv venv --prompt .venv "$VENV_PATH" -p 3.12
+
+# Activate and install packages
+source "$VENV_PATH/bin/activate"
+uv pip install -r requirements.txt
+deactivate
+EOF
+  )
+
+  if ! run_as_user "$setup_py_env_script"; then
+    print_error "Failed to set up Python virtual environment or install packages."
+    return 1
+  fi
+
+  print_success "Python package setup complete."
+  print_info "The environment is located at: \$XDG_STATE_HOME/quickshell/.venv"
 }
 
 # Installs and configures Nix, Flakes, and Home-Manager.
@@ -749,6 +816,11 @@ main() {
         task_manual_installations
         shift
         ;;
+      --install-python-packages)
+        RUN_ALL=false
+        task_install_python_packages
+        shift
+        ;;
       --setup-nix)
         RUN_ALL=false
         task_setup_nix
@@ -826,6 +898,7 @@ main() {
 
     task_install_packages
     task_manual_installations
+    task_install_python_packages
     task_setup_nix
     task_harden_system
     task_configure_user
