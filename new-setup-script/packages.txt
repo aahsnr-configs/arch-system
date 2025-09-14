@@ -16,6 +16,7 @@ darkly-bin
 ddcutil
 discover
 dolphin
+fcitx5
 fish
 fontconfig
 fuzzel
