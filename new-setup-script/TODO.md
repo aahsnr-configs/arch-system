@@ -1,28 +1,23 @@
-# TODOS
-
-## Non-arch repos
-
-- [ ] CachyOS
-- [ ] Blackarch
+# General TODOS
 
 - [ ] Move to setting up end-4 dots manually then change the setting using GUI
 - [x] Remove git setup from main script
-- [ ] Clone neovim and doom emacs configs into the setup
-- [ ] Use wallpapers from Matt-FTW/dotfiles
-- [ ] Use hyprland animations from him too
-- [ ] Integrate breeze-plus installation into setup.sh
-- [ ] Manually install otf-space-grotesk fonts using setup.sh
-- [ ] Use papirus icons in end-4 quickshell
-- [ ] Don't know if python3.12 and python3.12-devel are necessary
-- [ ] Check the fedora fork of end-4 dotfiles for why some repos are used
-- [ ] Investigage scriptdata/installers for the fedora fork
-- [ ] Install some fonts using manual installer and integrate that to setup.sh
-- [ ] Install microtex using manual installer and integrate to setup.sh
-- [ ] Apparently I need to use python3.12 packages
-- [ ] Add upscayl manual installer to setup.sh
-- [ ] Install kde-material-you-colors from Fedora 42 of <https://software.opensuse.org/package/kde-material-you-colors>
-- [ ] Look at [Hyprland Nvidia](https://wiki.hypr.land/Nvidia/) before starting wayland
-- [ ] Look at <https://wiki.nobaraproject.org/en/modifications/packages> before starting install
+- [ ] Use hyprland animations from Matt-FTW/dotfiles
 - [ ] Add nvidia drivers and codecs to bash script
 - [x] Integrate a custom script to install pia vpn manually using a separate function and separate flag
 - [ ] At the end integrate neovim and doom emacs setup using a separate function and a separate flag
+
+---
+
+# setup.sh tasks
+
+**Determine where to put these functions in setup.sh**
+
+- [ ] [Separate Function] Add the follow mon-arch repos CachyOS and Blackarch
+
+- [ ] [Separate Function] Integrate neovim setup from https://docs.astronvim.com/configuration/manage_user_config/. Integration for emacs step will be added later
+
+# packages.txt pkgs
+
+- [ ] papirus-icons
+- [ ] nodejs-neovim

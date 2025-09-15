@@ -50,6 +50,7 @@ libsoup3
 matugen-bin
 meson
 microtex-git
+neovim
 networkmanager
 nm-connection-editor
 otf-space-grotesk
@@ -84,6 +85,7 @@ systemsettings
 tesseract
 tesseract-data-eng
 translate-shell
+tree-sitter-cli
 ttf-gabarito-git
 ttf-jetbrains-mono-nerd
 ttf-material-symbols-variable-git
@@ -103,3 +105,4 @@ xdg-desktop-portal-hyprland
 xdg-desktop-portal-kde
 xdg-user-dirs
 ydotool
+zen-browser-bin
