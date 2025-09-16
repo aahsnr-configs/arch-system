@@ -16,6 +16,8 @@ darkly-bin
 ddcutil
 discover
 dolphin
+dolphin-plugins
+emacs-wayland
 fcitx5
 fish
 fontconfig
@@ -62,6 +64,7 @@ plasma-nm
 playerctl
 polkit-kde-agent
 python-opencv
+python-pynvim
 qt6-5compat
 qt6-avif-image-plugin
 qt6-base
