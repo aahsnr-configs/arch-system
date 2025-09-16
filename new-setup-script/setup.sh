@@ -27,7 +27,7 @@
 #   10. Harden System: Implements basic security enhancements and enables services.
 #   11. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
 #   12. Setup Hyprland: Enables the necessary systemd user services.
-#   13. Cleanup: Removes orphaned packages.
+#   13. Cleanup: Removes orphaned packages and cleans the Nix store.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -63,15 +63,6 @@ readonly I_FINISH="🎉"
 readonly I_DEBUG="🐞"
 readonly I_LOG="📄"
 
-# --- Global Configuration ---
-readonly TARGET_USER="$(logname)"
-readonly USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
-readonly DOTFILES_REPO_URL="https://github.com/aahsnr-configs/.hyprdots.git"
-readonly DOTFILES_DIR="$USER_HOME/.hyprdots"
-readonly LOG_FILE="setup-log-$(date +%F_%H-%M).log"
-DEBUG_MODE=false
-NON_INTERACTIVE=false
-
 # --- UI Helper Functions ---
 print_step() { echo -e "\n${C_HEADER}${C_BOLD}═══ $I_STEP $1 ═══${C_END}"; }
 print_info() { echo -e "${C_BLUE}$I_INFO $1${C_END}"; }
@@ -83,6 +74,31 @@ print_debug() {
     echo -e "${C_CYAN}$I_DEBUG [DEBUG] $1${C_END}" >&2
   fi
 }
+
+# --- Global Configuration ---
+# Assign critical variables first and check for errors before making them read-only.
+TARGET_USER=""
+if ! TARGET_USER=$(logname); then
+  print_error "Could not determine the current user with 'logname'. Aborting."
+  exit 1
+fi
+readonly TARGET_USER
+
+USER_HOME=""
+if ! USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6); then
+  print_error "Could not determine home directory for user '$TARGET_USER'. Aborting."
+  exit 1
+fi
+readonly USER_HOME
+
+readonly DOTFILES_REPO_URL="https://github.com/aahsnr-configs/.hyprdots.git"
+readonly DOTFILES_DIR="$USER_HOME/.hyprdots"
+
+LOG_FILE="setup-log-$(date +%F_%H-%M).log"
+readonly LOG_FILE
+
+DEBUG_MODE=false
+NON_INTERACTIVE=false
 
 # --- Usage Information ---
 print_usage() {
@@ -120,15 +136,6 @@ run_as_user() { sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export
 pre_flight_checks() {
   print_step "Running Pre-flight Checks"
 
-  # --- Check if the current shell is bash and re-execute if not ---
-  local current_shell
-  current_shell=$(ps -p $$ -o comm=)
-  if [ "$current_shell" != "bash" ]; then
-    print_warning "This script is designed for bash, but you are using '$current_shell'."
-    print_info "Switching to bash to continue execution..."
-    exec bash "$0" "$@"
-  fi
-
   if [[ $EUID -eq 0 ]]; then
     print_error "This script must be run as a regular user, not root. Aborting."
     exit 1
@@ -157,7 +164,8 @@ pre_flight_checks() {
   fi
 
   # Check for required input files
-  for file in packages.txt; do
+  local required_files=("packages.txt")
+  for file in "${required_files[@]}"; do
     if [[ ! -f "$file" ]]; then
       print_error "Required configuration file '$file' not found. Aborting."
       exit 1
@@ -478,6 +486,7 @@ task_setup_nix() {
   # After installation (or if already installed), source the profile to set up the environment.
   if [ -f "$nix_daemon_profile" ]; then
     print_info "Sourcing Nix environment profile for this session..."
+    # shellcheck disable=SC1090
     . "$nix_daemon_profile"
   else
     print_error "Nix profile script '$nix_daemon_profile' not found. Cannot proceed with Nix configuration."
@@ -559,7 +568,7 @@ task_harden_system() {
   local security_packages=(
     acct apparmor apparmor.d-git audit arch-audit openssh procps-ng rng-tools
     sysstat haveged lynis-git libpwquality bleachbit xorg-xinit stacer-bin
-    ssh-audit python-notify2 python-psutil
+    ssh-audit python-notify2 python-psutil ufw
   )
   paru -S --needed --noconfirm "${security_packages[@]}"
 
@@ -662,7 +671,7 @@ EOF
     print_info "Configuring UFW firewall for hardened SSH port..."
     sudo ufw allow 47/tcp comment 'Custom SSH Port'
     sudo ufw deny 22/tcp comment 'Default SSH Port'
-    sudo ufw enable
+    sudo ufw --force enable
     print_success "UFW enabled and configured for SSH on port 47."
   else
     print_warning "'ufw' is not installed. Skipping firewall configuration. Please open TCP port 47 manually."
@@ -766,15 +775,25 @@ task_setup_hyprland() {
   done
 }
 
-# Removes orphaned packages from the system.
+# Removes orphaned packages and cleans the Nix store.
 task_cleanup() {
   print_step "Cleaning Up System"
-  print_info "Removing any orphaned packages..."
+
+  print_info "Removing any orphaned pacman packages..."
   # Check if there are any orphans before trying to remove them
   if pacman -Qtdq >/dev/null; then
     sudo pacman -Rns --noconfirm "$(pacman -Qtdq)"
   fi
-  print_success "System cleanup complete."
+  print_success "Pacman cleanup complete."
+
+  # Clean up Nix store if Nix is installed
+  if command_exists nix; then
+    print_info "Cleaning up Nix store by removing old generations..."
+    run_as_user "nix-collect-garbage -d"
+    print_success "Nix store cleanup complete."
+  fi
+
+  print_success "System cleanup finished."
 }
 
 # --- Main Execution Logic ---
@@ -912,5 +931,20 @@ main() {
   print_warning "A final reboot is highly recommended to apply all changes."
 }
 
-# Pass all script arguments to the main function.
+# --- Script Entry Point ---
+
+# First, ensure we are running with bash. If not, re-execute the script with bash,
+# passing along all original arguments.
+# The BASH_VERSION variable is only set in bash, so this check is reliable.
+if [ -z "$BASH_VERSION" ]; then
+  echo "This script requires bash. Attempting to re-execute with bash..." >&2
+  exec bash "$0" "$@"
+  # The script will exit here if re-execution is successful.
+  # If exec fails for some reason, we should exit with an error.
+  echo "Failed to re-execute with bash. Please run the script using 'bash $0'." >&2
+  exit 1
+fi
+
+# Now that we are sure we're running in bash, call the main function
+# with all the script's arguments.
 main "$@"
