@@ -53,7 +53,9 @@ microtex-git
 neovim
 networkmanager
 nm-connection-editor
+nodejs-neovim
 otf-space-grotesk
+papirus-icon-theme
 pavucontrol-qt
 plasma-browser-integration
 plasma-nm

@@ -17,17 +17,18 @@
 # --- Script Task Order ---
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
 #   2.  Configure Pacman: Optimizes pacman.conf and makepkg.conf with interactive verification.
-#   3.  Setup AUR Helper: Installs 'paru' for seamless access to the Arch User Repository.
-#   4.  Setup NVIDIA Drivers (Optional): Installs proprietary NVIDIA drivers if hardware is detected.
-#   5.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
-#   6.  Setup for ASUS Laptops (Optional): Adds the g14 repo and installs specific tools.
-#   7.  Manual Installs: Installs third-party software like themes and VPNs.
-#   8.  Install Python Packages (Optional): Sets up a Python environment using 'uv'.
-#   9.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
-#   10. Harden System: Implements basic security enhancements and enables services.
-#   11. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
-#   12. Setup Hyprland: Enables the necessary systemd user services.
-#   13. Cleanup: Removes orphaned packages and cleans the Nix store.
+#   3.  Setup Extra Repos (Optional): Adds CachyOS and BlackArch repositories.
+#   4.  Setup AUR Helper: Installs 'paru' for seamless access to the Arch User Repository.
+#   5.  Setup NVIDIA Drivers (Optional): Installs proprietary NVIDIA drivers if hardware is detected.
+#   6.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
+#   7.  Setup for ASUS Laptops (Optional): Adds the g14 repo and installs specific tools.
+#   8.  Manual Installs: Installs third-party software like themes and VPNs.
+#   9.  Install Python Packages (Optional): Sets up a Python environment using 'uv'.
+#   10. Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
+#   11. Harden System: Implements basic security enhancements and enables services.
+#   12. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
+#   13. Setup Hyprland: Enables the necessary systemd user services.
+#   14. Cleanup: Removes orphaned packages and cleans the Nix store.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -109,6 +110,7 @@ print_usage() {
   echo ""
   echo -e "${C_HEADER}Options:${C_END}"
   echo -e "  ${C_GREEN}--configure-pacman${C_END}        Optimize pacman.conf and makepkg.conf."
+  echo -e "  ${C_GREEN}--setup-extra-repos${C_END}       Set up CachyOS and BlackArch repositories."
   echo -e "  ${C_GREEN}--setup-aur${C_END}               Install and configure the 'paru' AUR helper."
   echo -e "  ${C_GREEN}--setup-nvidia${C_END}            Install and configure NVIDIA drivers."
   echo -e "  ${C_GREEN}--install-packages${C_END}        Install packages from 'packages.txt'."
@@ -260,6 +262,64 @@ task_configure_pacman() {
       ;;
     esac
   done
+}
+
+# Sets up CachyOS and BlackArch repositories.
+task_setup_extra_repos() {
+  print_step "Setting up Extra Repositories (CachyOS & BlackArch)"
+
+  # --- CachyOS Setup ---
+  if grep -q "\[cachyos\]" /etc/pacman.conf; then
+    print_success "CachyOS repository is already configured."
+  else
+    print_info "Setting up the CachyOS repository..."
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    TEMP_FILES+=("$tmp_dir")
+    ( # Run in a subshell to isolate cd and prevent script exit
+      cd "$tmp_dir"
+      curl https://mirror.cachyos.org/cachyos-repo.tar.xz -o cachyos-repo.tar.xz
+      tar xvf cachyos-repo.tar.xz
+      cd cachyos-repo
+      print_warning "The CachyOS setup script is interactive. Please follow the prompts."
+      sudo ./cachyos-repo.sh
+    )
+    print_success "CachyOS repository setup finished."
+  fi
+
+  # --- BlackArch Setup ---
+  if grep -q "\[blackarch\]" /etc/pacman.conf; then
+    print_success "BlackArch repository is already configured."
+  else
+    print_info "Setting up the BlackArch repository..."
+    local strap_sh
+    strap_sh=$(mktemp)
+    TEMP_FILES+=("$strap_sh")
+
+    print_info "Downloading BlackArch strap.sh script..."
+    curl -o "$strap_sh" https://blackarch.org/strap.sh
+
+    print_info "Verifying script checksum..."
+    print_warning "The BlackArch checksum is hardcoded. If this step fails, the upstream script may have been updated."
+    local expected_checksum="86eb4efb68918dbfdd1e22862a48fda20a8145ff"
+    local actual_checksum
+    actual_checksum=$(sha1sum "$strap_sh" | awk '{print $1}')
+
+    if [[ "$actual_checksum" != "$expected_checksum" ]]; then
+      print_error "BlackArch strap.sh checksum mismatch! Aborting for security."
+      print_error "Expected: $expected_checksum"
+      print_error "Got:      $actual_checksum"
+      exit 1
+    fi
+    print_success "Checksum verified."
+
+    chmod +x "$strap_sh"
+    sudo bash "$strap_sh"
+    print_success "BlackArch repository setup finished."
+  fi
+
+  print_info "Synchronizing pacman databases after repo changes..."
+  sudo pacman -Sy
 }
 
 # Installs 'paru' as the AUR helper.
@@ -810,6 +870,11 @@ main() {
         task_configure_pacman
         shift
         ;;
+      --setup-extra-repos)
+        RUN_ALL=false
+        task_setup_extra_repos
+        shift
+        ;;
       --setup-aur)
         RUN_ALL=false
         task_setup_aur_helper
@@ -903,6 +968,7 @@ main() {
     fi
 
     task_configure_pacman
+    task_setup_extra_repos
     task_setup_aur_helper
 
     # Hardware-specific checks
