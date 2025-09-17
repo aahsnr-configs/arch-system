@@ -26,6 +26,7 @@ fwupd
 geoclue
 glib2
 gnome-keyring
+gnome-tweaks
 gobject-introspection
 gtk4
 hyprcursor
@@ -40,7 +41,6 @@ hyprshot
 hyprsunset
 hyprutils
 hyprwayland-scanner
-illogical-impulse-oneui4-icons
 jq
 kde-material-you-colors
 kdialog
