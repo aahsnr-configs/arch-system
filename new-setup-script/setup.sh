@@ -7,28 +7,30 @@
 # It should be run as a regular user with sudo privileges.
 #
 # --- Features ---
-#   - Automatic hardware detection for NVIDIA and ASUS setups.
+#   - Automatic hardware detection for ASUS setups.
 #   - ASUS setup uses the g14 repo with an interactive pacman session.
 #   - Full logging of all operations to a timestamped log file.
 #   - A '--yes' flag for fully non-interactive (automated) execution.
 #   - Upfront dependency checking and installation.
 #   - Idempotent design: safe to re-run without causing issues.
+#   - Visual progress bars for package installation even when logging to a file.
 #
 # --- Script Task Order ---
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
 #   2.  Configure Pacman: Optimizes pacman.conf and makepkg.conf with interactive verification.
 #   3.  Setup Extra Repos (Optional): Adds CachyOS and BlackArch repositories.
 #   4.  Setup AUR Helper: Installs 'paru' for seamless access to the Arch User Repository.
-#   5.  Setup NVIDIA Drivers (Optional): Installs proprietary NVIDIA drivers if hardware is detected.
-#   6.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
-#   7.  Setup for ASUS Laptops (Optional): Adds the g14 repo and installs specific tools.
-#   8.  Manual Installs: Installs third-party software like themes and VPNs.
-#   9.  Install Python Packages (Optional): Sets up a Python environment using 'uv'.
-#   10. Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
-#   11. Harden System: Implements basic security enhancements and enables services.
-#   12. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
-#   13. Setup Hyprland: Enables the necessary systemd user services.
-#   14. Cleanup: Removes orphaned packages and cleans the Nix store.
+#   5.  Install Kernel and Drivers (Optional): Installs the CachyOS kernel and NVIDIA drivers.
+#   6.  Setup for ASUS Laptops (Optional): Adds the g14 repo and installs specific tools.
+#   7.  Setup Greeter: Configures greetd and tuigreet as the login manager.
+#   8.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
+#   9.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
+#   10. Manual Installs: Installs third-party software like themes and VPNs.
+#   11. Install Python Packages (Optional): Sets up a Python environment using 'uv'.
+#   12. Harden System: Implements basic security enhancements and enables services.
+#   13. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
+#   14. Setup Hyprland: Enables the necessary systemd user services.
+#   15. Cleanup: Removes orphaned packages and cleans the Nix store.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -112,12 +114,13 @@ print_usage() {
   echo -e "  ${C_GREEN}--configure-pacman${C_END}        Optimize pacman.conf and makepkg.conf."
   echo -e "  ${C_GREEN}--setup-extra-repos${C_END}       Set up CachyOS and BlackArch repositories."
   echo -e "  ${C_GREEN}--setup-aur${C_END}               Install and configure the 'paru' AUR helper."
-  echo -e "  ${C_GREEN}--setup-nvidia${C_END}            Install and configure NVIDIA drivers."
-  echo -e "  ${C_GREEN}--install-packages${C_END}        Install packages from 'packages.txt'."
+  echo -e "  ${C_GREEN}--kernel-and-drivers${C_END}      Install CachyOS kernel and NVIDIA drivers."
   echo -e "  ${C_GREEN}--setup-asus${C_END}              Run specific setup for ASUS laptops."
+  echo -e "  ${C_GREEN}--setup-greetd${C_END}            Setup greetd and tuigreet as the login manager."
+  echo -e "  ${C_GREEN}--setup-nix${C_END}               Install and configure Nix with Home-Manager."
+  echo -e "  ${C_GREEN}--install-packages${C_END}        Install packages from 'packages.txt'."
   echo -e "  ${C_GREEN}--manual-installs${C_END}         Perform manual installation of third-party software."
   echo -e "  ${C_GREEN}--install-python-packages${C_END} Install Python packages from 'requirements.in' using uv."
-  echo -e "  ${C_GREEN}--setup-nix${C_END}               Install and configure Nix with Home-Manager."
   echo -e "  ${C_GREEN}--harden-system${C_END}           Implement basic security enhancements."
   echo -e "  ${C_GREEN}--configure-user${C_END}          Set up the user's environment."
   echo -e "  ${C_GREEN}--setup-hyprland${C_END}          Enable systemd user services for Hyprland."
@@ -131,6 +134,16 @@ print_usage() {
 command_exists() { command -v "$1" &>/dev/null; }
 is_pkg_installed() { pacman -Q "$1" &>/dev/null; }
 run_as_user() { sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export USER='$TARGET_USER'; $*"; }
+
+# Wrapper for package installation commands to ensure interactive progress bars are displayed.
+install_pkgs() {
+  # The `script` command is used to fool programs into thinking they are running in an
+  # interactive terminal (TTY), which forces them to show progress bars and colors,
+  # even when the main script's output is being piped to `tee` for logging.
+  # `util-linux`, which provides `script`, is a base dependency, making this reliable.
+  # The typescript file is redirected to /dev/null as we only need the TTY behavior.
+  script -q -c "paru -S --needed --noconfirm $*" /dev/null
+}
 
 # --- Task Functions ---
 
@@ -153,7 +166,7 @@ pre_flight_checks() {
 
   # Check for necessary commands/packages and prompt to install if missing
   local missing_pkgs=()
-  for pkg in git curl wget pciutils dmidecode base-devel; do
+  for pkg in git neovim wl-clipboard curl wget pciutils dmidecode base-devel; do
     if ! is_pkg_installed "$pkg" && [[ "$pkg" != "base-devel" ]]; then
       missing_pkgs+=("$pkg")
     elif [[ "$pkg" == "base-devel" ]] && ! is_pkg_installed "make"; then # Check for a key package from the group
@@ -189,6 +202,7 @@ task_configure_pacman() {
   sudo sed -i '/^#\(Color\)/a ILoveCandy' /etc/pacman.conf
   sudo sed -i 's/^#\(VerbosePkgLists\)/\1/' /etc/pacman.conf
   sudo sed -i 's/^#\(DisableDownloadTimeout\)/\1/' /etc/pacman.conf
+  sudo sed -i 's/^#\(TotalDownload\)/\1/' /etc/pacman.conf
   sudo sed -i 's/^#\(ParallelDownloads\).*/\1 = 10/' /etc/pacman.conf
   # Add DownloadUser if it doesn't exist under the [options] section
   if ! grep -q "^DownloadUser" /etc/pacman.conf; then
@@ -246,11 +260,11 @@ task_configure_pacman() {
       case "$edit_choice" in
       [Pp]*)
         print_info "Opening /etc/pacman.conf in vim..."
-        sudo vim /etc/pacman.conf
+        sudo nvim /etc/pacman.conf
         ;;
       [Mm]*)
         print_info "Opening /etc/makepkg.conf in vim..."
-        sudo vim /etc/makepkg.conf
+        sudo nvim /etc/makepkg.conf
         ;;
       *)
         print_warning "Invalid selection. Returning to verification."
@@ -299,20 +313,6 @@ task_setup_extra_repos() {
     print_info "Downloading BlackArch strap.sh script..."
     curl -o "$strap_sh" https://blackarch.org/strap.sh
 
-    print_info "Verifying script checksum..."
-    print_warning "The BlackArch checksum is hardcoded. If this step fails, the upstream script may have been updated."
-    local expected_checksum="86eb4efb68918dbfdd1e22862a48fda20a8145ff"
-    local actual_checksum
-    actual_checksum=$(sha1sum "$strap_sh" | awk '{print $1}')
-
-    if [[ "$actual_checksum" != "$expected_checksum" ]]; then
-      print_error "BlackArch strap.sh checksum mismatch! Aborting for security."
-      print_error "Expected: $expected_checksum"
-      print_error "Got:      $actual_checksum"
-      exit 1
-    fi
-    print_success "Checksum verified."
-
     chmod +x "$strap_sh"
     sudo bash "$strap_sh"
     print_success "BlackArch repository setup finished."
@@ -320,6 +320,14 @@ task_setup_extra_repos() {
 
   print_info "Synchronizing pacman databases after repo changes..."
   sudo pacman -Sy
+
+  print_info "Running garuda-update to refresh system components..."
+  if command_exists garuda-update; then
+    sudo garuda-update
+    print_success "garuda-update completed."
+  else
+    print_warning "'garuda-update' command not found. Skipping."
+  fi
 }
 
 # Installs 'paru' as the AUR helper.
@@ -337,52 +345,26 @@ task_setup_aur_helper() {
   run_as_user "git clone https://aur.archlinux.org/paru.git '$tmp_dir'"
   (
     cd "$tmp_dir"
-    run_as_user "makepkg -si --noconfirm"
+    print_info "Compiling and installing 'paru'. This may take a moment..."
+    run_as_user "script -q -c 'makepkg -si --noconfirm' /dev/null"
   )
   print_success "'paru' has been installed successfully."
 }
 
-# Installs and configures NVIDIA drivers for Arch Linux.
-task_setup_nvidia() {
-  print_step "Setting up NVIDIA Drivers"
-  if ! lspci | grep -qi 'VGA compatible controller: NVIDIA'; then
-    print_warning "NVIDIA hardware not detected. Skipping driver installation."
+# Installs the CachyOS kernel and corresponding NVIDIA drivers.
+task_kernel_and_drivers() {
+  print_step "Installing CachyOS Kernel and NVIDIA Drivers"
+  if ! grep -q "\[cachyos\]" /etc/pacman.conf; then
+    print_warning "CachyOS repository is not enabled. Skipping kernel and driver installation."
     return
   fi
 
-  print_info "Installing NVIDIA driver packages..."
-  # Use paru to handle potential conflicts and dependencies smoothly
-  paru -S --needed --noconfirm nvidia-dkms nvidia-utils lib32-nvidia-utils \
+  print_info "Installing CachyOS kernel and corresponding NVIDIA drivers..."
+  install_pkgs linux-cachyos linux-cachyos-headers linux-cachyos-nvidia-open nvidia-utils lib32-nvidia-utils \
     nvidia-settings vulkan-icd-loader lib32-vulkan-icd-loader libva-nvidia-driver
 
-  print_info "Configuring kernel modules and initramfs..."
-  # This part is crucial for Arch. We need to tell mkinitcpio to load nvidia modules.
-  local mkinitcpio_conf="/etc/mkinitcpio.conf"
-  if grep -q "^MODULES=.*nvidia" "$mkinitcpio_conf"; then
-    print_success "NVIDIA modules already configured in mkinitcpio.conf."
-  else
-    print_info "Adding NVIDIA modules to mkinitcpio.conf..."
-    sudo sed -i 's/^\(MODULES=.*\))$/\1 nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' "$mkinitcpio_conf"
-  fi
-
-  print_info "Rebuilding the initramfs..."
-  sudo mkinitcpio -P
-
-  print_warning "For the NVIDIA driver to load correctly, you may need to add 'nvidia_drm.modeset=1' to your kernel parameters."
-  print_warning "This is typically done in /boot/loader/entries/arch.conf (for systemd-boot) or by regenerating your GRUB config."
-  print_success "NVIDIA driver setup complete. A reboot is required."
-}
-
-# Reads the package list from 'packages.txt' and installs them using paru.
-task_install_packages() {
-  print_step "Installing System Packages from File"
-  mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "packages.txt")
-  if ((${#packages_to_install[@]} == 0)); then
-    print_warning "No packages found in 'packages.txt'. Skipping."
-    return
-  fi
-  print_info "Installing/updating ${#packages_to_install[@]} packages from official repos and the AUR..."
-  paru -S --needed --noconfirm "${packages_to_install[@]}"
+  print_warning "CachyOS kernel and NVIDIA drivers have been installed. You must regenerate your bootloader configuration (e.g., 'grub-mkconfig' or 'bootctl update') to use it."
+  print_success "CachyOS kernel and driver installation complete."
 }
 
 # Installs special drivers and tools for ASUS laptops from the g14 repo.
@@ -433,99 +415,59 @@ EOF
   local asus_services=("power-profiles-daemon.service" "supergfxd.service" "switcheroo-control.service")
   sudo systemctl daemon-reload
   for service in "${asus_services[@]}"; do
-    sudo systemctl enable --now "$service"
+    if systemctl list-unit-files | grep -q "^${service}"; then
+      sudo systemctl enable --now "$service"
+      print_success "Enabled '$service'."
+    else
+      print_warning "Service unit '$service' not found. Skipping."
+    fi
   done
 
   print_success "ASUS-specific setup complete."
 }
 
-# Installs third-party software that is not available in standard repositories.
-task_manual_installations() {
-  print_step "Performing Manual Installations (as User)"
+# Sets up greetd with tuigreet as a lightweight, terminal-based login manager.
+task_setup_greetd() {
+  print_step "Setting up greetd and tuigreet"
 
-  # Install Private Internet Access (PIA) VPN
-  if command_exists pia-client; then
-    print_success "Private Internet Access is already installed."
-  else
-    print_info "Installing Private Internet Access (PIA) VPN."
-    print_warning "The PIA installer URL is version-specific and may become outdated."
-    local pia_url="https://installers.privateinternetaccess.com/download/pia-linux-3.6.2-08398.run"
-    local pia_installer
-    pia_installer=$(mktemp --suffix=.run)
-    TEMP_FILES+=("$pia_installer")
-    print_info "Downloading PIA installer..."
-    wget -O "$pia_installer" "$pia_url"
-    chmod +x "$pia_installer"
-    print_warning "The PIA installer will now launch. It may prompt for an administrative password."
-    # Installer handles its own privilege escalation.
-    bash "$pia_installer"
-    print_success "PIA VPN installation process finished."
-  fi
-}
+  print_info "Installing greetd and tuigreet..."
+  install_pkgs greetd greetd-tuigreet
 
-# Compiles and installs python packages using uv.
-task_install_python_packages() {
-  print_step "Installing Python Packages via uv"
-
-  if [[ ! -f "requirements.in" ]]; then
-    print_warning "File 'requirements.in' not found in the current directory. Skipping Python package installation."
-    return
-  fi
-
-  # Ensure uv and pip are installed
-  print_info "Checking for Python tools 'uv' and 'pip'..."
-  local missing_py_tools=()
-  if ! command_exists uv; then
-    missing_py_tools+=("uv")
-  fi
-  if ! command_exists pip; then
-    missing_py_tools+=("python-pip")
-  fi
-
-  if ((${#missing_py_tools[@]} > 0)); then
-    print_info "Installing missing Python tools: ${missing_py_tools[*]}"
-    paru -S --needed --noconfirm "${missing_py_tools[@]}"
-    print_success "Python tools installed."
-  else
-    print_success "'uv' and 'pip' are already installed."
-  fi
-
-  print_info "Compiling 'requirements.in' to 'requirements.txt'..."
-  if ! run_as_user "uv pip compile requirements.in -o requirements.txt"; then
-    print_error "Failed to compile 'requirements.in'. Please check the file for errors."
-    return 1
-  fi
-  print_success "'requirements.txt' generated successfully."
-
-  print_info "Setting up Python virtual environment and installing packages..."
-  local setup_py_env_script
-  setup_py_env_script=$(
+  print_info "Configuring greetd to use tuigreet with Hyprland..."
+  local greetd_config_content
+  greetd_config_content=$(
     cat <<'EOF'
-# Set default XDG_STATE_HOME if not set
-export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
-VENV_PATH="$XDG_STATE_HOME/quickshell/.venv"
+[terminal]
+vt = 1
 
-echo "Python virtual environment will be set up at: $VENV_PATH"
-mkdir -p "$VENV_PATH"
-
-# Create the virtual environment
-export UV_NO_MODIFY_PATH=1
-uv venv --prompt .venv "$VENV_PATH" -p 3.12
-
-# Activate and install packages
-source "$VENV_PATH/bin/activate"
-uv pip install -r requirements.txt
-deactivate
+[default_session]
+command = "tuigreet --cmd Hyprland"
+user = "greeter"
 EOF
   )
+  # Ensure the directory exists and write the configuration
+  sudo mkdir -p /etc/greetd
+  echo "$greetd_config_content" | sudo tee /etc/greetd/config.toml >/dev/null
+  print_success "greetd configuration written to /etc/greetd/config.toml."
 
-  if ! run_as_user "$setup_py_env_script"; then
-    print_error "Failed to set up Python virtual environment or install packages."
-    return 1
+  # Disable and remove SDDM if it exists
+  print_info "Checking for and removing SDDM..."
+  if is_pkg_installed sddm; then
+    if systemctl is-enabled --quiet sddm.service &>/dev/null; then
+      print_info "Disabling SDDM service..."
+      sudo systemctl disable sddm.service
+    fi
+    print_info "Uninstalling SDDM package..."
+    sudo pacman -Rns --noconfirm sddm
+    print_success "SDDM has been removed."
+  else
+    print_success "SDDM is not installed. Skipping removal."
   fi
 
-  print_success "Python package setup complete."
-  print_info "The environment is located at: \$XDG_STATE_HOME/quickshell/.venv"
+  print_info "Enabling the greetd service..."
+  sudo systemctl enable greetd.service
+
+  print_success "greetd setup complete."
 }
 
 # Installs and configures Nix, Flakes, and Home-Manager.
@@ -538,7 +480,7 @@ task_setup_nix() {
   if [ ! -d "/nix/store" ]; then
     print_info "Nix installation not found. Installing with the Determinate Systems installer..."
     # The installer is downloaded and executed here.
-    curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate --no-confirm
+    curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate
   else
     print_success "Nix appears to be already installed. Skipping installation."
   fi
@@ -619,48 +561,151 @@ EOF
   print_success "Nix, Home-Manager, and Flakes setup complete."
 }
 
+# Reads the package list from 'packages.txt' and installs them using paru.
+task_install_packages() {
+  print_step "Installing System Packages from File"
+  mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "packages.txt")
+  if ((${#packages_to_install[@]} == 0)); then
+    print_warning "No packages found in 'packages.txt'. Skipping."
+    return
+  fi
+  print_info "Installing/updating ${#packages_to_install[@]} packages from official repos and the AUR..."
+  install_pkgs "${packages_to_install[@]}"
+}
+
+# Installs third-party software that is not available in standard repositories.
+task_manual_installations() {
+  print_step "Performing Manual Installations (as User)"
+
+  # Install Private Internet Access (PIA) VPN
+  if command_exists pia-client; then
+    print_success "Private Internet Access is already installed."
+  else
+    print_info "Installing Private Internet Access (PIA) VPN."
+    print_warning "The PIA installer URL is version-specific and may become outdated."
+    local pia_url="https://installers.privateinternetaccess.com/download/pia-linux-3.6.2-08398.run"
+    local pia_installer
+    pia_installer=$(mktemp --suffix=.run)
+    TEMP_FILES+=("$pia_installer")
+    print_info "Downloading PIA installer..."
+    wget -O "$pia_installer" "$pia_url"
+    chmod +x "$pia_installer"
+    print_warning "The PIA installer will now launch. It may prompt for an administrative password."
+    # Installer handles its own privilege escalation.
+    bash "$pia_installer"
+    print_success "PIA VPN installation process finished."
+  fi
+}
+
+# Compiles and installs python packages using uv.
+task_install_python_packages() {
+  print_step "Installing Python Packages via uv"
+
+  if [[ ! -f "requirements.in" ]]; then
+    print_warning "File 'requirements.in' not found in the current directory. Skipping Python package installation."
+    return
+  fi
+
+  # Ensure uv and pip are installed
+  print_info "Checking for Python tools 'uv' and 'pip'..."
+  local missing_py_tools=()
+  if ! command_exists uv; then
+    missing_py_tools+=("uv")
+  fi
+  if ! command_exists pip; then
+    missing_py_tools+=("python-pip")
+  fi
+
+  if ((${#missing_py_tools[@]} > 0)); then
+    print_info "Installing missing Python tools: ${missing_py_tools[*]}"
+    install_pkgs "${missing_py_tools[@]}"
+    print_success "Python tools installed."
+  else
+    print_success "'uv' and 'pip' are already installed."
+  fi
+
+  print_info "Compiling 'requirements.in' to 'requirements.txt'..."
+  if ! run_as_user "uv pip compile requirements.in -o requirements.txt"; then
+    print_error "Failed to compile 'requirements.in'. Please check the file for errors."
+    return 1
+  fi
+  print_success "'requirements.txt' generated successfully."
+
+  print_info "Setting up Python virtual environment and installing packages..."
+  local setup_py_env_script
+  setup_py_env_script=$(
+    cat <<'EOF'
+# Set default XDG_STATE_HOME if not set
+export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+VENV_PATH="$XDG_STATE_HOME/quickshell/.venv"
+
+echo "Python virtual environment will be set up at: $VENV_PATH"
+mkdir -p "$VENV_PATH"
+
+# Create the virtual environment
+export UV_NO_MODIFY_PATH=1
+uv venv --prompt .venv "$VENV_PATH" -p 3.12
+
+# Activate and install packages
+source "$VENV_PATH/bin/activate"
+uv pip install -r requirements.txt
+deactivate
+EOF
+  )
+
+  if ! run_as_user "$setup_py_env_script"; then
+    print_error "Failed to set up Python virtual environment or install packages."
+    return 1
+  fi
+
+  print_success "Python package setup complete."
+  print_info "The environment is located at: \$XDG_STATE_HOME/quickshell/.venv"
+}
+
 # Applies system-wide security hardening configurations.
 task_harden_system() {
   print_step "Applying System Security Hardening"
 
-  # --- 1. Install Security Packages and Enable Services ---
+  # --- 1. Install Security Packages ---
   print_info "Installing security and monitoring packages..."
   local security_packages=(
     acct apparmor apparmor.d-git audit arch-audit openssh procps-ng rng-tools
     sysstat haveged lynis-git libpwquality bleachbit xorg-xinit stacer-bin
     ssh-audit python-notify2 python-psutil ufw
   )
-  paru -S --needed --noconfirm "${security_packages[@]}"
+  install_pkgs "${security_packages[@]}"
 
+  # --- 2. Enable Core Services ---
   print_info "Enabling system-wide services for security and performance..."
   local system_services=(acct auditd apparmor bluetooth haveged rngd sshd)
   for service in "${system_services[@]}"; do
-    if sudo systemctl enable --now "$service" 2>/dev/null; then
-      print_success "Successfully enabled '$service'."
+    if systemctl list-unit-files | grep -q "^${service}.service"; then
+      if sudo systemctl enable --now "${service}.service"; then
+        print_success "Successfully enabled and started '$service'."
+      else
+        print_warning "Could not enable '$service'."
+      fi
     else
-      print_warning "Could not enable '$service'."
+      print_info "Service unit '${service}.service' not found, skipping."
     fi
   done
 
-  # --- 2. Configure Kernel Parameters, Auditd, and AppArmor Notifier ---
+  # --- 3. Harden Bootloader ---
   print_info "Configuring kernel parameters for enhanced security..."
   local kernel_params="lsm=landlock,lockdown,yama,integrity,apparmor,bpf audit=1"
   local grub_cfg="/etc/default/grub"
-  # For systemd-boot, find the conf file in the entries directory
   local systemd_boot_entry
   systemd_boot_entry=$(find /boot/loader/entries -type f -name "*.conf" 2>/dev/null | head -n 1)
 
   if [ -f "$grub_cfg" ]; then
-    print_info "GRUB bootloader detected. Modifying $grub_cfg..."
     if ! grep -q "GRUB_CMDLINE_LINUX.*$kernel_params" "$grub_cfg"; then
       sudo sed -i "s/^\(GRUB_CMDLINE_LINUX=\"\)/\1$kernel_params /" "$grub_cfg"
-      print_info "Regenerating GRUB configuration..."
       sudo grub-mkconfig -o /boot/grub/grub.cfg
+      print_success "Kernel parameters added to GRUB."
     else
       print_success "Kernel parameters already set in GRUB."
     fi
   elif [ -n "$systemd_boot_entry" ]; then
-    print_info "systemd-boot detected. Modifying $systemd_boot_entry..."
     if ! grep -q "options.*$kernel_params" "$systemd_boot_entry"; then
       sudo sed -i "s/^\(options.*\)/\1 $kernel_params/" "$systemd_boot_entry"
       print_success "Kernel parameters added to systemd-boot entry."
@@ -668,19 +713,21 @@ task_harden_system() {
       print_success "Kernel parameters already set in systemd-boot."
     fi
   else
-    print_warning "Could not detect GRUB or systemd-boot. Please add the following to your kernel cmdline manually:"
-    print_warning "$kernel_params"
+    print_warning "Could not detect GRUB or systemd-boot. Please add kernel parameters manually."
   fi
+  print_warning "A REBOOT is required for new kernel parameters to take effect."
 
+  # --- 4. Configure Auditing and AppArmor ---
   print_info "Configuring audit framework..."
   if ! grep -q '^audit:' /etc/group; then
-    sudo groupadd -r audit
-    print_success "Created 'audit' group."
+    sudo groupadd -r audit && print_success "Created 'audit' group."
   fi
   sudo gpasswd -a "$TARGET_USER" audit
-  if ! grep -q "^log_group = audit" /etc/audit/auditd.conf; then
-    sudo sed -i '1s/^/log_group = audit\n/' /etc/audit/auditd.conf
-    print_success "Set audit log group."
+  if ! grep -q "^\s*log_group = audit" /etc/audit/auditd.conf; then
+    echo "log_group = audit" | sudo tee -a /etc/audit/auditd.conf >/dev/null
+    print_info "Set audit log group. Restarting auditd service..."
+    sudo systemctl restart auditd.service
+    print_success "Audit configuration applied."
   else
     print_success "Audit log group already configured."
   fi
@@ -703,51 +750,38 @@ EOF
   run_as_user "echo -e \"$apparmor_desktop_content\" > \"$USER_HOME/.config/autostart/apparmor-notify.desktop\""
   print_success "AppArmor notifier created."
 
-  # --- 3. Harden OpenSSH Server ---
+  # --- 5. Harden SSH and Firewall ---
   print_info "Hardening OpenSSH server configuration..."
   local sshd_hardening_content
   sshd_hardening_content=$(
     cat <<'EOF'
-# --- Custom Hardening Settings ---
 Port 47
 LogLevel VERBOSE
 PermitRootLogin no
 PasswordAuthentication no
-PubkeyAuthentication yes
 ChallengeResponseAuthentication no
 X11Forwarding no
-AllowTcpForwarding no
-AllowAgentForwarding no
-TCPKeepAlive no
-ClientAliveCountMax 2
-MaxAuthTries 3
-MaxSessions 2
 EOF
   )
   echo "$sshd_hardening_content" | sudo tee /etc/ssh/sshd_config.d/99-hardening.conf >/dev/null
+  sudo systemctl reload sshd
+  print_success "SSH configuration reloaded."
 
-  # --- 4. Configure Firewall ---
   if command_exists ufw; then
-    print_info "Configuring UFW firewall for hardened SSH port..."
+    print_info "Configuring UFW firewall..."
     sudo ufw allow 47/tcp comment 'Custom SSH Port'
     sudo ufw deny 22/tcp comment 'Default SSH Port'
     sudo ufw --force enable
     print_success "UFW enabled and configured for SSH on port 47."
-  else
-    print_warning "'ufw' is not installed. Skipping firewall configuration. Please open TCP port 47 manually."
   fi
-  sudo systemctl reload sshd
 
-  # --- 5. Harden Kernel Parameters via sysctl ---
-  local sysctl_file="/etc/sysctl.d/99-custom-hardening.conf"
+  # --- 6. Harden Kernel at Runtime ---
   print_info "Applying custom sysctl kernel settings..."
+  local sysctl_file="/etc/sysctl.d/99-custom-hardening.conf"
   local sysctl_content
   sysctl_content=$(
     cat <<'EOF'
-# --- Custom Hardening Settings ---
 dev.tty.ldisc_autoload = 0
-fs.protected_fifos = 2
-fs.protected_regular = 2
 fs.suid_dumpable = 0
 kernel.kptr_restrict = 2
 kernel.sysrq = 0
@@ -755,38 +789,34 @@ kernel.unprivileged_bpf_disabled = 1
 kernel.yama.ptrace_scope = 2
 net.core.bpf_jit_harden = 2
 net.ipv4.conf.all.rp_filter = 1
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.default.log_martians = 1
 EOF
   )
   echo "$sysctl_content" | sudo tee "$sysctl_file" >/dev/null
   sudo sysctl -p "$sysctl_file"
+  print_success "Runtime kernel parameters have been applied."
 
-  # --- 6. Harden /proc and logind for process hiding ---
+  # --- 7. Harden /proc Filesystem ---
   print_info "Hardening /proc filesystem with hidepid..."
-  if grep -q "^\s*proc\s*/proc" /etc/fstab; then
-    if ! grep "^\s*proc\s*/proc" /etc/fstab | grep -q "hidepid=2"; then
-      sudo sed -i 's|^\s*proc\s*/proc.*|proc /proc proc nosuid,nodev,noexec,hidepid=2,gid=proc 0 0|' /etc/fstab
-      print_success "Modified /proc entry in /etc/fstab."
-    else
-      print_success "/proc entry in /etc/fstab is already hardened."
-    fi
+  if ! grep -q '^proc:' /etc/group; then
+    sudo groupadd -r proc && print_success "Created 'proc' group for hidepid."
+  fi
+  if ! grep "^\s*proc\s*/proc" /etc/fstab | grep -q "hidepid=2"; then
+    sudo sed -i 's|^\s*proc\s*/proc.*|proc /proc proc nosuid,nodev,noexec,hidepid=2,gid=proc 0 0|' /etc/fstab
+    print_info "Modified fstab for hidepid. Remounting /proc to apply changes now..."
+    sudo mount -o remount /proc
+    print_success "/proc has been remounted with hidepid=2."
   else
-    echo "proc /proc proc nosuid,nodev,noexec,hidepid=2,gid=proc 0 0" | sudo tee -a /etc/fstab
-    print_success "Added hardened /proc entry to /etc/fstab."
+    print_success "/proc entry in fstab is already hardened."
   fi
 
   print_info "Creating systemd-logind override for hidepid compatibility..."
   sudo mkdir -p /etc/systemd/system/systemd-logind.service.d/
   local logind_override_content
-  logind_override_content=$(
-    cat <<'EOF'
-[Service]
-SupplementaryGroups=proc
-EOF
-  )
-  echo "$logind_override_content" | sudo tee /etc/systemd/system/systemd-logind.service.d/hidepid.conf >/dev/null
-  print_success "systemd-logind override created."
+  logind_override_content='[Service]\nSupplementaryGroups=proc'
+  echo -e "$logind_override_content" | sudo tee /etc/systemd/system/systemd-logind.service.d/hidepid.conf >/dev/null
+  sudo systemctl daemon-reload
+  sudo systemctl restart systemd-logind.service
+  print_success "systemd-logind has been reconfigured and restarted."
 }
 
 # Sets up the user's shell, dotfiles, and application configs.
@@ -880,19 +910,29 @@ main() {
         task_setup_aur_helper
         shift
         ;;
-      --setup-nvidia)
+      --kernel-and-drivers)
         RUN_ALL=false
-        task_setup_nvidia
-        shift
-        ;;
-      --install-packages)
-        RUN_ALL=false
-        task_install_packages
+        task_kernel_and_drivers
         shift
         ;;
       --setup-asus)
         RUN_ALL=false
         task_setup_asus
+        shift
+        ;;
+      --setup-greetd)
+        RUN_ALL=false
+        task_setup_greetd
+        shift
+        ;;
+      --setup-nix)
+        RUN_ALL=false
+        task_setup_nix
+        shift
+        ;;
+      --install-packages)
+        RUN_ALL=false
+        task_install_packages
         shift
         ;;
       --manual-installs)
@@ -903,11 +943,6 @@ main() {
       --install-python-packages)
         RUN_ALL=false
         task_install_python_packages
-        shift
-        ;;
-      --setup-nix)
-        RUN_ALL=false
-        task_setup_nix
         shift
         ;;
       --harden-system)
@@ -971,20 +1006,21 @@ main() {
     task_setup_extra_repos
     task_setup_aur_helper
 
-    # Hardware-specific checks
-    if lspci | grep -qi 'VGA compatible controller: NVIDIA'; then
-      [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} NVIDIA hardware detected. Install drivers? [Y/n]: ${C_END}")" -r nvidia_choice
-      if [[ "$NON_INTERACTIVE" = true || ! "$nvidia_choice" =~ ^[Nn]$ ]]; then task_setup_nvidia; fi
+    # Optional Kernel and Hardware-specific checks
+    if grep -q "\[cachyos\]" /etc/pacman.conf; then
+      [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} CachyOS repo detected. Install optimized kernel and NVIDIA drivers? [Y/n]: ${C_END}")" -r cachyos_choice
+      if [[ "$NON_INTERACTIVE" = true || ! "$cachyos_choice" =~ ^[Nn]$ ]]; then task_kernel_and_drivers; fi
     fi
     if sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
       [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} ASUS hardware detected. Install specific tools? [Y/n]: ${C_END}")" -r asus_choice
       if [[ "$NON_INTERACTIVE" = true || ! "$asus_choice" =~ ^[Nn]$ ]]; then task_setup_asus; fi
     fi
 
+    task_setup_greetd
+    task_setup_nix
     task_install_packages
     task_manual_installations
     task_install_python_packages
-    task_setup_nix
     task_harden_system
     task_configure_user
     task_setup_hyprland

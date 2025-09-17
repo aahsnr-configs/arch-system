@@ -1,11 +1,14 @@
 # General TODOS
 
+- [ ] Move setup-asus directly after setup-repos
+- [ ] Add `garuda-update` at the end of setup-repos
 - [ ] Move to setting up end-4 dots manually then change the setting using GUI
 - [x] Remove git setup from main script
 - [ ] Use hyprland animations from Matt-FTW/dotfiles
 - [ ] Add nvidia drivers and codecs to bash script
 - [x] Integrate a custom script to install pia vpn manually using a separate function and separate flag
 - [ ] At the end integrate neovim and doom emacs setup using a separate function and a separate flag
+- [ ] Make sure to setup neovim for root user using `sudo ln -sv`
 
 ---
 
