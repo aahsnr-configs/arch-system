@@ -45,6 +45,7 @@ jq
 kde-material-you-colors
 kdialog
 kitty
+konsole
 libadwaita
 libdbusmenu-gtk3
 libportal-gtk4
@@ -63,6 +64,7 @@ plasma-browser-integration
 plasma-nm
 playerctl
 polkit-kde-agent
+pyprland
 python-opencv
 python-pynvim
 qt6-5compat
@@ -92,11 +94,6 @@ tesseract-data-eng
 translate-shell
 tree-sitter-cli
 ttf-gabarito-git
-ttf-jetbrains-mono-nerd
-ttf-material-symbols-variable-git
-ttf-readex-pro
-ttf-rubik-vf
-ttf-twemoji
 upower
 uv
 wget
