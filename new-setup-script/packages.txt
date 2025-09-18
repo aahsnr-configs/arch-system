@@ -19,11 +19,14 @@ dolphin
 dolphin-plugins
 emacs-wayland
 fcitx5
+fastfetch
 fish
 fontconfig
 fuzzel
 fwupd
 geoclue
+git
+git-delta
 glib2
 gnome-keyring
 gnome-tweaks
@@ -50,6 +53,8 @@ libadwaita
 libdbusmenu-gtk3
 libportal-gtk4
 libsoup3
+lua51
+luarocks
 matugen-bin
 meson
 microtex-git
@@ -61,8 +66,10 @@ otf-space-grotesk
 papirus-icon-theme
 pavucontrol-qt
 plasma-browser-integration
+plasma-desktop
 plasma-nm
 playerctl
+proselint
 polkit-kde-agent
 pyprland
 python-opencv
@@ -89,8 +96,11 @@ slurp
 swappy
 syntax-highlighting
 systemsettings
+tectonic
 tesseract
 tesseract-data-eng
+texlive
+textlint
 translate-shell
 tree-sitter-cli
 ttf-gabarito-git
@@ -108,3 +118,4 @@ xdg-desktop-portal-kde
 xdg-user-dirs
 ydotool
 zen-browser-bin
+zeromq

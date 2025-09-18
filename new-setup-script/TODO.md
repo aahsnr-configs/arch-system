@@ -9,6 +9,7 @@
 - [x] Integrate a custom script to install pia vpn manually using a separate function and separate flag
 - [ ] At the end integrate neovim and doom emacs setup using a separate function and a separate flag
 - [ ] Make sure to setup neovim for root user using `sudo ln -sv`
+- [ ] Integrate reflector setup to the bash script
 
 ---
 
