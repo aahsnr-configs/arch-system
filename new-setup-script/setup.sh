@@ -8,22 +8,21 @@
 #
 # --- Features ---
 #   - Automatic hardware detection for ASUS setups.
-#   - ASUS setup uses the g14 repo with an interactive pacman session.
 #   - Full logging of all operations to a timestamped log file.
-#   - A '--yes' flag for fully non-interactive (automated) execution.
-#   - Upfront dependency checking and installation.
 #   - Idempotent design: safe to re-run without causing issues.
-#   - Visual progress bars for package installation even when logging to a file.
+#   - Upfront dependency checking and installation.
+#   - Robust execution of user-specific commands via a privilege de-escalation function.
+#   - Fully interactive package management for user confirmation.
 #
 # --- Script Task Order ---
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
-#   2.  Configure Pacman: Optimizes pacman.conf and makepkg.conf with interactive verification.
+#   2.  Configure Pacman: Optimizes pacman.conf and overwrites makepkg.conf with interactive verification.
 #   3.  Setup Extra Repos (Optional): Adds CachyOS and BlackArch repositories.
-#   4.  Setup AUR Helper: Installs 'yay' for seamless access to the Arch User Repository.
+#   4.  Setup AUR Helper: Installs 'yay-bin' for seamless access to the Arch User Repository.
 #   5.  Install Kernel and Drivers (Optional): Installs the CachyOS kernel and NVIDIA drivers.
 #   6.  Setup for ASUS Laptops (Optional): Adds the g14 repo and installs specific tools.
 #   7.  Setup Greeter: Configures greetd and tuigreet as the login manager.
-#   8.  Setup Nix & Home-Manager (Optional): Installs and newpages Nix with flakes.
+#   8.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
 #   9.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
 #   10. Manual Installs: Installs third-party software like themes and VPNs.
 #   11. Harden System: Implements basic security enhancements and enables services.
@@ -100,7 +99,6 @@ LOG_FILE="setup-log-$(date +%F_%H-%M).log"
 readonly LOG_FILE
 
 DEBUG_MODE=false
-NON_INTERACTIVE=false
 
 # --- Usage Information ---
 print_usage() {
@@ -124,28 +122,30 @@ print_usage() {
   echo -e "  ${C_GREEN}--setup-hyprland${C_END}          Enable systemd user services for Hyprland."
   echo -e "  ${C_GREEN}--cleanup${C_END}                 Remove orphaned packages from the system."
   echo -e "  ${C_YELLOW}--debug${C_END}                   Enable verbose command tracing for debugging."
-  echo -e "  ${C_YELLOW}--yes, -y${C_END}                 Bypass all interactive prompts for automated runs."
   echo -e "  ${C_BLUE}--help${C_END}                    Display this help message and exit."
 }
 
 # --- Utility Functions ---
 command_exists() { command -v "$1" &>/dev/null; }
 is_pkg_installed() { pacman -Q "$1" &>/dev/null; }
-run_as_user() { sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export USER='$TARGET_USER'; $*"; }
 
-# Wrapper for package installation commands to ensure interactive progress bars are displayed.
+# De-escalates privileges to run a command as the original user.
+# This ensures correct file ownership and a sanitized environment, making
+# user-specific operations more robust and portable.
+run_as_user() {
+  sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export USER='$TARGET_USER'; $*"
+}
+
+# Wrapper for package installation commands.
 install_pkgs() {
-  # The `script` command is used to fool programs into thinking they are running in an
-  # interactive terminal (TTY), which forces them to show progress bars and colors,
-  # even when the main script's output is being piped to `tee` for logging.
-  # `util-linux`, which provides `script`, is a base dependency, making this reliable.
-  # The typescript file is redirected to /dev/null as we only need the TTY behavior.
-  script -q -c "yay -S --needed --noconfirm $*" /dev/null
+  print_warning "You will be prompted to confirm the installation of the following packages: $*"
+  yay -S --needed "$@"
 }
 
 # Wrapper for package removal commands.
 remove_pkgs() {
-  script -q -c "yay -Rns --noconfirm $*" /dev/null
+  print_warning "You will be prompted to confirm the removal of the following packages: $*"
+  yay -Rns "$@"
 }
 
 # --- Task Functions ---
@@ -177,14 +177,13 @@ pre_flight_checks() {
     fi
   done
   if ((${#missing_pkgs[@]} > 0)); then
-    print_warning "The following dependencies are missing and will be installed: ${missing_pkgs[*]}"
     # First, ensure yay is available to install the dependencies.
     task_setup_aur_helper
     install_pkgs "${missing_pkgs[@]}"
   fi
 
   # Check for required input files
-  local required_files=("packages.txt")
+  local required_files=("packages.txt" "makepkg.conf.txt")
   for file in "${required_files[@]}"; do
     if [[ ! -f "$file" ]]; then
       print_error "Required configuration file '$file' not found. Aborting."
@@ -197,7 +196,7 @@ pre_flight_checks() {
   print_success "Checks passed. Configuring system for user: $TARGET_USER"
 }
 
-# Modifies pacman and makepkg configurations with user verification.
+# Modifies pacman.conf and overwrites makepkg.conf with user verification.
 task_configure_pacman() {
   print_step "Configuring Pacman and Makepkg"
 
@@ -209,7 +208,6 @@ task_configure_pacman() {
   sudo sed -i 's/^#\(DisableDownloadTimeout\)/\1/' /etc/pacman.conf
   sudo sed -i 's/^#\(TotalDownload\)/\1/' /etc/pacman.conf
   sudo sed -i 's/^#\(ParallelDownloads\).*/\1 = 10/' /etc/pacman.conf
-  # Add DownloadUser if it doesn't exist under the [options] section
   if ! grep -q "^DownloadUser" /etc/pacman.conf; then
     sudo sed -i '/^\[options\]/a DownloadUser = alpm' /etc/pacman.conf
   else
@@ -217,20 +215,14 @@ task_configure_pacman() {
   fi
   print_success "pacman.conf modifications applied."
 
-  # --- Modify makepkg.conf ---
-  print_info "Modifying /etc/makepkg.conf..."
-  sudo sed -i 's/^CARCH=.*/CARCH="x86_64"/' /etc/makepkg.conf
-  sudo sed -i 's/^CHOST=.*/CHOST="x86_64-pc-linux-gnu"/' /etc/makepkg.conf
-  sudo sed -i 's/^#PACKAGECARCH=.*/PACKAGECARCH="x86_64"/' /etc/makepkg.conf
-  sudo sed -i "s|^CFLAGS=.*|CFLAGS=\"-march=native -O3 -pipe -fno-plt -fexceptions -Wp,-D_FORTIFY_SOURCE=3 -Wformat -Werror=format-security -fstack-clash-protection -fcf-protection\"|" /etc/makepkg.conf
-  sudo sed -i "s|^CXXFLAGS=.*|CXXFLAGS=\"\$CFLAGS -Wp,-D_GLIBCXX_ASSERTIONS\"|" /etc/makepkg.conf
-  sudo sed -i "s|^LDFLAGS=.*|LDFLAGS=\"-Wl,-O1 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,-z,pack-relative-relocs\"|" /etc/makepkg.conf
-  sudo sed -i "s|^#LTOFLAGS=.*|LTOFLAGS=\"-flto=auto\"|" /etc/makepkg.conf
-  sudo sed -i "s/^#MAKEFLAGS=.*/MAKEFLAGS=\"-j\$(nproc)\"/" /etc/makepkg.conf
-  sudo sed -i "s/^#NINJAFLAGS=.*/NINJAFLAGS=\"-j\$(nproc)\"/" /etc/makepkg.conf
-  sudo sed -i "s/^#DEBUG_CFLAGS=.*/DEBUG_CFLAGS=\"-g\"/" /etc/makepkg.conf
-  sudo sed -i "s/^#DEBUG_CXXFLAGS=.*/DEBUG_CXXFLAGS=\"\$DEBUG_CFLAGS\"/" /etc/makepkg.conf
-  print_success "makepkg.conf modifications applied."
+  # --- Overwrite makepkg.conf ---
+  print_info "Overwriting /etc/makepkg.conf with contents from makepkg.conf.txt..."
+  if sudo cp "makepkg.conf.txt" "/etc/makepkg.conf"; then
+    print_success "Successfully updated /etc/makepkg.conf."
+  else
+    print_error "Failed to copy makepkg.conf.txt to /etc/makepkg.conf. Aborting."
+    exit 1
+  fi
 
   # --- Interactive Verification Loop ---
   local verified=false
@@ -244,11 +236,6 @@ task_configure_pacman() {
     echo "--------------------------------------------------"
     cat /etc/makepkg.conf
     echo "--------------------------------------------------"
-
-    if [ "$NON_INTERACTIVE" = true ]; then
-      print_info "--yes flag detected. Proceeding automatically."
-      break
-    fi
 
     read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Are these configurations okay? [Y/n/edit]: ${C_END}")" -r choice
     case "$choice" in
@@ -323,30 +310,31 @@ task_setup_extra_repos() {
     print_success "BlackArch repository setup finished."
   fi
 
-  print_info "Synchronizing databases and upgrading system with yay..."
-  yay -Syyuu --noconfirm
+  print_info "Synchronizing databases and upgrading system..."
+  print_warning "You will be prompted to confirm the system upgrade."
+  yay -Syyu
 
 }
 
-# Installs 'yay' as the AUR helper.
+# Installs 'yay-bin' as the AUR helper.
 task_setup_aur_helper() {
-  print_step "Setting up AUR Helper (yay)"
+  print_step "Setting up AUR Helper (yay-bin)"
   if command_exists yay; then
     print_success "AUR helper 'yay' is already installed."
     return
   fi
 
-  print_info "Installing 'yay' from the AUR..."
-  # 'yay' requires 'git' and 'base-devel', which are checked in pre_flight_checks
+  print_info "Installing 'yay-bin' from the AUR..."
   local tmp_dir
   tmp_dir=$(mktemp -d)
   TEMP_FILES+=("$tmp_dir")
-  sudo git clone https://aur.archlinux.org/yay.git "$tmp_dir"
+  sudo git clone https://aur.archlinux.org/yay-bin.git "$tmp_dir"
   sudo chown -R "$TARGET_USER:$TARGET_USER" "$tmp_dir"
   (
     cd "$tmp_dir"
-    print_info "Compiling and installing 'yay'. This may take a moment..."
-    run_as_user "script -q -c 'makepkg -si --noconfirm' /dev/null"
+    print_info "Building and installing 'yay-bin'. This may take a moment..."
+    print_warning "You will be prompted to confirm the build and installation."
+    run_as_user "makepkg -si"
   )
   print_success "'yay' has been installed successfully."
 }
@@ -401,15 +389,12 @@ EOF
     )
     echo "$g14_repo_conf" | sudo tee -a /etc/pacman.conf >/dev/null
     print_info "Synchronizing databases with the new repository..."
-    # Run interactively
     yay -Syu
   fi
 
   print_info "Installing ASUS-specific packages from the g14 repository..."
-  print_warning "You will now be prompted by yay to confirm the installation."
   local asus_packages=("asusctl" "power-profiles-daemon" "supergfxctl" "switcheroo-control" "rog-control-center")
-  # Run interactively by removing --noconfirm
-  yay -S --needed "${asus_packages[@]}"
+  install_pkgs "${asus_packages[@]}"
 
   print_info "Enabling required system services for ASUS hardware..."
   local asus_services=("power-profiles-daemon.service" "supergfxd.service" "switcheroo-control.service")
@@ -430,7 +415,6 @@ EOF
 task_setup_greetd() {
   print_step "Setting up greetd and tuigreet"
 
-  print_info "Installing greetd and tuigreet..."
   install_pkgs greetd greetd-tuigreet
 
   print_info "Configuring greetd to use tuigreet with Hyprland..."
@@ -445,19 +429,16 @@ command = "tuigreet --cmd Hyprland"
 user = "greeter"
 EOF
   )
-  # Ensure the directory exists and write the configuration
   sudo mkdir -p /etc/greetd
   echo "$greetd_config_content" | sudo tee /etc/greetd/config.toml >/dev/null
   print_success "greetd configuration written to /etc/greetd/config.toml."
 
-  # Disable and remove SDDM if it exists
   print_info "Checking for and removing SDDM..."
   if is_pkg_installed sddm; then
     if systemctl is-enabled --quiet sddm.service &>/dev/null; then
       print_info "Disabling SDDM service..."
       sudo systemctl disable sddm.service
     fi
-    print_info "Uninstalling SDDM package..."
     remove_pkgs sddm
     print_success "SDDM has been removed."
   else
@@ -476,27 +457,22 @@ task_setup_nix() {
 
   local nix_daemon_profile="/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
 
-  # Check for the existence of the /nix/store directory as the primary indicator of installation.
   if [ ! -d "/nix/store" ]; then
     print_info "Nix installation not found. Installing with the Determinate Systems installer..."
-    # The installer is downloaded and executed here.
     curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate
   else
     print_success "Nix appears to be already installed. Skipping installation."
   fi
 
-  # After installation (or if already installed), source the profile to set up the environment.
   if [ -f "$nix_daemon_profile" ]; then
     print_info "Sourcing Nix environment profile for this session..."
     # shellcheck disable=SC1090
     . "$nix_daemon_profile"
   else
-    print_error "Nix profile script '$nix_daemon_profile' not found. Cannot proceed with Nix configuration."
-    print_warning "This might indicate a broken or incomplete Nix installation."
+    print_error "Nix profile script '$nix_daemon_profile' not found. Cannot proceed."
     return 1
   fi
 
-  # Verify that the 'nix' command is now available after sourcing the profile.
   if ! command_exists nix; then
     print_error "'nix' command is not available even after sourcing the profile. Aborting Nix setup."
     return 1
@@ -515,7 +491,6 @@ EOF
   run_as_user "mkdir -p '$nix_config_dir'"
   run_as_user "echo -e \"$nix_conf_content\" > \"$nix_config_file\""
 
-  # Define a prefix to source the nix profile inside the 'run_as_user' subshell.
   local nix_cmd_prefix=". '$nix_daemon_profile';"
 
   print_info "Initializing Home-Manager..."
@@ -529,8 +504,8 @@ EOF
   local hm_config_repo_url="https://github.com/aahsnr-configs/home-manager.git"
   local hm_config_dir="$USER_HOME/.config/home-manager"
   if run_as_user "[ -d '$hm_config_dir' ]"; then
-    print_success "Custom Home-Manager configuration already cloned to '$hm_config_dir'."
-    print_info "Attempting to pull latest changes for Home-Manager configuration..."
+    print_success "Custom Home-Manager configuration already cloned."
+    print_info "Attempting to pull latest changes..."
     if ! run_as_user "git -C '$hm_config_dir' pull origin master"; then
       print_warning "Failed to pull latest Home-Manager configuration."
     else
@@ -551,17 +526,16 @@ EOF
 
   local hm_session_vars="$USER_HOME/.nix-profile/etc/profile.d/hm-session-vars.sh"
   if run_as_user "[ -f '$hm_session_vars' ]"; then
-    print_info "Sourcing Home-Manager session variables for the current script's environment."
+    print_info "Sourcing Home-Manager session variables..."
     run_as_user ". '$hm_session_vars'"
-    print_success "Home-Manager environment variables applied to current script session."
   else
-    print_warning "Home-Manager session variables file '$hm_session_vars' not found after switch."
+    print_warning "Home-Manager session variables file not found after switch."
   fi
 
   print_success "Nix, Home-Manager, and Flakes setup complete."
 }
 
-# Reads the package list from 'packages.txt' and installs them using yay.
+# Reads the package list from 'packages.txt' and installs them.
 task_install_packages() {
   print_step "Installing System Packages from File"
   mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "packages.txt")
@@ -569,13 +543,13 @@ task_install_packages() {
     print_warning "No packages found in 'packages.txt'. Skipping."
     return
   fi
-  print_info "Installing/updating ${#packages_to_install[@]} packages from official repos and the AUR..."
   install_pkgs "${packages_to_install[@]}"
 }
 
 # Installs third-party software that is not available in standard repositories.
+# Installs third-party software that is not available in standard repositories.
 task_manual_installations() {
-  print_step "Performing Manual Installations (as User)"
+  print_step "Performing Manual Installations"
 
   # Install Private Internet Access (PIA) VPN
   if command_exists pia-client; then
@@ -591,9 +565,40 @@ task_manual_installations() {
     wget -O "$pia_installer" "$pia_url"
     chmod +x "$pia_installer"
     print_warning "The PIA installer will now launch. It may prompt for an administrative password."
-    # Installer handles its own privilege escalation.
     bash "$pia_installer"
     print_success "PIA VPN installation process finished."
+  fi
+
+  # Install Caelestia Shell
+  local caelestia_dir="$USER_HOME/.config/quickshell/caelestia"
+  if run_as_user "[ -d '$caelestia_dir' ]"; then
+    print_success "Caelestia Shell appears to be already installed."
+  else
+    print_info "Installing Caelestia Shell..."
+    install_pkgs cmake ninja
+
+    print_info "Creating configuration directory..."
+    run_as_user "mkdir -p '$USER_HOME/.config/quickshell'"
+    print_info "Cloning Caelestia Shell repository..."
+    run_as_user "git clone https://github.com/caelestia-dots/shell.git '$caelestia_dir'"
+
+    # Use a subshell to scope the 'cd' command for the build and install process.
+    (
+      set -e
+      cd "$caelestia_dir"
+
+      print_info "Configuring build with CMake..."
+      # The run_as_user function starts a new shell, so we must explicitly tell it to cd first.
+      run_as_user "cd '$PWD' && cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/"
+
+      print_info "Building Caelestia Shell..."
+      run_as_user "cd '$PWD' && cmake --build build"
+
+      print_info "Installing Caelestia Shell system-wide..."
+      # sudo inherits the current working directory, so this command is now correct and clean.
+      sudo cmake --install build
+    )
+    print_success "Caelestia Shell installation finished."
   fi
 }
 
@@ -602,7 +607,6 @@ task_harden_system() {
   print_step "Applying System Security Hardening"
 
   # --- 1. Install Security Packages ---
-  print_info "Installing security and monitoring packages..."
   local security_packages=(
     acct apparmor apparmor.d-git audit arch-audit openssh procps-ng rng-tools
     sysstat haveged lynis-git libpwquality bleachbit xorg-xinit stacer-bin
@@ -611,7 +615,7 @@ task_harden_system() {
   install_pkgs "${security_packages[@]}"
 
   # --- 2. Enable Core Services ---
-  print_info "Enabling system-wide services for security and performance..."
+  print_info "Enabling system-wide services..."
   local system_services=(acct auditd apparmor bluetooth haveged rngd sshd)
   for service in "${system_services[@]}"; do
     if systemctl list-unit-files | grep -q "^${service}.service"; then
@@ -625,34 +629,7 @@ task_harden_system() {
     fi
   done
 
-  # --- 3. Harden Bootloader ---
-  print_info "Configuring kernel parameters for enhanced security..."
-  local kernel_params="lsm=landlock,lockdown,yama,integrity,apparmor,bpf audit=1"
-  local grub_cfg="/etc/default/grub"
-  local systemd_boot_entry
-  systemd_boot_entry=$(find /boot/loader/entries -type f -name "*.conf" 2>/dev/null | head -n 1)
-
-  if [ -f "$grub_cfg" ]; then
-    if ! grep -q "GRUB_CMDLINE_LINUX.*$kernel_params" "$grub_cfg"; then
-      sudo sed -i "s/^\(GRUB_CMDLINE_LINUX=\"\)/\1$kernel_params /" "$grub_cfg"
-      sudo grub-mkconfig -o /boot/grub/grub.cfg
-      print_success "Kernel parameters added to GRUB."
-    else
-      print_success "Kernel parameters already set in GRUB."
-    fi
-  elif [ -n "$systemd_boot_entry" ]; then
-    if ! grep -q "options.*$kernel_params" "$systemd_boot_entry"; then
-      sudo sed -i "s/^\(options.*\)/\1 $kernel_params/" "$systemd_boot_entry"
-      print_success "Kernel parameters added to systemd-boot entry."
-    else
-      print_success "Kernel parameters already set in systemd-boot."
-    fi
-  else
-    print_warning "Could not detect GRUB or systemd-boot. Please add kernel parameters manually."
-  fi
-  print_warning "A REBOOT is required for new kernel parameters to take effect."
-
-  # --- 4. Configure Auditing and AppArmor ---
+  # --- 3. Configure Auditing and AppArmor ---
   print_info "Configuring audit framework..."
   if ! grep -q '^audit:' /etc/group; then
     sudo groupadd -r audit && print_success "Created 'audit' group."
@@ -667,7 +644,7 @@ task_harden_system() {
     print_success "Audit log group already configured."
   fi
 
-  print_info "Creating AppArmor notification service for user $TARGET_USER..."
+  print_info "Creating AppArmor notification service..."
   run_as_user "mkdir -p '$USER_HOME/.config/autostart'"
   local apparmor_desktop_content
   apparmor_desktop_content=$(
@@ -685,7 +662,7 @@ EOF
   run_as_user "echo -e \"$apparmor_desktop_content\" > \"$USER_HOME/.config/autostart/apparmor-notify.desktop\""
   print_success "AppArmor notifier created."
 
-  # --- 5. Harden SSH and Firewall ---
+  # --- 4. Harden SSH and Firewall ---
   print_info "Hardening OpenSSH server configuration..."
   local sshd_hardening_content
   sshd_hardening_content=$(
@@ -710,7 +687,7 @@ EOF
     print_success "UFW enabled and configured for SSH on port 47."
   fi
 
-  # --- 6. Harden Kernel at Runtime ---
+  # --- 5. Harden Kernel at Runtime ---
   print_info "Applying custom sysctl kernel settings..."
   local sysctl_file="/etc/sysctl.d/99-custom-hardening.conf"
   local sysctl_content
@@ -730,14 +707,14 @@ EOF
   sudo sysctl -p "$sysctl_file"
   print_success "Runtime kernel parameters have been applied."
 
-  # --- 7. Harden /proc Filesystem ---
+  # --- 6. Harden /proc Filesystem ---
   print_info "Hardening /proc filesystem with hidepid..."
   if ! grep -q '^proc:' /etc/group; then
     sudo groupadd -r proc && print_success "Created 'proc' group for hidepid."
   fi
   if ! grep "^\s*proc\s*/proc" /etc/fstab | grep -q "hidepid=2"; then
     sudo sed -i 's|^\s*proc\s*/proc.*|proc /proc proc nosuid,nodev,noexec,hidepid=2,gid=proc 0 0|' /etc/fstab
-    print_info "Modified fstab for hidepid. Remounting /proc to apply changes now..."
+    print_info "Modified fstab for hidepid. Remounting /proc..."
     sudo mount -o remount /proc
     print_success "/proc has been remounted with hidepid=2."
   else
@@ -759,15 +736,15 @@ task_configure_user() {
   print_step "Configuring User Environment for $TARGET_USER"
 
   if command_exists setup-github-keys; then
-    print_info "Executing 'setup-github-keys' for user '$TARGET_USER'..."
+    print_info "Executing 'setup-github-keys'..."
     run_as_user "setup-github-keys"
   fi
 
-  if [ -d "$DOTFILES_DIR" ]; then
+  if run_as_user "[ -d '$DOTFILES_DIR' ]"; then
     print_success "Dotfiles directory already exists."
   else
     print_info "Cloning Hyprland dotfiles..."
-    run_as_user "git clone $DOTFILES_REPO_URL $DOTFILES_DIR"
+    run_as_user "git clone '$DOTFILES_REPO_URL' '$DOTFILES_DIR'"
   fi
 
   local nix_fish_path="$USER_HOME/.nix-profile/bin/fish"
@@ -804,12 +781,15 @@ task_setup_hyprland() {
 task_cleanup() {
   print_step "Cleaning Up System"
 
-  print_info "Removing any orphaned packages with yay..."
-  # yay -Yc cleans up unneeded dependencies and other unneeded files.
-  yay -Yc --noconfirm
-  print_success "Yay cleanup complete."
+  print_info "Checking for orphaned packages..."
+  if pacman -Qtdq >/dev/null; then
+    print_warning "The following orphaned packages will be removed:"
+    pacman -Qtd | awk '{print "  - " $1 " " $2}'
+    yay -Rns "$(pacman -Qtdq)"
+  else
+    print_success "No orphaned packages to remove."
+  fi
 
-  # Clean up Nix store if Nix is installed
   if command_exists nix; then
     print_info "Cleaning up Nix store by removing old generations..."
     run_as_user "nix-collect-garbage -d"
@@ -897,10 +877,6 @@ main() {
         DEBUG_MODE=true
         shift
         ;;
-      -y | --yes)
-        NON_INTERACTIVE=true
-        shift
-        ;;
       --help)
         print_usage
         exit 0
@@ -924,8 +900,8 @@ main() {
   if [ "$RUN_ALL" = true ]; then
     print_step "Full Installation Plan Summary"
     echo "This script will perform a full setup of a Hyprland desktop on Arch Linux."
-    [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Do you want to begin? [y/N]: ${C_END}")" -r choice
-    if [[ "$NON_INTERACTIVE" = false && ! "$choice" =~ ^[Yy]$ ]]; then
+    read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Do you want to begin? [y/N]: ${C_END}")" -r choice
+    if [[ ! "$choice" =~ ^[Yy]$ ]]; then
       print_info "Aborting."
       exit 0
     fi
@@ -934,14 +910,13 @@ main() {
     task_setup_extra_repos
     task_setup_aur_helper
 
-    # Optional Kernel and Hardware-specific checks
     if grep -q "\[cachyos\]" /etc/pacman.conf; then
-      [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} CachyOS repo detected. Install optimized kernel and NVIDIA drivers? [Y/n]: ${C_END}")" -r cachyos_choice
-      if [[ "$NON_INTERACTIVE" = true || ! "$cachyos_choice" =~ ^[Nn]$ ]]; then task_kernel_and_drivers; fi
+      read -p "$(echo -e "${C_CYAN}${I_PROMPT} CachyOS repo detected. Install optimized kernel and NVIDIA drivers? [Y/n]: ${C_END}")" -r cachyos_choice
+      if [[ ! "$cachyos_choice" =~ ^[Nn]$ ]]; then task_kernel_and_drivers; fi
     fi
     if sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
-      [ "$NON_INTERACTIVE" = false ] && read -p "$(echo -e "${C_CYAN}${I_PROMPT} ASUS hardware detected. Install specific tools? [Y/n]: ${C_END}")" -r asus_choice
-      if [[ "$NON_INTERACTIVE" = true || ! "$asus_choice" =~ ^[Nn]$ ]]; then task_setup_asus; fi
+      read -p "$(echo -e "${C_CYAN}${I_PROMPT} ASUS hardware detected. Install specific tools? [Y/n]: ${C_END}")" -r asus_choice
+      if [[ ! "$asus_choice" =~ ^[Nn]$ ]]; then task_setup_asus; fi
     fi
 
     task_setup_greetd
@@ -962,18 +937,13 @@ main() {
 
 # --- Script Entry Point ---
 
-# First, ensure we are running with bash. If not, re-execute the script with bash,
-# passing along all original arguments.
-# The BASH_VERSION variable is only set in bash, so this check is reliable.
+# First, ensure we are running with bash. If not, re-execute the script with bash.
 if [ -z "$BASH_VERSION" ]; then
   echo "This script requires bash. Attempting to re-execute with bash..." >&2
   exec bash "$0" "$@"
-  # The script will exit here if re-execution is successful.
-  # If exec fails for some reason, we should exit with an error.
   echo "Failed to re-execute with bash. Please run the script using 'bash $0'." >&2
   exit 1
 fi
 
-# Now that we are sure we're running in bash, call the main function
-# with all the script's arguments.
+# Call the main function with all script arguments.
 main "$@"

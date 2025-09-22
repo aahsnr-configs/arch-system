@@ -1,6 +1,0 @@
-acct
-auditd
-apparmor
-haveged
-rngd
-sshd

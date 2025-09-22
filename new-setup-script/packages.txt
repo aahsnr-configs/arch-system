@@ -6,6 +6,7 @@ btop
 brightnessctl
 caelestia-cli
 cliphist
+cmake
 dart-sass
 dconf
 ddcutil
@@ -20,10 +21,8 @@ gpu-screen-recorder
 grim
 gtk4
 gvfs
-hypridle
 hyprland
 hyprpicker
-hyprsunset
 imv
 inotify-tools
 jq
@@ -33,10 +32,12 @@ libnotify
 libpipewire
 libqalculate
 libcava
+limine-mkinitcpio-hook
 lm_sensors
 matugen-bin
 networkmanager
 neovim
+ninja
 nodejs-neovim
 onlyoffice-bin
 papirus-icon-theme
