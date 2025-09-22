@@ -19,18 +19,17 @@
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
 #   2.  Configure Pacman: Optimizes pacman.conf and makepkg.conf with interactive verification.
 #   3.  Setup Extra Repos (Optional): Adds CachyOS and BlackArch repositories.
-#   4.  Setup AUR Helper: Installs 'paru' for seamless access to the Arch User Repository.
+#   4.  Setup AUR Helper: Installs 'yay' for seamless access to the Arch User Repository.
 #   5.  Install Kernel and Drivers (Optional): Installs the CachyOS kernel and NVIDIA drivers.
 #   6.  Setup for ASUS Laptops (Optional): Adds the g14 repo and installs specific tools.
 #   7.  Setup Greeter: Configures greetd and tuigreet as the login manager.
-#   8.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
+#   8.  Setup Nix & Home-Manager (Optional): Installs and newpages Nix with flakes.
 #   9.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
 #   10. Manual Installs: Installs third-party software like themes and VPNs.
-#   11. Install Python Packages (Optional): Sets up a Python environment using 'uv'.
-#   12. Harden System: Implements basic security enhancements and enables services.
-#   13. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
-#   14. Setup Hyprland: Enables the necessary systemd user services.
-#   15. Cleanup: Removes orphaned packages and cleans the Nix store.
+#   11. Harden System: Implements basic security enhancements and enables services.
+#   12. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
+#   13. Setup Hyprland: Enables the necessary systemd user services.
+#   14. Cleanup: Removes orphaned packages and cleans the Nix store.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -113,14 +112,13 @@ print_usage() {
   echo -e "${C_HEADER}Options:${C_END}"
   echo -e "  ${C_GREEN}--configure-pacman${C_END}        Optimize pacman.conf and makepkg.conf."
   echo -e "  ${C_GREEN}--setup-extra-repos${C_END}       Set up CachyOS and BlackArch repositories."
-  echo -e "  ${C_GREEN}--setup-aur${C_END}               Install and configure the 'paru' AUR helper."
+  echo -e "  ${C_GREEN}--setup-aur${C_END}               Install and configure the 'yay' AUR helper."
   echo -e "  ${C_GREEN}--kernel-and-drivers${C_END}      Install CachyOS kernel and NVIDIA drivers."
   echo -e "  ${C_GREEN}--setup-asus${C_END}              Run specific setup for ASUS laptops."
   echo -e "  ${C_GREEN}--setup-greetd${C_END}            Setup greetd and tuigreet as the login manager."
   echo -e "  ${C_GREEN}--setup-nix${C_END}               Install and configure Nix with Home-Manager."
   echo -e "  ${C_GREEN}--install-packages${C_END}        Install packages from 'packages.txt'."
   echo -e "  ${C_GREEN}--manual-installs${C_END}         Perform manual installation of third-party software."
-  echo -e "  ${C_GREEN}--install-python-packages${C_END} Install Python packages from 'requirements.in' using uv."
   echo -e "  ${C_GREEN}--harden-system${C_END}           Implement basic security enhancements."
   echo -e "  ${C_GREEN}--configure-user${C_END}          Set up the user's environment."
   echo -e "  ${C_GREEN}--setup-hyprland${C_END}          Enable systemd user services for Hyprland."
@@ -142,7 +140,12 @@ install_pkgs() {
   # even when the main script's output is being piped to `tee` for logging.
   # `util-linux`, which provides `script`, is a base dependency, making this reliable.
   # The typescript file is redirected to /dev/null as we only need the TTY behavior.
-  script -q -c "paru -S --needed --noconfirm $*" /dev/null
+  script -q -c "yay -S --needed --noconfirm $*" /dev/null
+}
+
+# Wrapper for package removal commands.
+remove_pkgs() {
+  script -q -c "yay -Rns --noconfirm $*" /dev/null
 }
 
 # --- Task Functions ---
@@ -175,7 +178,9 @@ pre_flight_checks() {
   done
   if ((${#missing_pkgs[@]} > 0)); then
     print_warning "The following dependencies are missing and will be installed: ${missing_pkgs[*]}"
-    sudo pacman -S --needed --noconfirm "${missing_pkgs[@]}"
+    # First, ensure yay is available to install the dependencies.
+    task_setup_aur_helper
+    install_pkgs "${missing_pkgs[@]}"
   fi
 
   # Check for required input files
@@ -318,37 +323,32 @@ task_setup_extra_repos() {
     print_success "BlackArch repository setup finished."
   fi
 
-  print_info "Synchronizing pacman databases after repo changes..."
-  sudo pacman -Sy
+  print_info "Synchronizing databases and upgrading system with yay..."
+  yay -Syyuu --noconfirm
 
-  print_info "Running garuda-update to refresh system components..."
-  if command_exists garuda-update; then
-    sudo garuda-update
-    print_success "garuda-update completed."
-  else
-    print_warning "'garuda-update' command not found. Skipping."
-  fi
 }
 
-# Installs 'paru' as the AUR helper.
+# Installs 'yay' as the AUR helper.
 task_setup_aur_helper() {
-  print_step "Setting up AUR Helper (paru)"
-  if command_exists paru; then
-    print_success "AUR helper 'paru' is already installed."
+  print_step "Setting up AUR Helper (yay)"
+  if command_exists yay; then
+    print_success "AUR helper 'yay' is already installed."
     return
   fi
 
-  print_info "Installing 'paru' from the AUR..."
+  print_info "Installing 'yay' from the AUR..."
+  # 'yay' requires 'git' and 'base-devel', which are checked in pre_flight_checks
   local tmp_dir
   tmp_dir=$(mktemp -d)
   TEMP_FILES+=("$tmp_dir")
-  run_as_user "git clone https://aur.archlinux.org/paru.git '$tmp_dir'"
+  sudo git clone https://aur.archlinux.org/yay.git "$tmp_dir"
+  sudo chown -R "$TARGET_USER:$TARGET_USER" "$tmp_dir"
   (
     cd "$tmp_dir"
-    print_info "Compiling and installing 'paru'. This may take a moment..."
+    print_info "Compiling and installing 'yay'. This may take a moment..."
     run_as_user "script -q -c 'makepkg -si --noconfirm' /dev/null"
   )
-  print_success "'paru' has been installed successfully."
+  print_success "'yay' has been installed successfully."
 }
 
 # Installs the CachyOS kernel and corresponding NVIDIA drivers.
@@ -400,16 +400,16 @@ Server = https://arch.asus-linux.org
 EOF
     )
     echo "$g14_repo_conf" | sudo tee -a /etc/pacman.conf >/dev/null
-    print_info "Synchronizing pacman databases with the new repository..."
+    print_info "Synchronizing databases with the new repository..."
     # Run interactively
-    sudo pacman -Sy
+    yay -Syu
   fi
 
   print_info "Installing ASUS-specific packages from the g14 repository..."
-  print_warning "You will now be prompted by pacman to confirm the installation."
+  print_warning "You will now be prompted by yay to confirm the installation."
   local asus_packages=("asusctl" "power-profiles-daemon" "supergfxctl" "switcheroo-control" "rog-control-center")
   # Run interactively by removing --noconfirm
-  sudo pacman -S --needed "${asus_packages[@]}"
+  yay -S --needed "${asus_packages[@]}"
 
   print_info "Enabling required system services for ASUS hardware..."
   local asus_services=("power-profiles-daemon.service" "supergfxd.service" "switcheroo-control.service")
@@ -458,7 +458,7 @@ EOF
       sudo systemctl disable sddm.service
     fi
     print_info "Uninstalling SDDM package..."
-    sudo pacman -Rns --noconfirm sddm
+    remove_pkgs sddm
     print_success "SDDM has been removed."
   else
     print_success "SDDM is not installed. Skipping removal."
@@ -561,7 +561,7 @@ EOF
   print_success "Nix, Home-Manager, and Flakes setup complete."
 }
 
-# Reads the package list from 'packages.txt' and installs them using paru.
+# Reads the package list from 'packages.txt' and installs them using yay.
 task_install_packages() {
   print_step "Installing System Packages from File"
   mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "packages.txt")
@@ -595,71 +595,6 @@ task_manual_installations() {
     bash "$pia_installer"
     print_success "PIA VPN installation process finished."
   fi
-}
-
-# Compiles and installs python packages using uv.
-task_install_python_packages() {
-  print_step "Installing Python Packages via uv"
-
-  if [[ ! -f "requirements.in" ]]; then
-    print_warning "File 'requirements.in' not found in the current directory. Skipping Python package installation."
-    return
-  fi
-
-  # Ensure uv and pip are installed
-  print_info "Checking for Python tools 'uv' and 'pip'..."
-  local missing_py_tools=()
-  if ! command_exists uv; then
-    missing_py_tools+=("uv")
-  fi
-  if ! command_exists pip; then
-    missing_py_tools+=("python-pip")
-  fi
-
-  if ((${#missing_py_tools[@]} > 0)); then
-    print_info "Installing missing Python tools: ${missing_py_tools[*]}"
-    install_pkgs "${missing_py_tools[@]}"
-    print_success "Python tools installed."
-  else
-    print_success "'uv' and 'pip' are already installed."
-  fi
-
-  print_info "Compiling 'requirements.in' to 'requirements.txt'..."
-  if ! run_as_user "uv pip compile requirements.in -o requirements.txt"; then
-    print_error "Failed to compile 'requirements.in'. Please check the file for errors."
-    return 1
-  fi
-  print_success "'requirements.txt' generated successfully."
-
-  print_info "Setting up Python virtual environment and installing packages..."
-  local setup_py_env_script
-  setup_py_env_script=$(
-    cat <<'EOF'
-# Set default XDG_STATE_HOME if not set
-export XDG_STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
-VENV_PATH="$XDG_STATE_HOME/quickshell/.venv"
-
-echo "Python virtual environment will be set up at: $VENV_PATH"
-mkdir -p "$VENV_PATH"
-
-# Create the virtual environment
-export UV_NO_MODIFY_PATH=1
-uv venv --prompt .venv "$VENV_PATH" -p 3.12
-
-# Activate and install packages
-source "$VENV_PATH/bin/activate"
-uv pip install -r requirements.txt
-deactivate
-EOF
-  )
-
-  if ! run_as_user "$setup_py_env_script"; then
-    print_error "Failed to set up Python virtual environment or install packages."
-    return 1
-  fi
-
-  print_success "Python package setup complete."
-  print_info "The environment is located at: \$XDG_STATE_HOME/quickshell/.venv"
 }
 
 # Applies system-wide security hardening configurations.
@@ -835,14 +770,14 @@ task_configure_user() {
     run_as_user "git clone $DOTFILES_REPO_URL $DOTFILES_DIR"
   fi
 
-  local nix_zsh_path="$USER_HOME/.nix-profile/bin/zsh"
-  if [ -f "$nix_zsh_path" ] && ! grep -qFx "$nix_zsh_path" /etc/shells; then
-    print_info "Adding Nix Zsh to /etc/shells..."
-    echo "$nix_zsh_path" | sudo tee -a /etc/shells >/dev/null
+  local nix_fish_path="$USER_HOME/.nix-profile/bin/fish"
+  if [ -f "$nix_fish_path" ] && ! grep -qFx "$nix_fish_path" /etc/shells; then
+    print_info "Adding Nix Fish to /etc/shells..."
+    echo "$nix_fish_path" | sudo tee -a /etc/shells >/dev/null
   fi
 
   local target_shell
-  target_shell=$([ -f "$nix_zsh_path" ] && echo "$nix_zsh_path" || echo "/usr/bin/zsh")
+  target_shell=$([ -f "$nix_fish_path" ] && echo "$nix_fish_path" || echo "/usr/bin/fish")
   print_info "Setting default shell for '$TARGET_USER' to '$target_shell'."
   sudo chsh -s "$target_shell" "$TARGET_USER"
 
@@ -869,12 +804,10 @@ task_setup_hyprland() {
 task_cleanup() {
   print_step "Cleaning Up System"
 
-  print_info "Removing any orphaned pacman packages..."
-  # Check if there are any orphans before trying to remove them
-  if pacman -Qtdq >/dev/null; then
-    sudo pacman -Rns --noconfirm "$(pacman -Qtdq)"
-  fi
-  print_success "Pacman cleanup complete."
+  print_info "Removing any orphaned packages with yay..."
+  # yay -Yc cleans up unneeded dependencies and other unneeded files.
+  yay -Yc --noconfirm
+  print_success "Yay cleanup complete."
 
   # Clean up Nix store if Nix is installed
   if command_exists nix; then
@@ -938,11 +871,6 @@ main() {
       --manual-installs)
         RUN_ALL=false
         task_manual_installations
-        shift
-        ;;
-      --install-python-packages)
-        RUN_ALL=false
-        task_install_python_packages
         shift
         ;;
       --harden-system)
@@ -1020,7 +948,6 @@ main() {
     task_setup_nix
     task_install_packages
     task_manual_installations
-    task_install_python_packages
     task_harden_system
     task_configure_user
     task_setup_hyprland
