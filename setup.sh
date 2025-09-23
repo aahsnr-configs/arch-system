@@ -27,8 +27,7 @@
 #   10. Manual Installs: Installs third-party software like themes and VPNs.
 #   11. Harden System: Implements basic security enhancements and enables services.
 #   12. Configure User: Sets up the user's dotfiles, shell, and SSH keys.
-#   13. Setup Hyprland: Enables the necessary systemd user services.
-#   14. Cleanup: Removes orphaned packages and cleans the Nix store.
+#   13. Cleanup: Removes orphaned packages and cleans the Nix store.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -92,8 +91,10 @@ if ! USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6); then
 fi
 readonly USER_HOME
 
-readonly DOTFILES_REPO_URL="https://github.com/aahsnr-configs/.hyprdots.git"
-readonly DOTFILES_DIR="$USER_HOME/.hyprdots"
+# Set up script-relative directories
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+readonly SCRIPT_DIR
+readonly PRECONFIG_DIR="$SCRIPT_DIR/preconfig"
 
 LOG_FILE="setup-log-$(date +%F_%H-%M).log"
 readonly LOG_FILE
@@ -119,7 +120,6 @@ print_usage() {
   echo -e "  ${C_GREEN}--manual-installs${C_END}         Perform manual installation of third-party software."
   echo -e "  ${C_GREEN}--harden-system${C_END}           Implement basic security enhancements."
   echo -e "  ${C_GREEN}--configure-user${C_END}          Set up the user's environment."
-  echo -e "  ${C_GREEN}--setup-hyprland${C_END}          Enable systemd user services for Hyprland."
   echo -e "  ${C_GREEN}--cleanup${C_END}                 Remove orphaned packages from the system."
   echo -e "  ${C_YELLOW}--debug${C_END}                   Enable verbose command tracing for debugging."
   echo -e "  ${C_BLUE}--help${C_END}                    Display this help message and exit."
@@ -183,7 +183,7 @@ pre_flight_checks() {
   fi
 
   # Check for required input files
-  local required_files=("packages.txt" "makepkg.conf.txt")
+  local required_files=("$PRECONFIG_DIR/packages.txt" "$PRECONFIG_DIR/makepkg.conf.txt" "$PRECONFIG_DIR/99-custom-env.sh.txt")
   for file in "${required_files[@]}"; do
     if [[ ! -f "$file" ]]; then
       print_error "Required configuration file '$file' not found. Aborting."
@@ -199,6 +199,12 @@ pre_flight_checks() {
 # Modifies pacman.conf and overwrites makepkg.conf with user verification.
 task_configure_pacman() {
   print_step "Configuring Pacman and Makepkg"
+
+  # --- Copy custom environment variables ---
+  print_info "Copying custom environment variables to /etc/profile.d/..."
+  sudo cp "$PRECONFIG_DIR/99-custom-env.sh.txt" "/etc/profile.d/99-custom-env.sh"
+  sudo chmod +x "/etc/profile.d/99-custom-env.sh"
+  print_success "Custom environment variables installed."
 
   # --- Modify pacman.conf ---
   print_info "Modifying /etc/pacman.conf..."
@@ -217,7 +223,7 @@ task_configure_pacman() {
 
   # --- Overwrite makepkg.conf ---
   print_info "Overwriting /etc/makepkg.conf with contents from makepkg.conf.txt..."
-  if sudo cp "makepkg.conf.txt" "/etc/makepkg.conf"; then
+  if sudo cp "$PRECONFIG_DIR/makepkg.conf.txt" "/etc/makepkg.conf"; then
     print_success "Successfully updated /etc/makepkg.conf."
   else
     print_error "Failed to copy makepkg.conf.txt to /etc/makepkg.conf. Aborting."
@@ -397,16 +403,13 @@ EOF
   install_pkgs "${asus_packages[@]}"
 
   print_info "Enabling required system services for ASUS hardware..."
-  local asus_services=("power-profiles-daemon.service" "supergfxd.service" "switcheroo-control.service")
   sudo systemctl daemon-reload
-  for service in "${asus_services[@]}"; do
-    if systemctl list-unit-files | grep -q "^${service}"; then
-      sudo systemctl enable --now "$service"
-      print_success "Enabled '$service'."
-    else
-      print_warning "Service unit '$service' not found. Skipping."
-    fi
-  done
+  sudo systemctl enable --now power-profiles-daemon.service
+  print_success "Enabled 'power-profiles-daemon.service'."
+  sudo systemctl enable --now supergfxd.service
+  print_success "Enabled 'supergfxd.service'."
+  sudo systemctl enable --now switcheroo-control.service
+  print_success "Enabled 'switcheroo-control.service'."
 
   print_success "ASUS-specific setup complete."
 }
@@ -459,7 +462,7 @@ task_setup_nix() {
 
   if [ ! -d "/nix/store" ]; then
     print_info "Nix installation not found. Installing with the Determinate Systems installer..."
-    curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate
+    run_as_user "curl -fsSL https://install.determinate.systems/nix | sh -s -- install --determinate --no-confirm"
   else
     print_success "Nix appears to be already installed. Skipping installation."
   fi
@@ -498,22 +501,6 @@ EOF
     print_success "Home-Manager seems to be already initialized."
   else
     run_as_user "$nix_cmd_prefix nix run home-manager/master -- init --switch"
-    run_as_user "rm -rf '$USER_HOME/.config/home-manager'"
-  fi
-
-  local hm_config_repo_url="https://github.com/aahsnr-configs/home-manager.git"
-  local hm_config_dir="$USER_HOME/.config/home-manager"
-  if run_as_user "[ -d '$hm_config_dir' ]"; then
-    print_success "Custom Home-Manager configuration already cloned."
-    print_info "Attempting to pull latest changes..."
-    if ! run_as_user "git -C '$hm_config_dir' pull origin master"; then
-      print_warning "Failed to pull latest Home-Manager configuration."
-    else
-      print_success "Pulled latest Home-Manager configuration."
-    fi
-  else
-    print_info "Cloning custom Home-Manager configuration repository..."
-    run_as_user "git clone '$hm_config_repo_url' '$hm_config_dir'"
   fi
 
   print_info "Switching to the new Home-Manager configuration..."
@@ -538,7 +525,7 @@ EOF
 # Reads the package list from 'packages.txt' and installs them.
 task_install_packages() {
   print_step "Installing System Packages from File"
-  mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "packages.txt")
+  mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "$PRECONFIG_DIR/packages.txt")
   if ((${#packages_to_install[@]} == 0)); then
     print_warning "No packages found in 'packages.txt'. Skipping."
     return
@@ -546,7 +533,6 @@ task_install_packages() {
   install_pkgs "${packages_to_install[@]}"
 }
 
-# Installs third-party software that is not available in standard repositories.
 # Installs third-party software that is not available in standard repositories.
 task_manual_installations() {
   print_step "Performing Manual Installations"
@@ -568,38 +554,6 @@ task_manual_installations() {
     bash "$pia_installer"
     print_success "PIA VPN installation process finished."
   fi
-
-  # Install Caelestia Shell
-  local caelestia_dir="$USER_HOME/.config/quickshell/caelestia"
-  if run_as_user "[ -d '$caelestia_dir' ]"; then
-    print_success "Caelestia Shell appears to be already installed."
-  else
-    print_info "Installing Caelestia Shell..."
-    install_pkgs cmake ninja
-
-    print_info "Creating configuration directory..."
-    run_as_user "mkdir -p '$USER_HOME/.config/quickshell'"
-    print_info "Cloning Caelestia Shell repository..."
-    run_as_user "git clone https://github.com/caelestia-dots/shell.git '$caelestia_dir'"
-
-    # Use a subshell to scope the 'cd' command for the build and install process.
-    (
-      set -e
-      cd "$caelestia_dir"
-
-      print_info "Configuring build with CMake..."
-      # The run_as_user function starts a new shell, so we must explicitly tell it to cd first.
-      run_as_user "cd '$PWD' && cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/"
-
-      print_info "Building Caelestia Shell..."
-      run_as_user "cd '$PWD' && cmake --build build"
-
-      print_info "Installing Caelestia Shell system-wide..."
-      # sudo inherits the current working directory, so this command is now correct and clean.
-      sudo cmake --install build
-    )
-    print_success "Caelestia Shell installation finished."
-  fi
 }
 
 # Applies system-wide security hardening configurations.
@@ -618,14 +572,11 @@ task_harden_system() {
   print_info "Enabling system-wide services..."
   local system_services=(acct auditd apparmor bluetooth haveged rngd sshd)
   for service in "${system_services[@]}"; do
-    if systemctl list-unit-files | grep -q "^${service}.service"; then
-      if sudo systemctl enable --now "${service}.service"; then
-        print_success "Successfully enabled and started '$service'."
-      else
-        print_warning "Could not enable '$service'."
-      fi
+    print_info "Attempting to enable and start '$service'..."
+    if sudo systemctl enable --now "${service}.service"; then
+      print_success "Successfully enabled and started '$service'."
     else
-      print_info "Service unit '${service}.service' not found, skipping."
+      print_warning "Could not enable or start '$service'. It may not exist on this system."
     fi
   done
 
@@ -737,42 +688,29 @@ task_configure_user() {
 
   if command_exists setup-github-keys; then
     print_info "Executing 'setup-github-keys'..."
-    run_as_user "setup-github-keys"
+    # Execute directly to inherit the sourced Nix/HM environment
+    setup-github-keys
   fi
 
-  if run_as_user "[ -d '$DOTFILES_DIR' ]"; then
-    print_success "Dotfiles directory already exists."
+  print_info "Setting default shell for '$TARGET_USER' to fish..."
+  if run_as_user "chsh -s $(which fish)"; then
+    print_success "Default shell set to fish."
   else
-    print_info "Cloning Hyprland dotfiles..."
-    run_as_user "git clone '$DOTFILES_REPO_URL' '$DOTFILES_DIR'"
+    print_error "Failed to set fish as the default shell."
   fi
-
-  local nix_fish_path="$USER_HOME/.nix-profile/bin/fish"
-  if [ -f "$nix_fish_path" ] && ! grep -qFx "$nix_fish_path" /etc/shells; then
-    print_info "Adding Nix Fish to /etc/shells..."
-    echo "$nix_fish_path" | sudo tee -a /etc/shells >/dev/null
-  fi
-
-  local target_shell
-  target_shell=$([ -f "$nix_fish_path" ] && echo "$nix_fish_path" || echo "/usr/bin/fish")
-  print_info "Setting default shell for '$TARGET_USER' to '$target_shell'."
-  sudo chsh -s "$target_shell" "$TARGET_USER"
 
   print_info "Configuring NPM global directory."
   run_as_user "mkdir -p '$USER_HOME/.npm-global' && npm config set prefix '$USER_HOME/.npm-global'"
-}
 
-# Enables systemd services required for the Hyprland desktop.
-task_setup_hyprland() {
   print_step "Setting up Hyprland Desktop Services"
   run_as_user "systemctl --user daemon-reload"
   local user_services=("pipewire.service" "pipewire-pulse.service" "wireplumber.service" "hypridle.service" "hyprpaper.service")
   for service in "${user_services[@]}"; do
-    if run_as_user "systemctl --user list-unit-files | grep -q '^${service}'"; then
-      print_info "Enabling user service: $service"
-      run_as_user "systemctl --user enable --now '$service'"
+    print_info "Attempting to enable user service: $service"
+    if run_as_user "systemctl --user enable --now '$service'"; then
+      print_success "Successfully enabled user service '$service'."
     else
-      print_warning "Service unit '$service' not found. Skipping."
+      print_warning "Could not enable user service '$service'. It may not be available."
     fi
   done
 }
@@ -863,11 +801,6 @@ main() {
         task_configure_user
         shift
         ;;
-      --setup-hyprland)
-        RUN_ALL=false
-        task_setup_hyprland
-        shift
-        ;;
       --cleanup)
         RUN_ALL=false
         task_cleanup
@@ -925,7 +858,6 @@ main() {
     task_manual_installations
     task_harden_system
     task_configure_user
-    task_setup_hyprland
     task_cleanup
   fi
 
