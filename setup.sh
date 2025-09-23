@@ -19,15 +19,16 @@
 #   - Fully interactive package management for user confirmation.
 #   - Embedded documentation accessible via '--docs' and per-task via '--<task> --docs'.
 
+#  NOTE:
 # --- Script Task Order (Full Installation) ---
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
 #       (Includes automatic setup of the 'yay' AUR helper if not present).
 #   2.  Initial Setup: Optimizes pacman.conf, makepkg.conf, and environment variables.
-#   3.  Setup Extra Repos (Optional): Adds CachyOS and BlackArch repositories.
-#   4.  Install Kernel and Drivers (Optional): Installs the CachyOS kernel and NVIDIA drivers.
-#   5.  Setup for ASUS Laptops (Optional): Adds the g14 repo and installs specific tools.
+#   3.  Setup Extra Repos: Adds CachyOS and BlackArch repositories.
+#   4.  Install Kernel and Drivers: Installs the CachyOS kernel and NVIDIA drivers.
+#   5.  Setup for ASUS Laptops: Adds the g14 repo and installs specific tools.
 #   6.  Setup Greeter: Configures greetd and tuigreet as the login manager.
-#   7.  Setup Nix & Home-Manager (Optional): Installs and configures Nix with flakes.
+#   7.  Setup Nix & Home-Manager: Installs and configures Nix with flakes.
 #   8.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
 #   9.  Manual Installs: Installs third-party software like themes and VPNs.
 #   10. Harden System: Implements basic security enhancements and enables services.
@@ -116,7 +117,7 @@ DEBUG_MODE=false
 # --- Modular Documentation Functions ---
 
 docs_initial_setup() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --initial-setup ] - Documentation
 
 Configures core system files for a better user experience and performance.
@@ -141,7 +142,7 @@ EOF
 }
 
 docs_setup_extra_repos() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --setup-extra-repos ] - Documentation
 
 Adds and configures third-party pacman repositories.
@@ -160,7 +161,7 @@ EOF
 }
 
 docs_kernel_and_drivers() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --kernel-and-drivers ] - Documentation
 
 Installs the CachyOS kernel and the corresponding open-source NVIDIA drivers.
@@ -186,7 +187,7 @@ EOF
 }
 
 docs_setup_asus() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --setup-asus ] - Documentation
 
 Performs hardware-specific setup for ASUS laptops.
@@ -207,7 +208,7 @@ EOF
 }
 
 docs_setup_greetd() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --setup-greetd ] - Documentation
 
 Configures a lightweight, terminal-based display manager (login screen).
@@ -224,7 +225,7 @@ EOF
 }
 
 docs_setup_nix() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --setup-nix ] - Documentation
 
 Installs and configures the Nix package manager with Home-Manager and Flakes.
@@ -244,7 +245,7 @@ EOF
 }
 
 docs_install_packages() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --install-packages ] - Documentation
 
 The main package installation task.
@@ -262,7 +263,7 @@ EOF
 }
 
 docs_manual_installations() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --manual-installs ] - Documentation
 
 Handles software that cannot be installed through a package manager.
@@ -277,7 +278,7 @@ EOF
 }
 
 docs_harden_system() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --harden-system ] - Documentation
 
 Applies a variety of security enhancements to the system.
@@ -299,7 +300,7 @@ EOF
 }
 
 docs_configure_user() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --configure-user ] - Documentation
 
 Performs user-specific setup for the target user's environment.
@@ -316,7 +317,7 @@ EOF
 }
 
 docs_cleanup() {
-cat <<'EOF'
+  cat <<'EOF'
 [ --cleanup ] - Documentation
 
 Performs system maintenance tasks to free up disk space.
@@ -332,7 +333,7 @@ EOF
 
 # Displays the full, embedded documentation for the entire script.
 print_documentation() {
-    cat <<'EOF'
+  cat <<'EOF'
 ================================================================================
 Hyprland Arch Linux Setup Script - Full Documentation
 ================================================================================
@@ -343,17 +344,17 @@ installation. It is modular, allowing you to run the entire setup at once or
 execute specific tasks individually using flags.
 
 EOF
-    docs_initial_setup
-    docs_setup_extra_repos
-    docs_kernel_and_drivers
-    docs_setup_asus
-    docs_setup_greetd
-    docs_setup_nix
-    docs_install_packages
-    docs_manual_installations
-    docs_harden_system
-    docs_configure_user
-    docs_cleanup
+  docs_initial_setup
+  docs_setup_extra_repos
+  docs_kernel_and_drivers
+  docs_setup_asus
+  docs_setup_greetd
+  docs_setup_nix
+  docs_install_packages
+  docs_manual_installations
+  docs_harden_system
+  docs_configure_user
+  docs_cleanup
 }
 
 # Displays a brief usage summary.
@@ -407,13 +408,13 @@ run_as_user() {
 # when the script's overall output is being redirected to a log file via 'tee'.
 install_pkgs() {
   print_warning "You will be prompted to confirm the installation of the following packages: $*"
-  yay -S --needed "$@" < /dev/tty
+  yay -S --needed "$@" </dev/tty
 }
 
 # Wrapper for package removal commands.
 remove_pkgs() {
   print_warning "You will be prompted to confirm the removal of the following packages: $*"
-  yay -Rns "$@" < /dev/tty
+  yay -Rns "$@" </dev/tty
 }
 
 # --- Task Functions ---
@@ -428,11 +429,11 @@ task_setup_aur_helper() {
 
   print_step "Setting up AUR Helper (yay)"
   print_info "Installing 'yay-bin' from the AUR..."
-  
+
   # Ensure base-devel and git are present before trying to build anything from the AUR.
   if ! is_pkg_installed git || ! is_pkg_installed make; then
-      print_info "Installing 'git' and 'base-devel' to build the AUR helper..."
-      sudo pacman -S --needed --noconfirm git base-devel
+    print_info "Installing 'git' and 'base-devel' to build the AUR helper..."
+    sudo pacman -S --needed --noconfirm git base-devel
   fi
 
   local tmp_dir
@@ -610,7 +611,7 @@ task_setup_extra_repos() {
 
   print_info "Synchronizing databases and upgrading system..."
   print_warning "You will be prompted to confirm the system upgrade."
-  yay -Syyu < /dev/tty
+  yay -Syu </dev/tty
 }
 
 # Installs the CachyOS kernel and corresponding NVIDIA drivers.
@@ -654,7 +655,8 @@ task_setup_asus() {
   else
     print_info "Adding [g14] repository to /etc/pacman.conf..."
     local g14_repo_conf
-    g14_repo_conf=$( cat <<'EOF'
+    g14_repo_conf=$(
+      cat <<'EOF'
 
 [g14]
 Server = https://arch.asus-linux.org
@@ -662,7 +664,7 @@ EOF
     )
     echo "$g14_repo_conf" | sudo tee -a /etc/pacman.conf >/dev/null
     print_info "Synchronizing databases with the new repository..."
-    yay -Syu < /dev/tty
+    yay -Syu </dev/tty
   fi
 
   print_info "Installing ASUS-specific packages from the g14 repository..."
@@ -685,7 +687,8 @@ task_setup_greetd() {
 
   print_info "Configuring greetd to use tuigreet with Hyprland..."
   local greetd_config_content
-  greetd_config_content=$( cat <<'EOF'
+  greetd_config_content=$(
+    cat <<'EOF'
 [terminal]
 vt = 1
 
@@ -762,7 +765,8 @@ task_setup_nix() {
   local nix_config_dir="$USER_HOME/.config/nix"
   local nix_config_file="$nix_config_dir/nix.conf"
   local nix_conf_content
-  nix_conf_content=$( cat <<'EOF'
+  nix_conf_content=$(
+    cat <<'EOF'
 experimental-features = nix-command flakes
 max-jobs = 4
 EOF
@@ -826,7 +830,7 @@ task_manual_installations() {
     wget -O "$pia_installer" "$pia_url"
     chmod +x "$pia_installer"
     print_warning "The PIA installer will now launch."
-    bash "$pia_installer" < /dev/tty
+    bash "$pia_installer" </dev/tty
     print_success "PIA VPN installation process finished."
   fi
 }
@@ -869,7 +873,8 @@ task_harden_system() {
   # --- 4. Harden SSH and Firewall ---
   print_info "Hardening OpenSSH server configuration..."
   local sshd_hardening_content
-  sshd_hardening_content=$( cat <<'EOF'
+  sshd_hardening_content=$(
+    cat <<'EOF'
 # Custom hardening rules
 Port 47
 LogLevel VERBOSE
@@ -898,7 +903,8 @@ EOF
   print_info "Applying custom sysctl kernel settings..."
   local sysctl_file="/etc/sysctl.d/99-custom-hardening.conf"
   local sysctl_content
-  sysctl_content=$( cat <<'EOF'
+  sysctl_content=$(
+    cat <<'EOF'
 # Restrict access to kernel pointers, mitigating KASLR bypasses.
 kernel.kptr_restrict = 2
 # Disable the SysRq key entirely.
@@ -967,7 +973,7 @@ task_cleanup() {
   if pacman -Qtdq >/dev/null; then
     print_warning "The following orphaned packages will be removed:"
     pacman -Qtd | awk '{print "  - " $1 " " $2}'
-    yay -Rns "$(pacman -Qtdq)" < /dev/tty
+    yay -Rns "$(pacman -Qtdq)" </dev/tty
   else
     print_success "No orphaned packages to remove."
   fi
@@ -1000,46 +1006,121 @@ main() {
       # If '--docs' is found, display the relevant documentation and exit.
       # Otherwise, set RUN_ALL to false, run the task, and shift to the next argument.
       --initial-setup)
-        if [[ "${2:-}" == "--docs" ]]; then docs_initial_setup >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_initial_setup; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_initial_setup >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_initial_setup
+        shift
+        ;;
       --setup-extra-repos)
-        if [[ "${2:-}" == "--docs" ]]; then docs_setup_extra_repos >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_setup_extra_repos; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_setup_extra_repos >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_setup_extra_repos
+        shift
+        ;;
       --kernel-and-drivers)
-        if [[ "${2:-}" == "--docs" ]]; then docs_kernel_and_drivers >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_kernel_and_drivers; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_kernel_and_drivers >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_kernel_and_drivers
+        shift
+        ;;
       --setup-asus)
-        if [[ "${2:-}" == "--docs" ]]; then docs_setup_asus >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_setup_asus; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_setup_asus >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_setup_asus
+        shift
+        ;;
       --setup-greetd)
-        if [[ "${2:-}" == "--docs" ]]; then docs_setup_greetd >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_setup_greetd; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_setup_greetd >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_setup_greetd
+        shift
+        ;;
       --setup-nix)
-        if [[ "${2:-}" == "--docs" ]]; then docs_setup_nix >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_setup_nix; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_setup_nix >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_setup_nix
+        shift
+        ;;
       --install-packages)
-        if [[ "${2:-}" == "--docs" ]]; then docs_install_packages >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_install_packages; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_install_packages >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_install_packages
+        shift
+        ;;
       --manual-installs)
-        if [[ "${2:-}" == "--docs" ]]; then docs_manual_installations >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_manual_installations; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_manual_installations >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_manual_installations
+        shift
+        ;;
       --harden-system)
-        if [[ "${2:-}" == "--docs" ]]; then docs_harden_system >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_harden_system; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_harden_system >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_harden_system
+        shift
+        ;;
       --configure-user)
-        if [[ "${2:-}" == "--docs" ]]; then docs_configure_user >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_configure_user; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_configure_user >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_configure_user
+        shift
+        ;;
       --cleanup)
-        if [[ "${2:-}" == "--docs" ]]; then docs_cleanup >/dev/tty; exit 0; fi
-        RUN_ALL=false; task_cleanup; shift ;;
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_cleanup >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_cleanup
+        shift
+        ;;
       --debug)
-        DEBUG_MODE=true; shift ;;
+        DEBUG_MODE=true
+        shift
+        ;;
       --help)
-        print_usage >/dev/tty; exit 0 ;;
+        print_usage >/dev/tty
+        exit 0
+        ;;
       --docs)
-        print_documentation >/dev/tty; exit 0 ;;
+        print_documentation >/dev/tty
+        exit 0
+        ;;
       *)
-        print_error "Unknown flag: $1"; print_usage >/dev/tty; exit 1 ;;
+        print_error "Unknown flag: $1"
+        print_usage >/dev/tty
+        exit 1
+        ;;
       esac
     done
   fi
@@ -1058,7 +1139,8 @@ main() {
     echo "This script will perform a full setup of a Hyprland desktop on Arch Linux."
     read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Do you want to begin? [y/N]: ${C_END}")" -r choice
     if [[ ! "$choice" =~ ^[Yy]$ ]]; then
-      print_info "Aborting."; exit 0
+      print_info "Aborting."
+      exit 0
     fi
 
     # Execute all setup tasks in the logical order defined at the top of the script.

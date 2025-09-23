@@ -18,6 +18,7 @@
 - [x] while installing packages using yay inside the script, there are no verbose/interactive output normally seen when installing arch/AUR packages using yay outside the bash script, i.e. in the terminal. A similar thing happens with the determinate-nix installer where it does not allow interactive installing as well. The script needed use the determinate-nix installer's --no-confirm flag to install nix. Fix these issues for me.
 - [ ] add reflector setup to initial setup
 - [ ] reorder some of the tasks
+- [ ] blackarch repo is not being added
 
 ---
 

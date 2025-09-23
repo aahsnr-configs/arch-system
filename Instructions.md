@@ -104,7 +104,7 @@ genfstab -U /mnt >>/mnt/etc/fstab
 
 arch-chroot /mnt
 
-reflector --verbose -l 25 --country BD,IN --sort rate --save /etc/pacman.d/mirrorlist
+reflector --verbose -l 25 --country BD,IN,SG --sort rate --save /etc/pacman.d/mirrorlist
 
 ln -sf /usr/share/zoneinfo/Asia/Dhaka /etc/localtime && hwclock --systohc && nvim /etc/locale.gen && locale-gen && echo "LANG=en_US.UTF-8" >>/etc/locale.conf
 
