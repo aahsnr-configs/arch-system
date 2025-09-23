@@ -1,0 +1,5 @@
+log = "warn"
+sync_frequency = "10m"
+
+[theme]
+name = "catppuccin-macchiato-flamingo"
