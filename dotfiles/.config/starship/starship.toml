@@ -86,9 +86,9 @@ $os\
 $battery\
 $time"""
 
-[fill]
-symbol = ' '
-
+# [fill]
+# symbol = ' '
+#
 [character]
 format = "$symbol "
 success_symbol = "[◎](bold italic bright-yellow)"

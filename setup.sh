@@ -16,7 +16,7 @@
 #
 # --- Script Task Order ---
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
-#   2.  Configure Pacman: Optimizes pacman.conf and overwrites makepkg.conf with interactive verification.
+#   2.  Initial Setup: Optimizes pacman.conf, overwrites makepkg.conf, and sets up environment variables.
 #   3.  Setup Extra Repos (Optional): Adds CachyOS and BlackArch repositories.
 #   4.  Setup AUR Helper: Installs 'yay-bin' for seamless access to the Arch User Repository.
 #   5.  Install Kernel and Drivers (Optional): Installs the CachyOS kernel and NVIDIA drivers.
@@ -109,7 +109,7 @@ print_usage() {
   echo -e "${C_BOLD}If no options are provided, the script will run all setup tasks interactively.${C_END}"
   echo ""
   echo -e "${C_HEADER}Options:${C_END}"
-  echo -e "  ${C_GREEN}--configure-pacman${C_END}        Optimize pacman.conf and makepkg.conf."
+  echo -e "  ${C_GREEN}--initial-setup${C_END}           Perform initial system setup (pacman, environment vars)."
   echo -e "  ${C_GREEN}--setup-extra-repos${C_END}       Set up CachyOS and BlackArch repositories."
   echo -e "  ${C_GREEN}--setup-aur${C_END}               Install and configure the 'yay' AUR helper."
   echo -e "  ${C_GREEN}--kernel-and-drivers${C_END}      Install CachyOS kernel and NVIDIA drivers."
@@ -196,9 +196,9 @@ pre_flight_checks() {
   print_success "Checks passed. Configuring system for user: $TARGET_USER"
 }
 
-# Modifies pacman.conf and overwrites makepkg.conf with user verification.
-task_configure_pacman() {
-  print_step "Configuring Pacman and Makepkg"
+# Sets up environment variables, Pacman, and Makepkg configurations.
+task_initial_setup() {
+  print_step "Performing Initial System Setup"
 
   # --- Copy custom environment variables ---
   print_info "Copying custom environment variables to /etc/profile.d/..."
@@ -746,9 +746,9 @@ main() {
   if (($# > 0)); then
     while (("$#")); do
       case "$1" in
-      --configure-pacman)
+      --initial-setup)
         RUN_ALL=false
-        task_configure_pacman
+        task_initial_setup
         shift
         ;;
       --setup-extra-repos)
@@ -839,7 +839,7 @@ main() {
       exit 0
     fi
 
-    task_configure_pacman
+    task_initial_setup
     task_setup_extra_repos
     task_setup_aur_helper
 
