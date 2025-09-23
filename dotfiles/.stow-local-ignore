@@ -1,0 +1,20 @@
+# Default Stow ignore patterns
+RCS
+.+,v
+CVS
+\.\#.+
+\.cvsignore
+\.svn
+_darcs
+\.hg
+\.git
+\.gitignore
+.+~
+\#.*\#
+^/README.*
+^/LICENSE.*
+^/COPYING.*
+
+# My custom ignore patterns
+TODO\.md
+.*\.bak
