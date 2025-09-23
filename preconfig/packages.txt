@@ -28,6 +28,8 @@ fastfetch
 fd
 ffmpegthumbnailer
 fish
+foot
+foot-terminfo
 fuzzel
 fzf
 gcc-libs
