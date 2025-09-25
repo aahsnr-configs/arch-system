@@ -37,7 +37,6 @@
     ./systemd
     ./texlive
     ./theming
-    ./xdg
   ];
 
   nixpkgs = {
