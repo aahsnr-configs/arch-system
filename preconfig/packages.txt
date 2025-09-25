@@ -102,6 +102,7 @@ ttf-jetbrains-mono-nerd
 ttf-material-symbols-variable
 ttf-rubik-vf
 tumbler
+udiskie
 upower
 uwsm
 wget
