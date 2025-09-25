@@ -23,21 +23,182 @@ in
 {
   # A list of packages to be installed into the user environment.
   home.packages = [
-    # --- Safe File/Folder Removal Script ---
-    (mkScript "safe-rm" ''
+    # --- Arch Linux Maintenance Scripts ---
+
+    (mkScript "arch-maintain-update" ''
       #!/usr/bin/env bash
       #
-      # Description: A safer alternative to `rm`. Moves files to a trash
-      #              directory and prompts for confirmation. Works correctly
-      #              with both user and root privileges.
+      # Description: Safely updates an Arch Linux system.
+      # Synchronizes package databases and upgrades all packages.
       #
       set -euo pipefail
 
-      # --- Configuration ---
-      # The trash directory is resolved based on the current user's HOME.
+      main() {
+          if [[ $EUID -ne 0 ]]; then
+             echo "Error: This script must be run as root." >&2
+             echo "Please use 'sudo arch-maintain-update'" >&2
+             exit 1
+          fi
+
+          echo "This script will synchronize pacman databases and perform a full system upgrade (pacman -Syu)."
+          echo ""
+
+          read -p "Do you want to proceed with the system update? (Y/n): " -r REPLY
+          echo ""
+
+          if [[ -n "$REPLY" ]]; then
+              echo "Update cancelled by user."
+              exit 1
+          fi
+
+          echo "-> Starting system update..."
+          pacman -Syu
+          echo ""
+          echo "✅ System update complete."
+      }
+
+      main
+    '')
+
+    (mkScript "arch-maintain-clean" ''
+      #!/usr/bin/env bash
+      #
+      # Description: Cleans up the system by removing orphans and old package caches.
+      #
+      set -euo pipefail
+
+      main() {
+          if [[ $EUID -ne 0 ]]; then
+             echo "Error: This script must be run as root." >&2
+             echo "Please use 'sudo arch-maintain-clean'" >&2
+             exit 1
+          fi
+
+          echo "This script will perform the following cleaning actions:"
+          echo "  1. Remove all orphaned packages (dependencies no longer required)."
+          echo "  2. Clean the pacman cache, keeping the most recent version of each package."
+          echo ""
+
+          read -p "Do you want to proceed with cleaning the system? (Y/n): " -r REPLY
+          echo ""
+
+          if [[ -n "$REPLY" ]]; then
+              echo "Cleaning process cancelled by user."
+              exit 1
+          fi
+
+          # Remove orphaned packages
+          echo "-> Checking for orphaned packages..."
+          # The `|| true` prevents the script from exiting if no orphans are found
+          if pacman -Qtdq &>/dev/null; then
+              echo "Orphans found. Proceeding with removal..."
+              pacman -Rns "$(pacman -Qtdq)"
+          else
+              echo "No orphaned packages to remove."
+          fi
+          echo ""
+
+          # Clean package cache
+          echo "-> Cleaning pacman cache..."
+          echo "This will remove all package versions except for the most recent one."
+          paccache -rk1
+          echo ""
+          echo "✅ System cleaning complete."
+      }
+
+      main
+    '')
+
+    (mkScript "arch-maintain-check-services" ''
+      #!/usr/bin/env bash
+      #
+      # Description: Checks for any failed systemd services.
+      #
+      set -euo pipefail
+
+      main() {
+          echo "This script will check for any failed systemd services (system-level)."
+          echo ""
+
+          read -p "Do you want to proceed? (Y/n): " -r REPLY
+          echo ""
+
+          if [[ -n "$REPLY" ]]; then
+              echo "Operation cancelled by user."
+              exit 1
+          fi
+
+          echo "-> Checking for failed services..."
+          # Use an if statement to provide a clearer message
+          if ! systemctl --failed --no-legend --no-pager | grep .; then
+              echo "✅ No failed systemd services found."
+          else
+              echo "❗️ Found failed systemd services:"
+              systemctl --failed --no-pager
+          fi
+      }
+
+      main
+    '')
+
+    (mkScript "arch-maintain-all" ''
+      #!/usr/bin/env bash
+      #
+      # Description: Runs a full weekly maintenance routine for Arch Linux.
+      #
+      set -euo pipefail
+
+      main() {
+          if [[ $EUID -ne 0 ]]; then
+             echo "Error: This script must be run as root." >&2
+             echo "Please use 'sudo arch-maintain-all'" >&2
+             exit 1
+          fi
+
+          echo "This script will run a full maintenance routine in the following order:"
+          echo "  1. Update System (arch-maintain-update)"
+          echo "  2. Clean System (arch-maintain-clean)"
+          echo "  3. Check Services (arch-maintain-check-services)"
+          echo ""
+          echo "You will be prompted to confirm each major step."
+          echo ""
+
+          read -p "Do you want to start the full maintenance routine? (Y/n): " -r REPLY
+          echo ""
+
+          if [[ -n "$REPLY" ]]; then
+              echo "Maintenance routine cancelled."
+              exit 1
+          fi
+
+          echo "--- Starting Step 1: System Update ---"
+          arch-maintain-update
+          echo "--------------------------------------"
+          echo ""
+
+          echo "--- Starting Step 2: System Clean ---"
+          arch-maintain-clean
+          echo "-------------------------------------"
+          echo ""
+
+          echo "--- Starting Step 3: Check Services ---"
+          arch-maintain-check-services
+          echo "---------------------------------------"
+          echo ""
+
+          echo "✅ Full maintenance routine complete."
+      }
+
+      main
+    '')
+
+    # --- General Purpose Scripts ---
+
+    (mkScript "safe-rm" ''
+      #!/usr/bin/env bash
+      set -euo pipefail
       readonly TRASH_DIR="$HOME/.local/share/trash/files"
 
-      # --- Main Function ---
       main() {
           if [ "$#" -eq 0 ]; then
               echo "Error: No files or directories specified." >&2
@@ -45,7 +206,6 @@ in
               exit 1
           fi
 
-          # --- Step 1: Validate inputs and build a list of targets ---
           local targets=()
           for item in "$@"; do
               if [ ! -e "$item" ]; then
@@ -53,14 +213,8 @@ in
                   continue
               fi
 
-              local canonical_item
-              canonical_item=$(realpath -- "$item")
-              # Create the trash dir to resolve its canonical path reliably
               mkdir -p "$TRASH_DIR"
-              local canonical_trash
-              canonical_trash=$(realpath -- "$TRASH_DIR")
-
-              if [ "$canonical_item" == "$canonical_trash" ]; then
+              if [ "$(realpath -- "$item")" == "$(realpath -- "$TRASH_DIR")" ]; then
                   echo "Warning: Cannot move the trash directory into itself. Skipping '$item'." >&2
                   continue
               fi
@@ -72,33 +226,23 @@ in
               exit 0
           fi
 
-
-          # --- Step 2: List targets and ask for user confirmation ---
           echo "The following items will be moved to the trash:"
           printf "  - %s\n" "''${targets[@]}"
           echo "Trash location: $TRASH_DIR"
           echo ""
 
-          # Prompt the user. Default is Yes. Any input cancels.
           read -p "Are you sure you want to continue? (Y/n): " -r REPLY
-          echo "" # Move to a new line
+          echo ""
 
-          # If REPLY is not empty (i.e., user typed anything), cancel.
           if [[ -n "$REPLY" ]]; then
               echo "Operation cancelled by user."
               exit 1
           fi
 
-
-          # --- Step 3: Process the targets ---
           echo "Moving items to trash..."
           for item in "''${targets[@]}"; do
-              local base_name
-              base_name=$(basename "$item")
-
               local trashed_name
-              trashed_name="$base_name-$(date +%s)-$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 5)"
-
+              trashed_name="$(basename "$item")-$(date +%s)-$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 5)"
               echo " - '$item' -> '$trashed_name'"
               mv -- "$item" "$TRASH_DIR/$trashed_name"
           done
@@ -111,13 +255,8 @@ in
       main "$@"
     '')
 
-    # --- Remove Neovim Configuration and Data Script ---
     (mkScript "nuke-nvim" ''
       #!/usr/bin/env bash
-      #
-      # Description: This script safely and sequentially removes the Neovim
-      #              configuration, state, and data directories.
-      #
       set -euo pipefail
 
       readonly NVIM_DIRS=(
@@ -133,11 +272,9 @@ in
           done
           echo ""
 
-          # Prompt the user. Default is Yes. Any input cancels.
           read -p "Are you sure you want to continue? (Y/n): " -r REPLY
           echo ""
 
-          # If REPLY is not empty (i.e., user typed anything), cancel.
           if [[ -n "$REPLY" ]]; then
               echo "Operation cancelled by user."
               exit 1
@@ -162,7 +299,6 @@ in
       main
     '')
 
-    # --- GitHub SSH Key Setup Script ---
     (mkScript "setup-github-keys" ''
       #!/usr/bin/env bash
       set -euo pipefail
@@ -187,8 +323,6 @@ in
           fi
       }
 
-      # --- IMPORTANT ---
-      # Replace these with your actual GitHub account emails
       generate_key "aahsnr_configs" "ahsanur041@proton.me"
       generate_key "aahsnr_personal" "ahsanur041@gmail.com"
       generate_key "aahsnr_work" "aahsnr041@proton.me"
@@ -218,18 +352,16 @@ in
       echo "   mkdir -p ~/git-repos/configs ~/git-repos/personal ~/git-repos/work ~/git-repos/common"
     '')
 
-    # --- Generic Application Launcher Script ---
     (mkScript "launch_first_available" ''
       #!/usr/bin/env bash
       for cmd in "$@"; do
           [[ -z "$cmd" ]] && continue
-          eval "command -v ''${cmd%% *}" >/dev/null 2>&1 || continue
+          eval "command -v ''${cmd%% *}" >/dev/null 2&>1 || continue
           eval "$cmd" &
           exit
       done
     '')
 
-    # --- Fuzzel Emoji Picker Script ---
     (mkScript "fuzzel-emoji" ''
       #!/bin/bash
       set -euo pipefail
@@ -401,7 +533,6 @@ in
       esac
     '')
 
-    # --- Hyprland Workspace Action Script (Fish) ---
     (mkFishScript "wsaction" ''
       if test "$argv[1]" = '-g'
        set group

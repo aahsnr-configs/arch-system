@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
 
 # =================================================================================== #
-# Hyprland Arch Linux Setup Script
+# Hyprland Arch Linux Setup Script (Paru Edition)
 #
 # This script automates the setup of a complete Hyprland Environment on Arch Linux.
-# It is a robust, idempotent, and modular script that reads package lists
-# from external '.txt' files for easy management.
-#
-# It should be run as a regular user with sudo privileges.
+# It uses 'paru' as its AUR helper.
 # =================================================================================== #
 
 # --- Script Features ---
@@ -16,40 +13,32 @@
 #   - Idempotent design: safe to re-run without causing issues.
 #   - Upfront dependency checking and installation.
 #   - Robust execution of user-specific commands via a privilege de-escalation function.
-#   - Fully interactive package management for user confirmation.
+#   - Streamlined user prompts: Pressing 'Enter' defaults to 'Yes' for confirmations.
 #   - Embedded documentation accessible via '--docs' and per-task via '--<task> --docs'.
+#   - Interactive full-run mode that explains each task and prompts for confirmation.
 
 #  NOTE:
 # --- Script Task Order (Full Installation) ---
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
-#       (Includes automatic setup of the 'yay' AUR helper if not present).
+#       (Includes automatic setup of 'paru' and installation of 'limine-mkinitcpio-hook').
 #   2.  Initial Setup: Optimizes pacman.conf, makepkg.conf, reflector, and environment variables.
 #   3.  Setup Extra Repos: Adds CachyOS and BlackArch repositories.
 #   4.  Install Kernel and Drivers: Installs the CachyOS kernel and NVIDIA drivers.
 #   5.  Setup for ASUS Laptops: Adds the g14 repo and installs specific tools.
-#   6.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
-#   7.  Manual Installs: Installs third-party software like themes and VPNs.
+#   6.  Install Packages: Installs packages from 'packages.txt'.
+#   7.  Manual Installs: Installs third-party software like VPNs.
 #   8.  Setup Dotfiles: Symlinks user dotfiles from a predefined source directory.
 #   9.  Setup Nix & Home-Manager: Installs and configures Nix with flakes.
 #   10. Configure User: Sets up the user's shell, services, and XDG directories.
-#   11. Cleanup: Removes orphaned packages and cleans the Nix store.
-#   12. Setup Greeter: Configures greetd and tuigreet as the login manager.
-#   13. Harden System: Implements basic security enhancements and enables services.
+#   11. Setup Editors: Configures Neovim and Doom Emacs with custom configs.
+#   12. Cleanup: Removes orphaned packages and cleans the Nix store.
+#   13. Setup Greeter: Configures greetd and tuigreet as the login manager.
+#   14. Harden System: Implements basic security enhancements and services.
 
 # --- Script Setup and Error Handling ---
-# -e: exit immediately if a command exits with a non-zero status. This prevents
-#     errors from cascading and causing unintended side effects.
-# -u: treat unset variables as an error when substituting. This helps catch
-#     typos and logic errors.
-# -o pipefail: the return value of a pipeline is the status of the last command
-#              to exit with a non-zero status. Without this, a pipeline like
-#              'command_that_fails | command_that_succeeds' would be considered
-#              a success.
 set -euo pipefail
 
 # --- Cleanup Trap ---
-# Ensures temporary files created via 'mktemp' are removed when the script exits
-# for any reason (success, error, or interruption).
 TEMP_FILES=()
 cleanup() {
   set +x # Disable command tracing during cleanup
@@ -59,15 +48,21 @@ cleanup() {
 }
 trap cleanup EXIT ERR INT TERM
 
-# --- User Interface: Colors and Icons ---
-readonly C_HEADER='\033[95m'
-readonly C_BLUE='\033[94m'
-readonly C_GREEN='\033[92m'
-readonly C_YELLOW='\033[93m'
-readonly C_RED='\033[91m'
-readonly C_BOLD='\033[1m'
-readonly C_CYAN='\033[96m'
-readonly C_END='\033[0m'
+# --- User Interface: Catppuccin Macchiato Theme, Colors, and Icons ---
+readonly C_MAUVE=$'\033[38;2;203;166;247m'
+readonly C_LAVENDER=$'\033[38;2;180;190;254m'
+readonly C_PEACH=$'\033[38;2;250;179;135m'
+readonly C_SKY=$'\033[38;2;137;220;235m'
+readonly C_GREEN=$'\033[38;2;166;227;161m'
+readonly C_RED=$'\033[38;2;243;139;168m'
+readonly C_ROSEWATER=$'\033[38;2;245;224;220m'
+readonly C_SAPPHIRE=$'\033[38;2;116;199;236m'
+readonly C_YELLOW=$'\033[38;2;249;226;175m'
+readonly C_TEXT=$'\033[38;2;205;214;244m'
+readonly C_SUBTEXT1=$'\033[38;2;186;194;222m'
+readonly C_BOLD=$'\033[1m'
+readonly C_ITALIC=$'\033[3m'
+readonly C_END=$'\033[0m'
 
 readonly I_STEP="⚙️"
 readonly I_INFO="ℹ️"
@@ -80,14 +75,14 @@ readonly I_DEBUG="🐞"
 readonly I_LOG="📄"
 
 # --- UI Helper Functions ---
-print_step() { echo -e "\n${C_HEADER}${C_BOLD}═══ $I_STEP $1 ═══${C_END}"; }
-print_info() { echo -e "${C_BLUE}$I_INFO $1${C_END}"; }
+print_step() { echo -e "\n${C_MAUVE}${C_BOLD}═══ $I_STEP $1 ═══${C_END}"; }
+print_info() { echo -e "${C_SAPPHIRE}$I_INFO $1${C_END}"; }
 print_success() { echo -e "${C_GREEN}$I_SUCCESS $1${C_END}"; }
-print_warning() { echo -e "${C_YELLOW}$I_WARN $1${C_END}" >&2; }
+print_warning() { echo -e "${C_PEACH}$I_WARN $1${C_END}" >&2; }
 print_error() { echo -e "${C_RED}$I_ERROR $1${C_END}" >&2; }
 print_debug() {
   if [ "$DEBUG_MODE" = true ]; then
-    echo -e "${C_CYAN}$I_DEBUG [DEBUG] $1${C_END}" >&2
+    echo -e "${C_SKY}$I_DEBUG [DEBUG] $1${C_END}" >&2
   fi
 }
 
@@ -109,294 +104,339 @@ readonly USER_HOME
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 readonly SCRIPT_DIR
 readonly PRECONFIG_DIR="$SCRIPT_DIR/preconfig"
+readonly LOGS_DIR="$SCRIPT_DIR/logs"
 
-LOG_FILE="setup-log-$(date +%F_%H-%M).log"
-readonly LOG_FILE
+LOG_FILE="" # Will be set by setup_logging()
 
 DEBUG_MODE=false
+RUN_ALL=true
 
 # --- Modular Documentation Functions ---
 
 docs_pre_flight_checks() {
-  cat <<'EOF'
-[ --pre-flight-checks ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_PEACH}Performing Pre-flight Safety Checks${C_END}
 
-This initial step performs critical safety and environment checks to ensure the
-script can run successfully and without causing issues. It runs automatically
-before any other task.
+${C_SKY}This initial step performs critical safety and environment checks to ensure the
+script can run successfully.${C_END}
 
-Actions:
-- Privilege Verification: Ensures the script is NOT run as the root user, as all
-  privileged operations are handled internally via 'sudo'.
-- Connectivity Check: Pings a reliable external server to confirm that an
-  internet connection is active, which is necessary for downloading packages.
-- Dependency Installation:
-  - Checks if 'yay' (the AUR helper) is installed. If not, it automatically
-    installs the prerequisite 'git' and 'base-devel' packages, then clones,
-    builds, and installs 'yay-bin' from the AUR.
-  - Checks for other essential commands required by the script itself (like 'curl',
-    'dmidecode', etc.) and installs any that are missing.
-- Configuration File Check: Verifies that all required '.txt' files (like
-  'packages.txt') exist in the 'preconfig' directory.
-- Sudo Priming: Runs 'sudo -v' to cache sudo credentials at the beginning,
-  preventing password prompts in the middle of a long-running task.
+${C_LAVENDER}${C_BOLD}Actions:${C_END}
+- ${C_LAVENDER}${C_BOLD}Privilege Verification:${C_END}${C_SKY} Ensures the script is ${C_RED}NOT${C_END}${C_SKY} run as the root user.${C_END}
+- ${C_LAVENDER}${C_BOLD}Connectivity Check:${C_END}${C_SKY} Pings ${C_SAPPHIRE}8.8.8.8${C_END}${C_SKY} to confirm internet access.${C_END}
+- ${C_LAVENDER}${C_BOLD}AUR Helper Setup:${C_END}
+  - ${C_SKY}Detects if ${C_GREEN}paru${C_END}${C_SKY} is installed.${C_END}
+  - ${C_SKY}If not found, it installs ${C_GREEN}git${C_END}${C_SKY} and ${C_GREEN}base-devel${C_END}${C_SKY}, clones the
+    ${C_SAPPHIRE}paru-bin.git${C_END}${C_SKY} repository, and builds it using ${C_SAPPHIRE}makepkg -si${C_END}${C_SKY}.${C_END}
+- ${C_LAVENDER}${C_BOLD}Dependency Installation:${C_END}
+  - ${C_SKY}Checks for and installs essential script dependencies:
+    ${C_GREEN}neovim${C_END}${C_SKY}, ${C_GREEN}wl-clipboard${C_END}${C_SKY}, ${C_GREEN}curl${C_END}${C_SKY}, ${C_GREEN}wget${C_END}${C_SKY}, ${C_GREEN}pciutils${C_END}${C_SKY}, ${C_GREEN}dmidecode${C_END}${C_SKY}, ${C_GREEN}xdg-user-dirs${C_END}${C_SKY}.${C_END}
+  - ${C_SKY}Ensures the ${C_GREEN}limine-mkinitcpio-hook${C_END}${C_SKY} package from the AUR is installed.${C_END}
+- ${C_LAVENDER}${C_BOLD}Configuration File Check:${C_END}${C_SKY} Verifies that these files exist:
+  - ${C_SAPPHIRE}${PRECONFIG_DIR}/packages.txt${C_END}
+  - ${C_SAPPHIRE}${PRECONFIG_DIR}/makepkg.conf.txt${C_END}
+  - ${C_SAPPHIRE}${PRECONFIG_DIR}/99-custom-env.sh.txt${C_END}
+- ${C_LAVENDER}${C_BOLD}Sudo Priming:${C_END}${C_SKY} Runs ${C_SAPPHIRE}sudo -v${C_END}${C_SKY} to cache credentials, preventing most
+  password prompts during the script's execution.${C_END}
 EOF
 }
 
 docs_initial_setup() {
-  cat <<'EOF'
-[ --initial-setup ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_MAUVE}Configuring Core System Files${C_END}
 
-Configures core system files for a better user experience and performance.
+${C_LAVENDER}Configures core system files for better performance and user experience.${C_END}
 
-Actions:
-- Modifies '/etc/pacman.conf' to:
-  - Enable colored output ('Color').
-  - Enable verbose package lists ('VerbosePkgLists').
-  - Enable parallel dohttps://aur.archlinux.org/packages/limine-mkinitcpio-hookwnloads ('ParallelDownloads = 10') for significantly
-    faster package installation and updates.
-  - Enable the 'ILoveCandy' pacman animation for fun.
-- Overwrites '/etc/makepkg.conf' with the contents of 'preconfig/makepkg.conf.txt'.
-  This is used to optimize package compilation from the AUR by setting compiler
-  flags (e.g., '-march=native') and parallel compilation.
-- Copies custom environment variables from 'preconfig/99-custom-env.sh.txt' to
-  '/etc/profile.d/99-custom-env.sh', making them available system-wide.
-- Installs and configures 'reflector' to automatically update the pacman mirrorlist
-  with the fastest mirrors from specified countries.
-
-User Interaction:
-- After applying changes, it will display the contents of the modified files and
-  prompt you for interactive verification before proceeding.
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Environment Variables:${C_END}${C_LAVENDER} Copies the custom environment file
+  ${C_SKY}${PRECONFIG_DIR}/99-custom-env.sh.txt${C_END}${C_LAVENDER} to ${C_SKY}/etc/profile.d/99-custom-env.sh${C_END}${C_LAVENDER}.${C_END}
+- ${C_PEACH}${C_BOLD}Pacman Configuration:${C_END}${C_LAVENDER} Modifies ${C_SKY}/etc/pacman.conf${C_END}${C_LAVENDER} using ${C_SKY}sed${C_END}${C_LAVENDER} to:
+  - Enable ${C_SKY}Color${C_END}${C_LAVENDER} and add ${C_SKY}ILoveCandy${C_END}${C_LAVENDER}.${C_END}
+  - Enable ${C_SKY}VerbosePkgLists${C_END}${C_LAVENDER}.${C_END}
+  - Uncomment ${C_SKY}DisableDownloadTimeout${C_END}${C_LAVENDER}.${C_END}
+  - Set ${C_SKY}ParallelDownloads = 10${C_END}${C_LAVENDER}.${C_END}
+- ${C_PEACH}${C_BOLD}Makepkg Configuration:${C_END}${C_LAVENDER} Overwrites ${C_SKY}/etc/makepkg.conf${C_END}${C_LAVENDER} with the contents of
+  ${C_SKY}${PRECONFIG_DIR}/makepkg.conf.txt${C_END}${C_LAVENDER} to optimize package compilation.${C_END}
+- ${C_PEACH}${C_BOLD}Mirrorlist Management:${C_END}
+  - ${C_LAVENDER}Installs the ${C_GREEN}reflector${C_END}${C_LAVENDER} package.${C_END}
+  - ${C_LAVENDER}Enables and starts ${C_SKY}reflector.service${C_END}${C_LAVENDER} and ${C_SKY}reflector.timer${C_END}${C_LAVENDER}.${C_END}
+  - ${C_LAVENDER}Performs an initial mirrorlist update, sorting by rate for servers in
+    Bangladesh, India, and Singapore, saving the result to ${C_SKY}/etc/pacman.d/mirrorlist${C_END}${C_LAVENDER}.${C_END}
+- ${C_YELLOW}${C_BOLD}User Verification:${C_END}
+  - ${C_LAVENDER}After making changes, the script displays the contents of ${C_SKY}/etc/pacman.conf${C_END}
+    ${C_LAVENDER}and ${C_SKY}/etc/makepkg.conf${C_END}${C_LAVENDER}.${C_END}
+  - ${C_LAVENDER}It then enters an interactive loop, prompting you to approve the changes
+    or edit the files directly using ${C_GREEN}nvim${C_END}${C_LAVENDER}.${C_END}
 EOF
 }
 
 docs_setup_extra_repos() {
-  cat <<'EOF'
-[ --setup-extra-repos ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_ROSEWATER}Setting Up Third-Party Repositories${C_END}
 
-Adds and configures third-party pacman repositories.
+${C_SAPPHIRE}Adds and configures popular third-party pacman repositories.${C_END}
 
-Actions:
-- CachyOS: Adds the repository for performance-optimized packages and the
-  CachyOS kernel. The CachyOS setup script is interactive and will prompt you
-  for decisions regarding trust and key signing.
-- BlackArch: Adds the repository for penetration testing and security tools.
-- Forces a full system database sync and upgrade ('yay -Syyu') after adding
-  the new repositories to ensure the system is up-to-date.
-
-Prerequisites:
-- A stable internet connection.
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}CachyOS Repository:${C_END}
+  - ${C_SAPPHIRE}Checks if the ${C_SKY}[cachyos]${C_END}${C_SAPPHIRE} repository is already in ${C_SKY}/etc/pacman.conf${C_END}${C_SAPPHIRE}.${C_END}
+  - ${C_SAPPHIRE}If not, it downloads ${C_SKY}cachyos-repo.tar.xz${C_END}${C_SAPPHIRE}, extracts it, and runs the
+    official ${C_SKY}./cachyos-repo.sh${C_END}${C_SAPPHIRE} script.${C_END}
+  - ${C_YELLOW}This part of the setup is interactive and requires user input.${C_END}
+- ${C_PEACH}${C_BOLD}BlackArch Repository:${C_END}
+  - ${C_SAPPHIRE}Checks if the ${C_SKY}[blackarch]${C_END}${C_SAPPHIRE} repository is already configured.${C_END}
+  - ${C_SAPPHIRE}If not, it downloads the official bootstrap script (${C_SKY}strap.sh${C_END}${C_SAPPHIRE}) from
+    ${C_SKY}blackarch.org${C_END}${C_SAPPHIRE} and executes it with root privileges.${C_END}
+- ${C_PEACH}${C_BOLD}System Upgrade:${C_END}
+  - ${C_SAPPHIRE}After adding the repositories, it forces a full system synchronization and
+    upgrade by running ${C_SKY}paru -Syu --noconfirm${C_END}${C_SAPPHIRE}.${C_END}
 EOF
 }
 
 docs_kernel_and_drivers() {
-  cat <<'EOF'
-[ --kernel-and-drivers ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_YELLOW}Installing Kernel & Graphics Drivers${C_END}
 
-Installs the CachyOS kernel and the corresponding open-source NVIDIA drivers.
+${C_TEXT}Installs the performance-optimized CachyOS kernel and NVIDIA's open-source drivers.${C_END}
 
-Prerequisites:
-- The CachyOS repository must be enabled first (via '--setup-extra-repos').
-  The script will skip this task if the repo is not found.
+${C_PEACH}${C_BOLD}Prerequisites:${C_END}
+- ${C_TEXT}The CachyOS repository must be enabled first (via ${C_SKY}--setup-extra-repos${C_END}${C_TEXT}).
+  The task will be skipped if the repo is not found in ${C_SKY}/etc/pacman.conf${C_END}${C_TEXT}.${C_END}
 
-Actions:
-- Installs the following packages:
-  - 'linux-cachyos': The performance-optimized kernel.
-  - 'linux-cachyos-headers': Required for building kernel modules (e.g., for VirtualBox).
-  - 'linux-cachyos-nvidia-open': The open-source NVIDIA driver modules specifically
-    built for this kernel.
-  - 'nvidia-utils', 'lib32-nvidia-utils', etc.: The standard NVIDIA driver stack.
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_TEXT}Installs a suite of packages required for the kernel and NVIDIA graphics:
+  - ${C_GREEN}linux-cachyos${C_END}${C_TEXT}, ${C_GREEN}linux-cachyos-headers${C_END}
+  - ${C_GREEN}linux-cachyos-nvidia-open${C_END}${C_TEXT}, ${C_GREEN}nvidia-utils${C_END}${C_TEXT}, ${C_GREEN}lib32-nvidia-utils${C_END}
+  - ${C_GREEN}nvidia-settings${C_END}${C_TEXT}, ${C_GREEN}vulkan-icd-loader${C_END}${C_TEXT}, ${C_GREEN}lib32-vulkan-icd-loader${C_END}${C_TEXT},
+    ${C_GREEN}libva-nvidia-driver${C_END}
 
-Required Follow-up Actions:
-- After this task completes, you MUST manually update your bootloader configuration
-  to make the new kernel bootable. Examples:
-  - For GRUB: 'sudo grub-mkconfig -o /boot/grub/grub.cfg'
-  - For systemd-boot: 'sudo bootctl update'
+${C_YELLOW}${C_BOLD}Required Follow-up Actions:${C_END}
+- ${C_YELLOW}You MUST manually update your bootloader configuration after this task to
+  boot the new kernel. The script does not do this for you.${C_END}
 EOF
 }
 
 docs_setup_asus() {
-  cat <<'EOF'
-[ --setup-asus ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_GREEN}Configuring ASUS Laptop Support${C_END}
 
-Performs hardware-specific setup for ASUS laptops.
+${C_SUBTEXT1}Performs hardware-specific setup for ASUS laptops.${C_END}
 
-Prerequisites:
-- The script automatically detects ASUS hardware via 'dmidecode'. If your system is
-  not identified as "ASUS", this task will be skipped.
+${C_YELLOW}${C_BOLD}Condition:${C_END}
+- ${C_SUBTEXT1}This task is skipped automatically if ${C_SKY}dmidecode -s system-manufacturer${C_END}
+  ${C_SUBTEXT1}does not report "ASUS".${C_END}
 
-Actions:
-- Adds the 'g14' repository (https://arch.asus-linux.org), which contains
-  specialized tools for ASUS laptops.
-- Imports and signs the GPG key required to trust the 'g14' repository.
-- Installs packages like 'asusctl', 'supergfxctl', and 'rog-control-center'.
-- Enables the systemd services required for these tools ('power-profiles-daemon.service',
-  'supergfxd.service', etc.) to manage power profiles, graphics switching (Optimus),
-  and keyboard lighting.
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Add GPG Key:${C_END}${C_SUBTEXT1} Imports and locally signs the GPG key required for the
+  ASUS Linux repository.${C_END}
+- ${C_PEACH}${C_BOLD}Add Repository:${C_END}${C_SUBTEXT1} Adds the ${C_SKY}[g14]${C_END}${C_SUBTEXT1} repository from ${C_SKY}https://arch.asus-linux.org${C_END}
+  to ${C_SKY}/etc/pacman.conf${C_END}${C_SUBTEXT1} and runs ${C_SKY}paru -Syu${C_END}${C_SUBTEXT1}.${C_END}
+- ${C_PEACH}${C_BOLD}Install Packages:${C_END}${C_SUBTEXT1} Installs ASUS-specific tools including:
+  - ${C_GREEN}asusctl${C_END}${C_SUBTEXT1}, ${C_GREEN}power-profiles-daemon${C_END}${C_SUBTEXT1}, ${C_GREEN}supergfxctl${C_END}${C_SUBTEXT1}, ${C_GREEN}switcheroo-control${C_END}${C_SUBTEXT1},
+    and ${C_GREEN}rog-control-center${C_END}${C_SUBTEXT1}.${C_END}
+- ${C_PEACH}${C_BOLD}Enable Services:${C_END}${C_SUBTEXT1} Enables and starts the required systemd services:
+  - ${C_SKY}power-profiles-daemon.service${C_END}
+  - ${C_SKY}supergfxd.service${C_END}
+  - ${C_SKY}switcheroo-control.service${C_END}
 EOF
 }
 
 docs_setup_greetd() {
-  cat <<'EOF'
-[ --setup-greetd ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_SKY}Setting Up the Login Manager${C_END}
 
-Configures a lightweight, terminal-based display manager (login screen).
+${C_LAVENDER}Configures a lightweight, terminal-based display manager (login screen).${C_END}
 
-Actions:
-- Installs 'greetd' and the 'tuigreet' greeter.
-- Creates the configuration file at '/etc/greetd/config.toml' and sets it to
-  launch a Hyprland session by default.
-- It will automatically detect if 'sddm' (the default KDE display manager) is
-  installed. If found, it disables the SDDM service and removes the package to
-  avoid conflicts.
-- Enables the 'greetd.service' to launch at boot.
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Installation:${C_END}${C_LAVENDER} Installs the ${C_GREEN}greetd${C_END}${C_LAVENDER} package and the ${C_GREEN}greetd-tuigreet${C_END}${C_LAVENDER} greeter.${C_END}
+- ${C_PEACH}${C_BOLD}Configuration:${C_END}${C_LAVENDER} Creates the configuration file at ${C_SKY}/etc/greetd/config.toml${C_END}
+  ${C_LAVENDER}and sets the default command to launch Hyprland via ${C_SKY}tuigreet --cmd Hyprland${C_END}${C_LAVENDER}.${C_END}
+- ${C_PEACH}${C_BOLD}Conflict Resolution:${C_END}
+  - ${C_LAVENDER}Checks if the ${C_GREEN}sddm${C_END}${C_LAVENDER} package is installed.${C_END}
+  - ${C_LAVENDER}If found, it disables the ${C_SKY}sddm.service${C_END}${C_LAVENDER} and removes the package to
+    prevent conflicts with greetd.${C_END}
+- ${C_PEACH}${C_BOLD}Service Management:${C_END}${C_LAVENDER} Enables the ${C_SKY}greetd.service${C_END}${C_LAVENDER} to launch at boot.${C_END}
 EOF
 }
 
 docs_install_packages() {
-  cat <<'EOF'
-[ --install-packages ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_SAPPHIRE}Installing System Packages${C_END}
 
-The main package installation task.
+${C_TEXT}The main package installation task. It reads package names line-by-line from
+the configuration file and installs them.${C_END}
 
-Configuration:
-- This task reads package names line-by-line from 'preconfig/packages.txt'.
-- Lines starting with '#' and empty lines in the file are ignored.
-
-Actions:
-- Uses 'yay' to install all listed packages from both the official Arch
-  repositories and the Arch User Repository (AUR).
-- You will be prompted by 'yay' to confirm the installation and review any
-  PKGBUID diffs for AUR packages.
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_TEXT}Reads the file ${C_SKY}${PRECONFIG_DIR}/packages.txt${C_END}${C_TEXT}.${C_END}
+- ${C_TEXT}Ignores any lines that are empty or start with a ${C_SKY}#${C_END}${C_TEXT} character.${C_END}
+- ${C_TEXT}Passes the entire list of remaining package names to a single
+  ${C_SKY}paru -S --needed --noconfirm${C_END}${C_TEXT} command to install them from both the
+  official repositories and the AUR.${C_END}
 EOF
 }
 
 docs_setup_dotfiles() {
-  cat <<'EOF'
-[ --setup-dotfiles ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_MAUVE}Linking User Dotfiles${C_END}
 
-Symlinks user dotfiles from a predefined source directory into the user's home.
-This task intelligently handles both top-level dotfiles (like '.bashrc') and
-nested configuration files (for '.config').
+${C_SKY}Symlinks configuration files (dotfiles) from a local source directory into the
+user's home directory.${C_END}
 
-Prerequisites:
-- A directory must exist at '~/linux-system/dotfiles'. The script will skip this
-  task if this main source directory is not found.
+${C_YELLOW}${C_BOLD}Condition:${C_END}
+- ${C_SKY}This task is skipped if the source directory ${C_LAVENDER}${USER_HOME}/linux-system/dotfiles${C_END}${C_SKY}
+  is not found.${C_END}
 
-Actions:
-- Symlinks top-level files: It iterates through all files and directories in
-  '~/linux-system/dotfiles' (e.g., '.bashrc', '.gitconfig'), skipping the
-  '.config' directory itself, and creates a symbolic link for each in '~'.
-- Symlinks '.config' contents: It then iterates through all files and directories
-  within '~/linux-system/dotfiles/.config' and creates a symbolic link for each
-  in '~/.config/'.
-- This allows for managing a complete set of dotfiles in a version-controlled
-  repository while keeping them active in the user's home directory.
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Nested Configs:${C_END}${C_SKY} For every file and directory inside
+  ${C_LAVENDER}${USER_HOME}/linux-system/dotfiles/.config/${C_END}${C_SKY}, it creates a symbolic link
+  inside ${C_LAVENDER}${USER_HOME}/.config/${C_END}${C_SKY}.${C_END}
+- ${C_PEACH}${C_BOLD}Top-Level Dotfiles:${C_END}${C_SKY} For every file and directory at the top level of
+  ${C_LAVENDER}${USER_HOME}/linux-system/dotfiles/${C_END}${C_SKY} (excluding ${C_LAVENDER}.config${C_END}${C_SKY}), it creates a
+  symbolic link directly inside ${C_LAVENDER}${USER_HOME}/${C_END}${C_SKY}.${C_END}
+- ${C_SKY}All operations are performed as the target user.${C_END}
 EOF
 }
 
 docs_setup_nix() {
-  cat <<'EOF'
-[ --setup-nix ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_PEACH}Setting up Nix & Home-Manager${C_END}
 
-Installs and configures the Nix package manager with Home-Manager and Flakes.
+${C_LAVENDER}Installs and configures the Nix package manager with Home-Manager and Flakes.${C_END}
 
-User Interaction:
-- This step is interactive. It uses the official Determinate Systems installer,
-  which will prompt you to confirm the installation.
-
-Actions:
-- Downloads and runs the Determinate Systems installer for a robust, multi-user Nix
-  installation.
-- Creates a configuration file at '~/.config/nix/nix.conf' to enable the modern
-  'nix-command' and 'flakes' experimental features.
-- Initializes and runs Home-Manager, a tool for declaratively managing a user's
-  dotfiles and packages within the Nix ecosystem. It performs an initial activation.
+${C_MAUVE}${C_BOLD}Actions:${C_END}
+- ${C_MAUVE}${C_BOLD}Nix Installation:${C_END}
+  - ${C_LAVENDER}Checks for the existence of the ${C_SKY}/nix/store${C_END}${C_LAVENDER} directory.${C_END}
+  - ${C_LAVENDER}If not found, it downloads and runs the official Determinate Systems installer.${C_END}
+  - ${C_YELLOW}The Nix installer is interactive and will require user confirmation.${C_END}
+- ${C_MAUVE}${C_BOLD}Environment Setup:${C_END}${C_LAVENDER} Sources the Nix environment from
+  ${C_SKY}/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh${C_END}${C_LAVENDER}.${C_END}
+- ${C_MAUVE}${C_BOLD}Nix Configuration:${C_END}${C_LAVENDER} Creates ${C_SKY}${USER_HOME}/.config/nix/nix.conf${C_END}${C_LAVENDER} to enable
+  the ${C_SKY}nix-command${C_END}${C_LAVENDER} and ${C_SKY}flakes${C_END}${C_LAVENDER} experimental features.${C_END}
+- ${C_MAUVE}${C_BOLD}Home-Manager Initialization:${C_END}
+  - ${C_LAVENDER}Runs ${C_SKY}nix run home-manager/master -- init --switch${C_END}${C_LAVENDER} to set up Home-Manager
+    for the first time.${C_END}
+  - ${C_LAVENDER}Executes ${C_SKY}home-manager switch${C_END}${C_LAVENDER} to apply the configuration. If this fails,
+    it retries once with a backup flag before the final attempt.${C_END}
 EOF
 }
 
-docs_manual_installations() {https://aur.archlinux.org/packages/limine-mkinitcpio-hook
-  cat <<'EOF'
-[ --manual-installs ] - Documentation
+docs_manual_installations() {
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_ROSEWATER}Handling Manual Installations${C_END}
 
-Handles software that cannot be installed through a package manager.
+${C_SUBTEXT1}Handles software that cannot be installed through a standard package manager.${C_END}
 
-Actions:
-- The current implementation downloads and runs the official installer for the
-  Private Internet Access (PIA) VPN client.
-- The installer URL is hardcoded and may become outdated.
-- This section can be customized by editing the 'task_manual_installations'
-  function to add other similar installers.
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Private Internet Access VPN:${C_END}
+  - ${C_SUBTEXT1}Checks if the ${C_GREEN}pia-client${C_END}${C_SUBTEXT1} command already exists.${C_END}
+  - ${C_SUBTEXT1}If not, it downloads the official installer script
+    (${C_SKY}pia-linux-3.6.2-08398.run${C_END}${C_SUBTEXT1}) using ${C_SKY}wget${C_END}${C_SUBTEXT1}.${C_END}
+  - ${C_SUBTEXT1}It makes the script executable and then runs it.${C_END}
+  - ${C_YELLOW}The PIA installer has its own user interface and requires interaction.${C_END}
 EOF
 }
 
 docs_harden_system() {
-  cat <<'EOF'
-[ --harden-system ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_RED}Applying System Security Hardening${C_END}
 
-Applies a variety of security enhancements to the system.
+${C_PEACH}Applies a variety of security enhancements to the system.${C_END}
 
-Actions:
-- Installs security-focused packages (AppArmor, Audit, UFW, etc.).
-- Enables core security services like 'auditd' (for system auditing) and 'apparmor'
-  (for mandatory access control).
-- Hardens the SSH server configuration in '/etc/ssh/sshd_config.d/' by disabling
-  root login, disabling password authentication (forcing key-based auth), and
-  changing the default port.
-- Configures the UFW firewall to deny incoming traffic by default, allowing
-  only the custom SSH port.
-- Applies secure kernel runtime parameters via '/etc/sysctl.d/99-custom-hardening.conf'
-  to mitigate certain classes of vulnerabilities.
-- Hardens '/proc' filesystem access by adding 'hidepid=2' to the '/etc/fstab' entry,
-  which prevents users from seeing each other's processes.
+${C_LAVENDER}${C_BOLD}Actions:${C_END}
+- ${C_LAVENDER}${C_BOLD}Install Packages:${C_END}${C_PEACH} Installs security tools like ${C_GREEN}apparmor${C_END}${C_PEACH}, ${C_GREEN}audit${C_END}${C_PEACH},
+  ${C_GREEN}ufw${C_END}${C_PEACH}, ${C_GREEN}haveged${C_END}${C_PEACH}, and ${C_GREEN}lynis-git${C_END}${C_PEACH}.${C_END}
+- ${C_LAVENDER}${C_BOLD}Enable Services:${C_END}${C_PEACH} Enables and starts core security services like
+  ${C_SKY}auditd.service${C_END}${C_PEACH}, ${C_SKY}apparmor.service${C_END}${C_PEACH}, and ${C_SKY}sshd.service${C_END}${C_PEACH}.${C_END}
+- ${C_LAVENDER}${C_BOLD}Harden SSH:${C_END}${C_PEACH} Creates a config file at ${C_SKY}/etc/ssh/sshd_config.d/99-hardening.conf${C_END}${C_PEACH} to:
+  - Change the listening port to ${C_SKY}47${C_END}${C_PEACH}.${C_END}
+  - Disable root login (${C_SKY}PermitRootLogin no${C_END}${C_PEACH}).${C_END}
+  - Disable password-based authentication (${C_SKY}PasswordAuthentication no${C_END}${C_PEACH}).${C_END}
+- ${C_LAVENDER}${C_BOLD}Configure Firewall:${C_END}${C_PEACH} Uses ${C_GREEN}UFW${C_END}${C_PEACH} to:
+  - Allow incoming traffic on the new SSH port (${C_SKY}47/tcp${C_END}${C_PEACH}).${C_END}
+  - Deny traffic on the default SSH port (${C_SKY}22/tcp${C_END}${C_PEACH}).${C_END}
+  - Enable the firewall with ${C_SKY}ufw --force enable${C_END}${C_PEACH}.${C_END}
+- ${C_LAVENDER}${C_BOLD}Kernel Parameters:${C_END}${C_PEACH} Applies secure kernel runtime parameters by writing to
+  ${C_SKY}/etc/sysctl.d/99-custom-hardening.conf${C_END}${C_PEACH} and running ${C_SKY}sysctl -p${C_END}${C_PEACH}.${C_END}
+- ${C_LAVENDER}${C_BOLD}Proc Filesystem:${C_END}${C_PEACH} Hardens ${C_SKY}/proc${C_END}${C_PEACH} access by modifying the entry in ${C_SKY}/etc/fstab${C_END}
+  ${C_PEACH}to include ${C_SKY}hidepid=2${C_END}${C_PEACH}, preventing users from seeing each other's processes.${C_END}
 EOF
 }
 
 docs_configure_user() {
-  cat <<'EOF'
-[ --configure-user ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_YELLOW}Configuring User Environment${C_END}
 
-Performs user-specific setup for the target user's environment.
+${C_SKY}Performs user-specific setup for the target user's environment.${C_END}
 
-Actions:
-- Sets the default user shell to 'fish' using 'chsh'.
-- Configures 'npm' to use a local directory ('~/.npm-global') for global
-  package installations, avoiding the need for 'sudo'.
-- Configures XDG Base Directories, including custom user folders and default
-  MIME type associations for common applications.
-- Enables and starts user-level systemd services required for the Hyprland
-  desktop environment to function correctly, such as:
-  - 'pipewire' and 'wireplumber' (for audio).
-  - 'hypridle' and 'hyprpaper' (for idle management and wallpaper).
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Default Shell:${C_END}${C_SKY} Changes the target user's default shell to ${C_GREEN}fish${C_END}${C_SKY} using
+  the ${C_LAVENDER}chsh${C_END}${C_SKY} command.${C_END}
+- ${C_PEACH}${C_BOLD}NPM Configuration:${C_END}${C_SKY} Configures ${C_GREEN}npm${C_END}${C_SKY} to use a local directory for global
+  packages at ${C_LAVENDER}${USER_HOME}/.npm-global${C_END}${C_SKY}.${C_END}
+- ${C_PEACH}${C_BOLD}XDG Configuration:${C_END}
+  - ${C_SKY}Runs ${C_LAVENDER}xdg-user-dirs-update${C_END}${C_SKY} to create standard user directories (Desktop,
+    Documents, etc.).${C_END}
+  - ${C_SKY}Creates ${C_LAVENDER}${USER_HOME}/.config/mimeapps.list${C_END}${C_SKY} to set default applications
+    for images, videos, text files, and web links.${C_END}
+- ${C_PEACH}${C_BOLD}User Services:${C_END}${C_SKY} Enables and starts user-level systemd services for:
+  - Audio: ${C_LAVENDER}pipewire.service${C_END}${C_SKY}, ${C_LAVENDER}pipewire-pulse.service${C_END}${C_SKY}, ${C_LAVENDER}wireplumber.service${C_END}
+  - Desktop: ${C_LAVENDER}hypridle.service${C_END}${C_SKY}, ${C_LAVENDER}hyprpaper.service${C_END}
+EOF
+}
+
+docs_setup_editors() {
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_GREEN}Setting Up Text Editors${C_END}
+
+${C_TEXT}Clones and sets up custom configurations for Neovim and Doom Emacs.${C_END}
+
+${C_YELLOW}${C_BOLD}Note:${C_END}
+- ${C_TEXT}If existing configurations are found, they will be backed up with a timestamp
+  (e.g., ${C_SKY}${USER_HOME}/.config/nvim.bak-YYYY-MM-DD_HH-MM${C_END}${C_TEXT}).${C_END}
+- ${C_TEXT}This task will be skipped for an editor that is not installed.${C_END}
+
+${C_PEACH}${C_BOLD}Neovim Actions:${C_END}
+- ${C_TEXT}Clones the config from ${C_SKY}https://github.com/aahsnr-configs/nvim-config.git${C_END}${C_TEXT} into
+  ${C_SKY}${USER_HOME}/.config/nvim${C_END}${C_TEXT}.${C_END}
+- ${C_TEXT}Runs a headless ${C_SKY}nvim${C_END}${C_TEXT} command to automatically sync plugins with Lazy.nvim,
+  update treesitter parsers, and install Mason tools.${C_END}
+
+${C_PEACH}${C_BOLD}Doom Emacs Actions:${C_END}
+- ${C_TEXT}Clones Doom Emacs from ${C_SKY}https://github.com/doomemacs/doomemacs${C_END}${C_TEXT} into
+  ${C_SKY}${USER_HOME}/.config/emacs${C_END}${C_TEXT}.${C_END}
+- ${C_TEXT}Clones a custom Doom config from ${C_SKY}https://github.com/aahsnr-configs/doom-config.git${C_END}
+  ${C_TEXT}into ${C_SKY}${USER_HOME}/.config/doom${C_END}${C_TEXT}.${C_END}
+- ${C_TEXT}Runs ${C_SKY}~/.config/emacs/bin/doom install${C_END}${C_TEXT} to complete the setup.
+  ${C_YELLOW}This can take a very long time.${C_END}
 EOF
 }
 
 docs_cleanup() {
-  cat <<'EOF'
-[ --cleanup ] - Documentation
+  cat <<EOF
+${C_BOLD}${C_ITALIC}${C_SAPPHIRE}Performing System Cleanup${C_END}
 
-Performs system maintenance tasks to free up disk space.
+${C_SUBTEXT1}Performs system maintenance tasks to free up disk space.${C_END}
 
-Actions:
-- Removes orphaned packages using 'yay -Rns $(pacman -Qtdq)'. Orphaned packages
-  are dependencies that were installed for another package but are no longer
-  required by any installed package on the system.
-- If Nix is installed, it runs 'nix-collect-garbage -d' to remove old, unreferenced
-  package generations from the Nix store.
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Remove Orphaned Packages:${C_END}
+  - ${C_SUBTEXT1}Uses ${C_SKY}pacman -Qtdq${C_END}${C_SUBTEXT1} to find packages that were installed as dependencies
+    but are no longer required by any installed package.${C_END}
+  - ${C_SUBTEXT1}If orphans are found, they are removed with ${C_SKY}paru -Rns${C_END}${C_SUBTEXT1}.${C_END}
+- ${C_PEACH}${C_BOLD}Clean Nix Store:${C_END}
+  - ${C_YELLOW}${C_BOLD}Condition:${C_END}${C_SUBTEXT1} This step only runs if Nix is installed.${C_END}
+  - ${C_SUBTEXT1}Executes ${C_SKY}nix-collect-garbage -d${C_END}${C_SUBTEXT1} to delete old, unreferenced
+    generations of packages from the Nix store.${C_END}
 EOF
 }
 
-# Displays the full, embedded documentation for the entire script.
 print_documentation() {
-  cat <<'EOF'
-================================================================================
-Hyprland Arch Linux Setup Script - Full Documentation
-================================================================================
+  cat <<EOF
+${C_MAUVE}================================================================================${C_END}
+${C_BOLD}${C_PEACH}Hyprland Arch Linux Setup Script - Full Documentation${C_END}
+${C_MAUVE}================================================================================${C_END}
 
-This script provides a comprehensive, automated, and idempotent method for
+${C_TEXT}This script provides a comprehensive, automated, and idempotent method for
 setting up a feature-rich Hyprland desktop environment on a fresh Arch Linux
 installation. It is modular, allowing you to run the entire setup at once or
-execute specific tasks individually using flags.
+execute specific tasks individually using flags.${C_END}
 
 EOF
   docs_pre_flight_checks
@@ -409,20 +449,20 @@ EOF
   docs_setup_dotfiles
   docs_setup_nix
   docs_configure_user
+  docs_setup_editors
   docs_cleanup
   docs_setup_greetd
   docs_harden_system
 }
 
-# Displays a brief usage summary.
 print_usage() {
   echo -e "${C_BOLD}Usage: $0 [OPTIONS...]${C_END}"
   echo "Automates the setup of a complete Hyprland Environment on Arch Linux."
   echo ""
   echo -e "${C_BOLD}If no options are provided, the script will run all setup tasks interactively.${C_END}"
   echo ""
-  echo -e "${C_HEADER}Options:${C_END}"
-  echo -e "  ${C_GREEN}--pre-flight-checks${C_END}       View docs for the mandatory pre-flight checks."
+  echo -e "${C_MAUVE}Options:${C_END}"
+  echo -e "  ${C_GREEN}--pre-flight-checks${C_END}       Verify system readiness before installation."
   echo -e "  ${C_GREEN}--initial-setup${C_END}           Perform initial system setup."
   echo -e "  ${C_GREEN}--setup-extra-repos${C_END}       Set up CachyOS and BlackArch repositories."
   echo -e "  ${C_GREEN}--kernel-and-drivers${C_END}      Install CachyOS kernel and NVIDIA drivers."
@@ -432,113 +472,116 @@ print_usage() {
   echo -e "  ${C_GREEN}--setup-dotfiles${C_END}          Symlink user dotfiles from a local repository."
   echo -e "  ${C_GREEN}--setup-nix${C_END}               Install and configure Nix with Home-Manager."
   echo -e "  ${C_GREEN}--configure-user${C_END}          Set up the user's environment."
+  echo -e "  ${C_GREEN}--setup-editors${C_END}           Set up Neovim and Doom Emacs configurations."
   echo -e "  ${C_GREEN}--cleanup${C_END}                 Remove orphaned packages from the system."
   echo -e "  ${C_GREEN}--setup-greetd${C_END}            Setup greetd and tuigreet as the login manager."
   echo -e "  ${C_GREEN}--harden-system${C_END}           Implement basic security enhancements."
   echo -e "  ${C_YELLOW}--debug${C_END}                   Enable verbose command tracing for debugging."
-  echo -e "  ${C_BLUE}--help${C_END}                    Display this help message and exit."
-  echo -e "  ${C_BLUE}--docs${C_END}                    Display the full embedded documentation and exit."
+  echo -e "  ${C_SAPPHIRE}--help${C_END}                    Display this help message and exit."
+  echo -e "  ${C_SAPPHIRE}--docs${C_END}                    Display the full embedded documentation and exit."
   echo ""
   echo -e "${C_BOLD}To view docs for a specific task, use: $0 --<task-name> --docs${C_END}"
   echo -e "  Example: $0 --setup-nix --docs"
-
 }
 
 # --- Utility Functions ---
 
-# Checks if a command exists in the current PATH.
 command_exists() { command -v "$1" &>/dev/null; }
-
-# Checks if a package is installed via pacman.
 is_pkg_installed() { pacman -Q "$1" &>/dev/null; }
+run_as_user() { sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export USER='$TARGET_USER'; $*"; }
 
-# De-escalates privileges to run a command as the original user.
-# The 'export' commands are crucial for creating a clean, predictable environment for
-# the command being run. This ensures that user-specific config files (e.g., in ~/.config)
-# are located correctly and that file ownership is preserved.
-run_as_user() {
-  sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export USER='$TARGET_USER'; $*"
-}
-
-# Wrapper for package installation commands.
-# The '< /dev/tty' redirection is critical. It forces the standard input of the 'yay'
-# command to be the controlling terminal, not the script's stdout pipe. This ensures
-# that 'yay' remains interactive (i.e., it can prompt the user for confirmation) even
-# when the script's overall output is being redirected to a log file via 'tee'.
 install_pkgs() {
-  print_warning "You will be prompted to confirm the installation of the following packages: $*"
-  yay -S --needed "$@" </dev/tty
+  paru -S --needed --noconfirm "$@"
 }
 
-# Wrapper for package removal commands.
 remove_pkgs() {
-  print_warning "You will be prompted to confirm the removal of the following packages: $*"
-  yay -Rns "$@" </dev/tty
+  paru -Rns --noconfirm "$@"
+}
+
+prompt_to_run_task() {
+  local task_name="$1"
+  local docs_func="$2"
+
+  echo -e "\n${C_MAUVE}================================================================================${C_END}"
+  print_step "Next Task: $task_name"
+  echo -e "${C_SAPPHIRE}This task will perform the following actions:${C_END}"
+  "$docs_func" | sed 's/^/  /'
+  echo
+
+  while true; do
+    read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Choose an action: Run (Enter), [S]kip, [A]bort? [Y/s/a]: ${C_END}")" -r choice
+    case "$choice" in
+    "" | [Yy]*) return 0 ;; # Run the task
+    [Ss]*)
+      print_info "Skipping task: $task_name"
+      return 1
+      ;; # Skip the task
+    [Aa]*)
+      print_error "User aborted the script."
+      exit 1
+      ;;
+    *) print_warning "Invalid input. Please choose 's' or 'a', or press Enter to run." ;;
+    esac
+  done
 }
 
 # --- Task Functions ---
 
-# Installs 'yay-bin' as the AUR helper. This function is called by pre_flight_checks if needed.
 task_setup_aur_helper() {
-  # This check prevents re-running the installation if the function is ever called twice.
-  if command_exists yay; then
-    print_success "AUR helper 'yay' is already installed."
+  if command_exists paru; then
+    print_success "AUR helper 'paru' is already installed."
     return
   fi
 
-  print_step "Setting up AUR Helper (yay)"
-  print_info "Installing 'yay-bin' from the AUR..."
-
-  # Ensure base-devel and git are present before trying to build anything from the AUR.
-  if ! is_pkg_installed git || ! is_pkg_installed make; then
-    print_info "Installing 'git' and 'base-devel' to build the AUR helper..."
-    sudo pacman -S --needed git base-devel
-  fi
+  print_step "Setting up AUR Helper (paru)"
+  print_info "Installing 'git' and 'base-devel' to build the AUR helper..."
+  sudo pacman -S --needed --noconfirm git base-devel
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
   TEMP_FILES+=("$tmp_dir")
-  sudo git clone https://aur.archlinux.org/yay-bin.git "$tmp_dir"
+  sudo git clone https://aur.archlinux.org/paru-bin.git "$tmp_dir"
   sudo chown -R "$TARGET_USER:$TARGET_USER" "$tmp_dir"
   (
     cd "$tmp_dir"
-    print_info "Building and installing 'yay-bin'..."
-    print_warning "You will be prompted to confirm the build and installation."
-    run_as_user "makepkg -si < /dev/tty"
+    print_info "Building and installing 'paru-bin'..."
+    run_as_user "makepkg -si --noconfirm"
   )
-  print_success "'yay' has been installed successfully."
+  print_success "'paru' has been installed successfully."
 }
 
-# Verifies that the script is run in a valid environment before executing tasks.
 pre_flight_checks() {
   print_step "Running Pre-flight Checks"
 
-  # --- 1. System and Privilege Verification ---
+  if [ "$RUN_ALL" = true ]; then
+    echo -e "\n${C_SAPPHIRE}This initial step performs critical safety and environment checks.${C_END}"
+    docs_pre_flight_checks | sed 's/^/  /'
+    echo
+    read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Continue with pre-flight checks? (Press Enter for Yes) [Y/n]: ${C_END}")" -r choice
+    if [[ -n "$choice" ]]; then
+      print_error "Pre-flight checks declined. Aborting script."
+      exit 1
+    fi
+  fi
+
   if [[ $EUID -eq 0 ]]; then
-    print_error "This script must be run as a regular user, not root. Aborting."
+    print_error "This script must be run as a regular user, not root."
     exit 1
   fi
   if ! command_exists sudo; then
-    print_error "'sudo' command not found. Aborting."
+    print_error "'sudo' command not found."
     exit 1
   fi
   if ! ping -c 1 -W 2 8.8.8.8 &>/dev/null; then
-    print_error "No internet connection. Aborting."
+    print_error "No internet connection."
     exit 1
   fi
 
-  # --- 2. AUR Helper and Dependency Installation ---
-  # Ensure yay is available, as it's the script's primary package manager for all tasks.
-  if ! command_exists yay; then
-    task_setup_aur_helper
-  fi
+  if ! command_exists paru; then task_setup_aur_helper; fi
 
-  # Check for necessary script dependencies and prompt to install if missing.
   local missing_pkgs=()
   for pkg in neovim wl-clipboard curl wget pciutils dmidecode xdg-user-dirs; do
-    if ! is_pkg_installed "$pkg"; then
-      missing_pkgs+=("$pkg")
-    fi
+    if ! is_pkg_installed "$pkg"; then missing_pkgs+=("$pkg"); fi
   done
 
   if ((${#missing_pkgs[@]} > 0)); then
@@ -546,12 +589,17 @@ pre_flight_checks() {
     install_pkgs "${missing_pkgs[@]}"
   fi
 
-  # --- 3. Configuration File Verification ---
-  # Check for required external configuration files.
+  print_info "Ensuring Limine bootloader hook is installed..."
+  if ! is_pkg_installed "limine-mkinitcpio-hook"; then
+    install_pkgs "limine-mkinitcpio-hook"
+  else
+    print_success "limine-mkinitcpio-hook is already installed."
+  fi
+
   local required_files=("$PRECONFIG_DIR/packages.txt" "$PRECONFIG_DIR/makepkg.conf.txt" "$PRECONFIG_DIR/99-custom-env.sh.txt")
   for file in "${required_files[@]}"; do
     if [[ ! -f "$file" ]]; then
-      print_error "Required configuration file '$file' not found. Aborting."
+      print_error "Required config file '$file' not found."
       exit 1
     fi
   done
@@ -561,27 +609,19 @@ pre_flight_checks() {
   print_success "Checks passed. Configuring system for user: $TARGET_USER"
 }
 
-# Sets up environment variables, Pacman, Makepkg, and Reflector configurations.
 task_initial_setup() {
   print_step "Performing Initial System Setup"
 
-  # --- Copy custom environment variables ---
   print_info "Copying custom environment variables to /etc/profile.d/..."
   sudo cp "$PRECONFIG_DIR/99-custom-env.sh.txt" "/etc/profile.d/99-custom-env.sh"
   sudo chmod +x "/etc/profile.d/99-custom-env.sh"
   print_success "Custom environment variables installed."
 
-  # --- Modify pacman.conf ---
   print_info "Modifying /etc/pacman.conf..."
-  # Enable colored output in pacman
   sudo sed -i 's/^#\(Color\)/\1/' /etc/pacman.conf
-  # Add a little pacman animation for fun
   sudo sed -i '/^#\(Color\)/a ILoveCandy' /etc/pacman.conf
-  # Show more package details during installation
   sudo sed -i 's/^#\(VerbosePkgLists\)/\1/' /etc/pacman.conf
-  # Prevent timeouts on slow connections
   sudo sed -i 's/^#\(DisableDownloadTimeout\)/\1/' /etc/pacman.conf
-  # Enable parallel downloads for faster package installation
   sudo sed -i 's/^#\(ParallelDownloads\).*/\1 = 10/' /etc/pacman.conf
   if ! grep -q "^DownloadUser" /etc/pacman.conf; then
     sudo sed -i '/^\[options\]/a DownloadUser = alpm' /etc/pacman.conf
@@ -590,16 +630,10 @@ task_initial_setup() {
   fi
   print_success "pacman.conf modifications applied."
 
-  # --- Overwrite makepkg.conf ---
-  print_info "Overwriting /etc/makepkg.conf with contents from makepkg.conf.txt..."
-  if sudo cp "$PRECONFIG_DIR/makepkg.conf.txt" "/etc/makepkg.conf"; then
-    print_success "Successfully updated /etc/makepkg.conf."
-  else
-    print_error "Failed to copy makepkg.conf.txt to /etc/makepkg.conf. Aborting."
-    exit 1
-  fi
+  print_info "Overwriting /etc/makepkg.conf..."
+  sudo cp "$PRECONFIG_DIR/makepkg.conf.txt" "/etc/makepkg.conf"
+  print_success "Successfully updated /etc/makepkg.conf."
 
-  # --- Setup Reflector for Mirror Management ---
   print_info "Setting up reflector to manage pacman mirrors..."
   install_pkgs reflector
   sudo systemctl enable --now reflector.service reflector.timer
@@ -607,43 +641,39 @@ task_initial_setup() {
   sudo reflector --verbose -l 25 --country BD,IN,SG --sort rate --save /etc/pacman.d/mirrorlist
   print_success "Reflector setup complete and mirrorlist updated."
 
-  # --- Interactive Verification Loop ---
   local verified=false
   while [ "$verified" = false ]; do
     print_step "Verify Configuration Files"
-    echo -e "${C_HEADER}Current /etc/pacman.conf:${C_END}"
+    echo -e "${C_MAUVE}Current /etc/pacman.conf:${C_END}"
     cat /etc/pacman.conf
-    echo -e "\n${C_HEADER}Current /etc/makepkg.conf:${C_END}"
+    echo -e "\n${C_MAUVE}Current /etc/makepkg.conf:${C_END}"
     cat /etc/makepkg.conf
 
-    read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Are these configurations okay? [Y/n/edit]: ${C_END}")" -r choice
+    read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Are these configurations okay? (Enter=Yes, e=Edit, other=Abort) [Y/n/edit]: ${C_END}")" -r choice
     case "$choice" in
-    [Yy]* | "") # Default to Yes
+    "")
       print_success "Configuration approved."
       verified=true
       ;;
-    [Nn]*)
-      print_error "Configuration rejected. Aborting script."
-      exit 1
-      ;;
     [Ee]*)
-      read -p "$(echo -e "${C_CYAN}${I_PROMPT} Which file to edit? [p(acman)/m(akepkg)]: ${C_END}")" -r edit_choice
+      read -p "$(echo -e "${C_SKY}${I_PROMPT} Which file to edit? [p(acman)/m(akepkg)]: ${C_END}")" -r edit_choice
       case "$edit_choice" in
       [Pp]*) sudo nvim /etc/pacman.conf ;;
       [Mm]*) sudo nvim /etc/makepkg.conf ;;
       *) print_warning "Invalid selection." ;;
       esac
       ;;
-    *) print_warning "Invalid input." ;;
+    *)
+      print_error "Configuration rejected. Aborting script."
+      exit 1
+      ;;
     esac
   done
 }
 
-# Sets up CachyOS and BlackArch repositories.
 task_setup_extra_repos() {
   print_step "Setting up Extra Repositories (CachyOS & BlackArch)"
 
-  # --- CachyOS Setup ---
   if grep -q "\[cachyos\]" /etc/pacman.conf; then
     print_success "CachyOS repository is already configured."
   else
@@ -657,15 +687,12 @@ task_setup_extra_repos() {
       tar xvf cachyos-repo.tar.xz
       cd cachyos-repo
       print_warning "The CachyOS setup script is interactive. Please follow the prompts."
-      # This is a valid use case for this redirection, as we want the script,
-      # even when run as root, to take input from the user's terminal.
       # shellcheck disable=SC2024
       sudo ./cachyos-repo.sh </dev/tty
     )
     print_success "CachyOS repository setup finished."
   fi
 
-  # --- BlackArch Setup ---
   if grep -q "\[blackarch\]" /etc/pacman.conf; then
     print_success "BlackArch repository is already configured."
   else
@@ -680,11 +707,9 @@ task_setup_extra_repos() {
   fi
 
   print_info "Synchronizing databases and upgrading system..."
-  print_warning "You will be prompted to confirm the system upgrade."
-  yay -Syu </dev/tty
+  paru -Syu --noconfirm
 }
 
-# Installs the CachyOS kernel and corresponding NVIDIA drivers.
 task_kernel_and_drivers() {
   print_step "Installing CachyOS Kernel and NVIDIA Drivers"
   if ! grep -q "\[cachyos\]" /etc/pacman.conf; then
@@ -696,11 +721,10 @@ task_kernel_and_drivers() {
   install_pkgs linux-cachyos linux-cachyos-headers linux-cachyos-nvidia-open nvidia-utils lib32-nvidia-utils \
     nvidia-settings vulkan-icd-loader lib32-vulkan-icd-loader libva-nvidia-driver
 
-  print_warning "CachyOS kernel and NVIDIA drivers have been installed. You must regenerate your bootloader configuration (e.g., 'grub-mkconfig' or 'bootctl update') to use it."
+  print_warning "CachyOS kernel and NVIDIA drivers installed. You must regenerate your bootloader configuration."
   print_success "CachyOS kernel and driver installation complete."
 }
 
-# Installs special drivers and tools for ASUS laptops from the g14 repo.
 task_setup_asus() {
   print_step "Setting up for ASUS Laptops (using g14 Repository)"
   if ! sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
@@ -710,40 +734,21 @@ task_setup_asus() {
 
   local g14_key_id="8F654886F17D497FEFE3DB448B15A6B0E9A3FA35"
   print_info "Configuring GPG key for the g14 repository..."
-  if sudo pacman-key --list-keys | grep -q "$g14_key_id"; then
-    print_success "GPG key '$g14_key_id' is already present."
-  else
-    print_info "Receiving and signing GPG key '$g14_key_id'..."
+  if ! sudo pacman-key --list-keys | grep -q "$g14_key_id"; then
     sudo pacman-key --recv-keys "$g14_key_id"
     sudo pacman-key --lsign-key "$g14_key_id"
-    print_success "GPG key setup complete."
   fi
+  print_success "GPG key setup complete."
 
   print_info "Configuring the [g14] repository in /etc/pacman.conf..."
-  if grep -q "\[g14\]" /etc/pacman.conf; then
-    print_success "The [g14] repository is already configured."
-  else
-    print_info "Adding [g14] repository to /etc/pacman.conf..."
-    local g14_repo_conf
-    g14_repo_conf=$(
-      cat <<'EOF'
-
-[g14]
-Server = https://arch.asus-linux.org
-EOF
-    )
-    # The 'tee' command is used here to correctly handle writing to a privileged
-    # file. A simple 'sudo echo "..." >> /file' would fail because the shell
-    # attempts the redirection before 'sudo' elevates privileges. Piping to
-    # 'sudo tee -a' ensures 'tee' runs as root and can write to the file.
-    echo "$g14_repo_conf" | sudo tee -a /etc/pacman.conf >/dev/null
-    print_info "Synchronizing databases with the new repository..."
-    yay -Syu </dev/tty
+  if ! grep -q "\[g14\]" /etc/pacman.conf; then
+    echo -e "\n[g14]\nServer = https://arch.asus-linux.org" | sudo tee -a /etc/pacman.conf >/dev/null
+    paru -Syu --noconfirm
   fi
+  print_success "The [g14] repository is configured."
 
-  print_info "Installing ASUS-specific packages from the g14 repository..."
-  local asus_packages=("asusctl" "power-profiles-daemon" "supergfxctl" "switcheroo-control" "rog-control-center")
-  install_pkgs "${asus_packages[@]}"
+  print_info "Installing ASUS-specific packages..."
+  install_pkgs asusctl power-profiles-daemon supergfxctl switcheroo-control rog-control-center
 
   print_info "Enabling required system services for ASUS hardware..."
   sudo systemctl daemon-reload
@@ -753,7 +758,6 @@ EOF
   print_success "ASUS services enabled."
 }
 
-# Sets up greetd with tuigreet as a lightweight, terminal-based login manager.
 task_setup_greetd() {
   print_step "Setting up greetd and tuigreet"
 
@@ -778,7 +782,6 @@ EOF
   print_info "Checking for and removing SDDM..."
   if is_pkg_installed sddm; then
     if systemctl is-enabled --quiet sddm.service &>/dev/null; then
-      print_info "Disabling SDDM service..."
       sudo systemctl disable sddm.service
     fi
     remove_pkgs sddm
@@ -789,11 +792,9 @@ EOF
 
   print_info "Enabling the greetd service..."
   sudo systemctl enable greetd.service
-
   print_success "greetd setup complete."
 }
 
-# Reads the package list from 'packages.txt' and installs them.
 task_install_packages() {
   print_step "Installing System Packages from File"
   mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "$PRECONFIG_DIR/packages.txt")
@@ -804,7 +805,6 @@ task_install_packages() {
   install_pkgs "${packages_to_install[@]}"
 }
 
-# Symlinks user dotfiles from a predefined source directory.
 task_setup_dotfiles() {
   print_step "Setting up User Dotfiles"
 
@@ -817,9 +817,8 @@ task_setup_dotfiles() {
     return
   fi
 
-  # --- Symlink contents of .config ---
   if run_as_user "[ -d '$dotfiles_config_source_dir' ]"; then
-    print_info "Symlinking contents of '$dotfiles_config_source_dir' to '$dotfiles_config_target_dir'..."
+    print_info "Symlinking contents of '$dotfiles_config_source_dir'..."
     run_as_user "mkdir -p '$dotfiles_config_target_dir'"
     while IFS= read -r -d '' item; do
       local base_name
@@ -827,12 +826,9 @@ task_setup_dotfiles() {
       print_info "  -> Linking '$base_name' into .config/..."
       run_as_user "ln -svf '$item' '$dotfiles_config_target_dir/'"
     done < <(run_as_user "find '$dotfiles_config_source_dir' -mindepth 1 -maxdepth 1 -print0")
-  else
-    print_info "No '.config' directory found in dotfiles source. Skipping."
   fi
 
-  # --- Symlink top-level dotfiles from the parent directory ---
-  print_info "Symlinking top-level dotfiles from '$dotfiles_parent_dir' to '$USER_HOME'..."
+  print_info "Symlinking top-level dotfiles from '$dotfiles_parent_dir'..."
   while IFS= read -r -d '' item; do
     local base_name
     base_name=$(basename "$item")
@@ -843,7 +839,6 @@ task_setup_dotfiles() {
   print_success "Dotfiles setup complete."
 }
 
-# Installs and configures Nix, Flakes, and Home-Manager.
 task_setup_nix() {
   print_step "Setting up Nix, Home-Manager, and Flakes"
 
@@ -871,8 +866,6 @@ task_setup_nix() {
 
   if [ -f "$nix_daemon_profile" ]; then
     print_info "Sourcing Nix environment profile for this session..."
-    # Sourcing the profile script makes the 'nix' command available to the *current*
-    # running script instance, which is necessary to proceed with configuration.
     # shellcheck disable=SC1090
     . "$nix_daemon_profile"
   else
@@ -888,29 +881,17 @@ task_setup_nix() {
   print_info "Ensuring Nix is configured with flakes and optimizations..."
   local nix_config_dir="$USER_HOME/.config/nix"
   local nix_config_file="$nix_config_dir/nix.conf"
-  local nix_conf_content
-  nix_conf_content=$(
-    cat <<'EOF'
-experimental-features = nix-command flakes
-max-jobs = 4
-EOF
-  )
   run_as_user "mkdir -p '$nix_config_dir'"
-  run_as_user "echo -e \"$nix_conf_content\" > \"$nix_config_file\""
+  run_as_user "echo -e 'experimental-features = nix-command flakes\nmax-jobs = 4' > '$nix_config_file'"
 
   local nix_cmd_prefix=". '$nix_daemon_profile';"
 
   print_info "Initializing Home-Manager..."
-  if run_as_user "[ -d '$USER_HOME/.config/home-manager' ]" && command_exists home-manager; then
-    print_success "Home-Manager seems to be already initialized."
-  else
+  if ! (run_as_user "[ -d '$USER_HOME/.config/home-manager' ]" && command_exists home-manager); then
     run_as_user "$nix_cmd_prefix nix run home-manager/master -- init --switch"
   fi
 
   print_info "Switching to the new Home-Manager configuration..."
-  # The first 'home-manager switch' can sometimes fail if it tries to overwrite
-  # an existing file. Retrying with a backup flag (-b) is a common and safe
-  # workaround to resolve this.
   if ! run_as_user "$nix_cmd_prefix home-manager switch"; then
     print_warning "Initial 'home-manager switch' failed. Retrying with backup flag..."
     run_as_user "$nix_cmd_prefix home-manager switch -b backup"
@@ -926,7 +907,6 @@ EOF
   print_success "Nix, Home-Manager, and Flakes setup complete."
 }
 
-# Installs third-party software that is not available in standard repositories.
 task_manual_installations() {
   print_step "Performing Manual Installations"
 
@@ -934,7 +914,6 @@ task_manual_installations() {
     print_success "Private Internet Access is already installed."
   else
     print_info "Installing Private Internet Access (PIA) VPN."
-    print_warning "The PIA installer URL is version-specific and may become outdated."
     local pia_url="https://installers.privateinternetaccess.com/download/pia-linux-3.6.2-08398.run"
     local pia_installer
     pia_installer=$(mktemp --suffix=.run)
@@ -948,51 +927,34 @@ task_manual_installations() {
   fi
 }
 
-# Applies system-wide security hardening configurations.
 task_harden_system() {
   print_step "Applying System Security Hardening"
 
-  # --- 1. Install Security Packages ---
   print_info "Installing security packages..."
-  local security_packages=(
-    acct apparmor apparmor.d-git audit arch-audit openssh procps-ng rng-tools
+  install_pkgs acct apparmor apparmor.d-git audit arch-audit openssh procps-ng rng-tools \
     sysstat haveged lynis-git libpwquality bleachbit ufw
-  )
-  install_pkgs "${security_packages[@]}"
 
-  # --- 2. Enable Core Services ---
   print_info "Enabling core security services..."
   local system_services=(acct auditd apparmor haveged rngd sshd)
   for service in "${system_services[@]}"; do
-    if sudo systemctl enable --now "${service}.service"; then
-      print_success "Enabled '$service'."
-    else
-      print_warning "Could not enable '$service'."
-    fi
+    sudo systemctl enable --now "${service}.service" && print_success "Enabled '$service'."
   done
 
-  # --- 3. Configure Auditing ---
   print_info "Configuring audit framework..."
-  if ! grep -q '^audit:' /etc/group; then
-    sudo groupadd -r audit && print_success "Created 'audit' group."
-  fi
+  if ! grep -q '^audit:' /etc/group; then sudo groupadd -r audit; fi
   sudo gpasswd -a "$TARGET_USER" audit
   if ! grep -q "^\s*log_group = audit" /etc/audit/auditd.conf; then
     echo "log_group = audit" | sudo tee -a /etc/audit/auditd.conf >/dev/null
     sudo systemctl restart auditd.service
-    print_success "Audit configuration applied."
   fi
+  print_success "Audit configuration applied."
 
-  # --- 4. Harden SSH and Firewall ---
   print_info "Hardening OpenSSH server configuration..."
   local sshd_hardening_content
   sshd_hardening_content=$(
     cat <<'EOF'
-# Custom hardening rules
 Port 47
 LogLevel VERBOSE
-# Disabling password authentication is a critical security measure that
-# forces the use of more secure SSH keys.
 PermitRootLogin no
 PasswordAuthentication no
 ChallengeResponseAuthentication no
@@ -1012,32 +974,17 @@ EOF
     print_success "UFW enabled and configured for SSH on port 47."
   fi
 
-  # --- 5. Harden Kernel at Runtime ---
   print_info "Applying custom sysctl kernel settings..."
   local sysctl_file="/etc/sysctl.d/99-custom-hardening.conf"
-  local sysctl_content
-  sysctl_content=$(
-    cat <<'EOF'
-# Restrict access to kernel pointers, mitigating KASLR bypasses.
-kernel.kptr_restrict = 2
-# Disable the SysRq key entirely.
-kernel.sysrq = 0
-# Prevent unprivileged users from using the bpf() syscall, reducing attack surface.
-kernel.unprivileged_bpf_disabled = 1
-# Restrict ptrace scope to prevent non-child processes from debugging other processes.
-kernel.yama.ptrace_scope = 2
-# Enable source route verification to prevent IP spoofing.
-net.ipv4.conf.all.rp_filter = 1
-EOF
-  )
-  echo "$sysctl_content" | sudo tee "$sysctl_file" >/dev/null
+  echo "kernel.kptr_restrict = 2" | sudo tee "$sysctl_file" >/dev/null
+  echo "kernel.sysrq = 0" | sudo tee -a "$sysctl_file" >/dev/null
+  echo "kernel.unprivileged_bpf_disabled = 1" | sudo tee -a "$sysctl_file" >/dev/null
+  echo "kernel.yama.ptrace_scope = 2" | sudo tee -a "$sysctl_file" >/dev/null
+  echo "net.ipv4.conf.all.rp_filter = 1" | sudo tee -a "$sysctl_file" >/dev/null
   sudo sysctl -p "$sysctl_file"
   print_success "Runtime kernel parameters have been applied."
 
-  # --- 6. Harden /proc Filesystem ---
   print_info "Hardening /proc filesystem with hidepid..."
-  # 'hidepid=2' restricts non-root users from seeing processes other than their own.
-  # This prevents users from snooping on each other's activities.
   if ! grep "^\s*proc\s*/proc" /etc/fstab | grep -q "hidepid=2"; then
     sudo sed -i 's|^\s*proc\s*/proc.*|proc /proc proc nosuid,nodev,noexec,hidepid=2 0 0|' /etc/fstab
     sudo mount -o remount /proc
@@ -1047,97 +994,25 @@ EOF
   fi
 }
 
-# Helper function to set up XDG directories and MIME types.
 task_helper_setup_xdg() {
   print_step "Configuring XDG Base Directories and MIME Associations"
-  local config_dir="${USER_HOME}/.config"
+  run_as_user "mkdir -p '$USER_HOME/.config'"
 
-  run_as_user "mkdir -p '${config_dir}'"
-
-  # --- Configure User Directories ---
   print_info "Setting up XDG user directories..."
-  run_as_user "
-    cat <<EOF > '${config_dir}/user-dirs.locale'
-en_US
-EOF
-  "
-
-  run_as_user "
-    # Note: EOF is unquoted to allow for shell expansion of \${HOME}.
-    cat <<EOF > '${config_dir}/user-dirs.dirs'
-# This file defines the XDG user directories.
-XDG_DESKTOP_DIR=\"\${HOME}/Desktop\"
-XDG_DOCUMENTS_DIR=\"\${HOME}/Documents\"
-XDG_DOWNLOAD_DIR=\"\${HOME}/Downloads\"
-XDG_MUSIC_DIR=\"\${HOME}/Music\"
-XDG_PICTURES_DIR=\"\${HOME}/Pictures\"
-XDG_PUBLICSHARE_DIR=\"\${HOME}/Public\"
-XDG_TEMPLATES_DIR=\"\${HOME}/Templates\"
-XDG_VIDEOS_DIR=\"\${HOME}/Videos\"
-
-# Custom Directories
-XDG_DEV_DIR=\"\${HOME}/Dev\"
-XDG_SCREENSHOTS_DIR=\"\${HOME}/Pictures/Screenshots\"
-XDG_WALLPAPERS_DIR=\"\${HOME}/Pictures/Wallpapers\"
-XDG_TMP_DIR=\"\${HOME}/tmp\"
-EOF
-  "
-  print_info "Running xdg-user-dirs-update to create folders..."
   run_as_user "xdg-user-dirs-update"
   print_success "XDG user directories configured."
 
-  # --- Configure MIME Applications ---
   print_info "Setting up default MIME type applications..."
   run_as_user "
-    # Note: 'EOF' is quoted to prevent any shell expansion within the here-document.
-    cat <<'EOF' > '${config_dir}/mimeapps.list'
-# This file sets the default applications for MIME types.
-
+    cat <<'EOF' > '$USER_HOME/.config/mimeapps.list'
 [Default Applications]
-# Images
 image/png=imv.desktop
-image/svg=imv.desktop
 image/jpeg=imv.desktop
-image/gif=imv.desktop
-
-# Audio
-audio/mp3=io.bassi.Amberol.desktop
-audio/flac=io.bassi.Amberol.desktop
-audio/wav=io.bassi.Amberol.desktop
-audio/aac=io.bassi.Amberol.desktop
-
-# Video
 video/mp4=mpv.desktop
-video/avi=mpv.desktop
-video/mkv=mpv.desktop
-
-# Browser Handlers for File Types
-application/x-extension-htm=zen-browser.desktop
-application/x-extension-html=zen-browser.desktop
-application/x-extension-shtml=zen-browser.desktop
-application/x-extension-xht=zen-browser.desktop
-application/x-extension-xhtml=zen-browser.desktop
 text/html=zen-browser.desktop
-
-# Browser Handlers for URL Schemes
-x-scheme-handler/about=zen-browser.desktop
-x-scheme-handler/ftp=zen-browser.desktop
 x-scheme-handler/http=zen-browser.desktop
 x-scheme-handler/https=zen-browser.desktop
-x-scheme-handler/unknown=zen-browser.desktop
-
-# Programming & Text Files
 text/plain=codium.desktop
-text/markdown=codium.desktop
-text/x-shellscript=codium.desktop
-text/css=codium.desktop
-application/json=codium.desktop
-application/javascript=codium.desktop
-text/x-python=codium.desktop
-text/x-csrc=codium.desktop
-text/x-c++src=codium.desktop
-
-# Other Associations
 application/pdf=org.gnome.Papers.desktop
 inode/directory=thunar.desktop
 EOF
@@ -1145,14 +1020,8 @@ EOF
   print_success "Default MIME applications configured."
 }
 
-# Sets up the user's shell and application configs.
 task_configure_user() {
   print_step "Configuring User Environment for $TARGET_USER"
-
-  if command_exists setup-github-keys; then
-    print_info "Executing 'setup-github-keys'..."
-    setup-github-keys
-  fi
 
   print_info "Setting default shell for '$TARGET_USER' to fish..."
   if chsh -s "$(which fish)" "$TARGET_USER" </dev/tty; then
@@ -1164,7 +1033,6 @@ task_configure_user() {
   print_info "Configuring NPM global directory..."
   run_as_user "mkdir -p '$USER_HOME/.npm-global' && npm config set prefix '$USER_HOME/.npm-global'"
 
-  # --- Setup XDG Directories and MIME types ---
   task_helper_setup_xdg
 
   print_step "Setting up Hyprland Desktop Services"
@@ -1179,7 +1047,44 @@ task_configure_user() {
   done
 }
 
-# Removes orphaned packages and cleans the Nix store.
+task_setup_editors() {
+  print_step "Setting up Text Editors (Neovim & Doom Emacs)"
+
+  if command_exists nvim; then
+    print_info "Setting up Neovim configuration..."
+    if run_as_user "[ -d \"$USER_HOME/.config/nvim\" ]"; then
+      print_warning "Neovim config directory already exists. Backing it up."
+      run_as_user "mv -f '$USER_HOME/.config/nvim' '$USER_HOME/.config/nvim.bak-$(date +%F_%H-%M)'"
+    fi
+    run_as_user "git clone https://github.com/aahsnr-configs/nvim-config.git '$USER_HOME/.config/nvim'"
+    print_info "Running Neovim headless setup for plugins and tools..."
+    run_as_user "nvim --headless \"+Lazy! sync\" +TSUpdateSync \"+autocmd User MasonToolsUpdateCompleted quitall\" +MasonToolsInstall"
+    print_success "Neovim setup complete."
+  else
+    print_warning "Neovim ('nvim') is not installed. Skipping its setup."
+  fi
+
+  if command_exists emacs; then
+    print_info "Setting up Doom Emacs configuration..."
+    if run_as_user "[ -d \"$USER_HOME/.config/emacs\" ]"; then
+      print_warning "Emacs config directory already exists. Backing it up."
+      run_as_user "mv -f '$USER_HOME/.config/emacs' '$USER_HOME/.config/emacs.bak-$(date +%F_%H-%M)'"
+    fi
+    if run_as_user "[ -d \"$USER_HOME/.config/doom\" ]"; then
+      print_warning "Doom config directory already exists. Backing it up."
+      run_as_user "mv -f '$USER_HOME/.config/doom' '$USER_HOME/.config/doom.bak-$(date +%F_%H-%M)'"
+    fi
+
+    run_as_user "git clone --depth 1 https://github.com/doomemacs/doomemacs '$USER_HOME'/.config/emacs"
+    run_as_user "git clone https://github.com/aahsnr-configs/doom-config.git '$USER_HOME'/.config/doom -b lsp-mode"
+    print_info "Running 'doom install'. This may take a significant amount of time..."
+    run_as_user "'$USER_HOME'/.config/emacs/bin/doom install"
+    print_success "Doom Emacs setup complete."
+  else
+    print_warning "Emacs ('emacs') is not installed. Skipping its setup."
+  fi
+}
+
 task_cleanup() {
   print_step "Cleaning Up System"
 
@@ -1187,7 +1092,7 @@ task_cleanup() {
   if pacman -Qtdq >/dev/null; then
     print_warning "The following orphaned packages will be removed:"
     pacman -Qtd | awk '{print "  - " $1 " " $2}'
-    yay -Rns "$(pacman -Qtdq)" </dev/tty
+    paru -Rns --noconfirm "$(pacman -Qtdq)"
   else
     print_success "No orphaned packages to remove."
   fi
@@ -1201,31 +1106,29 @@ task_cleanup() {
   print_success "System cleanup finished."
 }
 
-# --- Main Execution Logic ---
-main() {
-  # 'exec &>' redirects both stdout and stderr of the script.
-  # '>(tee -a "$LOG_FILE")' is a process substitution. It sends the redirected
-  # output to the 'tee' command, which simultaneously appends it to the log file
-  # ('-a') and prints it to the original standard output (the console).
+# --- Logging Setup ---
+setup_logging() {
+  mkdir -p "$LOGS_DIR"
+  LOG_FILE="$LOGS_DIR/setup-log-$(date +'%b.%d.%Y_%I-%M-%p').log"
+  # Redirect stdout and stderr to a log file and the console.
+  # This should only be called when a task is actually going to be run.
   exec &> >(tee -a "$LOG_FILE")
   print_info "$I_LOG Logging output to: $LOG_FILE"
+}
 
-  local RUN_ALL=true
+# --- Main Execution Logic ---
+main() {
+  local TASKS_TO_RUN=()
   if (($# > 0)); then
+    RUN_ALL=false
     while (("$#")); do
       case "$1" in
-      # For each flag, first check if the *next* argument is '--docs'.
-      # The construct '${2:-}' safely handles cases where a flag is given at the
-      # end of the command, preventing an "unbound variable" error when 'set -u' is active.
-      # If '--docs' is found, display the relevant documentation and exit.
-      # Otherwise, set RUN_ALL to false, run the task, and shift to the next argument.
       --pre-flight-checks)
         if [[ "${2:-}" == "--docs" ]]; then
           docs_pre_flight_checks >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        # No task to run, this is docs-only and pre-flight runs for all.
+        TASKS_TO_RUN+=("pre_flight_checks")
         shift
         ;;
       --initial-setup)
@@ -1233,8 +1136,7 @@ main() {
           docs_initial_setup >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_initial_setup
+        TASKS_TO_RUN+=("initial_setup")
         shift
         ;;
       --setup-extra-repos)
@@ -1242,8 +1144,7 @@ main() {
           docs_setup_extra_repos >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_setup_extra_repos
+        TASKS_TO_RUN+=("setup_extra_repos")
         shift
         ;;
       --kernel-and-drivers)
@@ -1251,8 +1152,7 @@ main() {
           docs_kernel_and_drivers >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_kernel_and_drivers
+        TASKS_TO_RUN+=("kernel_and_drivers")
         shift
         ;;
       --setup-asus)
@@ -1260,8 +1160,7 @@ main() {
           docs_setup_asus >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_setup_asus
+        TASKS_TO_RUN+=("setup_asus")
         shift
         ;;
       --install-packages)
@@ -1269,8 +1168,7 @@ main() {
           docs_install_packages >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_install_packages
+        TASKS_TO_RUN+=("install_packages")
         shift
         ;;
       --manual-installs)
@@ -1278,8 +1176,7 @@ main() {
           docs_manual_installations >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_manual_installations
+        TASKS_TO_RUN+=("manual_installations")
         shift
         ;;
       --setup-dotfiles)
@@ -1287,8 +1184,7 @@ main() {
           docs_setup_dotfiles >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_setup_dotfiles
+        TASKS_TO_RUN+=("setup_dotfiles")
         shift
         ;;
       --setup-nix)
@@ -1296,8 +1192,7 @@ main() {
           docs_setup_nix >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_setup_nix
+        TASKS_TO_RUN+=("setup_nix")
         shift
         ;;
       --configure-user)
@@ -1305,8 +1200,15 @@ main() {
           docs_configure_user >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_configure_user
+        TASKS_TO_RUN+=("configure_user")
+        shift
+        ;;
+      --setup-editors)
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_setup_editors >/dev/tty
+          exit 0
+        fi
+        TASKS_TO_RUN+=("setup_editors")
         shift
         ;;
       --cleanup)
@@ -1314,8 +1216,7 @@ main() {
           docs_cleanup >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_cleanup
+        TASKS_TO_RUN+=("cleanup")
         shift
         ;;
       --setup-greetd)
@@ -1323,8 +1224,7 @@ main() {
           docs_setup_greetd >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_setup_greetd
+        TASKS_TO_RUN+=("setup_greetd")
         shift
         ;;
       --harden-system)
@@ -1332,8 +1232,7 @@ main() {
           docs_harden_system >/dev/tty
           exit 0
         fi
-        RUN_ALL=false
-        task_harden_system
+        TASKS_TO_RUN+=("harden_system")
         shift
         ;;
       --debug)
@@ -1357,46 +1256,70 @@ main() {
     done
   fi
 
+  # --- Execution Phase ---
+  # Only proceed to run tasks if specific tasks were selected or if in full-run mode.
+  if [ ${#TASKS_TO_RUN[@]} -gt 0 ] || [ "$RUN_ALL" = true ]; then
+    setup_logging # Initialize logging only when tasks are about to run.
+  else
+    # If no tasks and not in full mode, it means only doc flags were processed and exited,
+    - or invalid flags were passed. The script can exit cleanly.
+    exit 0
+  fi
+
   if [ "$DEBUG_MODE" = true ]; then
     print_debug "Debug mode enabled. Activating verbose command tracing (set -x)."
     set -x
   fi
 
-  # Always run pre-flight checks to ensure the system is ready.
-  pre_flight_checks
+  # If individual tasks were specified, run them.
+  if [ ${#TASKS_TO_RUN[@]} -gt 0 ]; then
+    # Pre-flight checks are mandatory before any other task.
+    # Run it unless it was the only task requested.
+    if [[ ! " ${TASKS_TO_RUN[*]} " =~ " pre_flight_checks " ]] || [ ${#TASKS_TO_RUN[@]} -gt 1 ]; then
+      pre_flight_checks
+    fi
+    for task in "${TASKS_TO_RUN[@]}"; do
+      # Dynamically call the task function, e.g., "initial_setup" becomes "task_initial_setup"
+      if [[ "$task" == "pre_flight_checks" ]]; then
+        pre_flight_checks # Already idempotent
+      else
+        "task_$task"
+      fi
+    done
+  fi
 
-  # If no specific task flags were provided, run the full interactive installation.
   if [ "$RUN_ALL" = true ]; then
-    print_step "Full Installation Plan Summary"
-    echo "This script will perform a full setup of a Hyprland desktop on Arch Linux."
-    read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Do you want to begin? [y/N]: ${C_END}")" -r choice
-    if [[ ! "$choice" =~ ^[Yy]$ ]]; then
+    pre_flight_checks
+    print_step "Starting Full Interactive Installation"
+    echo "This script will guide you through a full setup of a Hyprland desktop."
+    echo "For each step, press Enter to run it, or 's' to skip."
+    read -p "$(echo -e "${C_YELLOW}${I_PROMPT} Do you want to begin? (Press Enter for Yes) [Y/n]: ${C_END}")" -r choice
+    if [[ -n "$choice" ]]; then
       print_info "Aborting."
       exit 0
     fi
 
-    # Execute all setup tasks in the logical order defined at the top of the script.
-    task_initial_setup
-    task_setup_extra_repos
+    if prompt_to_run_task "Initial System Setup" "docs_initial_setup"; then task_initial_setup; fi
+    if prompt_to_run_task "Setup Extra Repositories" "docs_setup_extra_repos"; then task_setup_extra_repos; fi
 
-    # Conditionally run hardware-specific tasks after prompting the user.
     if grep -q "\[cachyos\]" /etc/pacman.conf; then
-      read -p "$(echo -e "${C_CYAN}${I_PROMPT} CachyOS repo detected. Install kernel/drivers? [Y/n]: ${C_END}")" -r cachyos_choice
-      if [[ ! "$cachyos_choice" =~ ^[Nn]$ ]]; then task_kernel_and_drivers; fi
+      read -p "$(echo -e "${C_SKY}${I_PROMPT} CachyOS repo detected. Install kernel/drivers? (Enter=Yes) [Y/n]: ${C_END}")" -r cachyos_choice
+      if [[ -z "$cachyos_choice" ]]; then task_kernel_and_drivers; fi
     fi
     if sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
-      read -p "$(echo -e "${C_CYAN}${I_PROMPT} ASUS hardware detected. Install specific tools? [Y/n]: ${C_END}")" -r asus_choice
-      if [[ ! "$asus_choice" =~ ^[Nn]$ ]]; then task_setup_asus; fi
+      read -p "$(echo -e "${C_SKY}${I_PROMPT} ASUS hardware detected. Install specific tools? (Enter=Yes) [Y/n]: ${C_END}")" -r asus_choice
+      if [[ -z "$asus_choice" ]]; then task_setup_asus; fi
     fi
 
-    task_install_packages
-    task_manual_installations
-    task_setup_dotfiles
-    task_setup_nix
-    task_configure_user
-    task_cleanup
-    task_setup_greetd
-    task_harden_system
+    if prompt_to_run_task "Install Packages from File" "docs_install_packages"; then task_install_packages; fi
+    if prompt_to_run_task "Perform Manual Installations" "docs_manual_installations"; then task_manual_installations; fi
+    if prompt_to_run_task "Setup User Dotfiles" "docs_setup_dotfiles"; then task_setup_dotfiles; fi
+    if prompt_to_run_task "Setup Nix & Home-Manager" "docs_setup_nix"; then task_setup_nix; fi
+    if prompt_to_run_task "Configure User Environment" "docs_configure_user"; then task_configure_user; fi
+    if prompt_to_run_task "Setup Text Editors" "docs_setup_editors"; then task_setup_editors; fi
+    if prompt_to_run_task "Perform System Cleanup" "docs_cleanup"; then task_cleanup; fi
+    if prompt_to_run_task "Setup Greetd Login Manager" "docs_setup_greetd"; then task_setup_greetd; fi
+    if prompt_to_run_task "Harden System Security" "docs_harden_system"; then task_harden_system; fi
   fi
 
   set +x
@@ -1406,14 +1329,10 @@ main() {
 }
 
 # --- Script Entry Point ---
-# First, ensure we are running with bash. If not, re-execute the script with bash.
-# This prevents issues with scripts being run with 'sh' or other shells that may
-# not support bash-specific features like 'pipefail' or certain expansions.
 if [ -z "$BASH_VERSION" ]; then
   echo "This script requires bash. Re-executing with bash..." >&2
   exec bash "$0" "$@"
-  exit 1 # Should not be reached, but good practice
+  exit 1
 fi
 
-# Call the main function with all script arguments.
 main "$@"
