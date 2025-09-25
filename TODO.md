@@ -29,3 +29,37 @@
 - [ ] [Separate Function] Add the follow mon-arch repos CachyOS and Blackarch
 
 - [ ] [Separate Function] Integrate neovim setup from https://docs.astronvim.com/configuration/manage_user_config/. Integration for emacs step will be added later
+
+# --- Script Task Order (Full Installation) ---
+
+Rewrite the new attached bash script `setup.txt` so that the new order of tasks now follows this order:
+
+1. Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
+
+2. Initial Setup: Optimizes pacman.conf, makepkg.conf, and environment variables.
+
+3. Setup Extra Repos: Adds CachyOS and BlackArch repositories.
+
+4. Install Kernel and Drivers: Installs the CachyOS kernel and NVIDIA drivers.
+
+5. Setup for ASUS Laptops: Adds the g14 repo and installs specific tools.
+
+6. Install Packages: Installs packages from 'packages.txt' using the AUR helper.
+
+7. Manual Installs: Installs third-party software like themes and VPNs.
+
+8. Setup Dotfiles: Symlinks user dotfiles from a predefined source directory.
+
+9. Setup Nix & Home-Manager: Installs and configures Nix with flakes.
+
+10. Configure User: Sets up the user's dotfiles, shell, and services.
+
+11. Cleanup: Removes orphaned packages and cleans the Nix store.
+
+12. Setup Greeter: Configures greetd and tuigreet as the login manager.
+
+13. Harden System: Implements basic security enhancements and enables services.
+
+Only add docs for the safety checks. This docs must be accessible in the linux terminal like the other docs, but does not have an associated flag like the others
+
+Fix the documentation at the start of the script for configure user as it does not setup dotfiles

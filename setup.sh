@@ -27,13 +27,14 @@
 #   3.  Setup Extra Repos: Adds CachyOS and BlackArch repositories.
 #   4.  Install Kernel and Drivers: Installs the CachyOS kernel and NVIDIA drivers.
 #   5.  Setup for ASUS Laptops: Adds the g14 repo and installs specific tools.
-#   6.  Setup Greeter: Configures greetd and tuigreet as the login manager.
-#   7.  Setup Nix & Home-Manager: Installs and configures Nix with flakes.
-#   8.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
-#   9.  Manual Installs: Installs third-party software like themes and VPNs.
-#   10. Harden System: Implements basic security enhancements and enables services.
-#   11. Configure User: Sets up the user's dotfiles, shell, and services.
-#   12. Cleanup: Removes orphaned packages and cleans the Nix store.
+#   6.  Install Packages: Installs packages from 'packages.txt' using the AUR helper.
+#   7.  Manual Installs: Installs third-party software like themes and VPNs.
+#   8.  Setup Dotfiles: Symlinks user dotfiles from a predefined source directory.
+#   9.  Setup Nix & Home-Manager: Installs and configures Nix with flakes.
+#   10. Configure User: Sets up the user's shell and services.
+#   11. Cleanup: Removes orphaned packages and cleans the Nix store.
+#   12. Setup Greeter: Configures greetd and tuigreet as the login manager.
+#   13. Harden System: Implements basic security enhancements and enables services.
 
 # --- Script Setup and Error Handling ---
 # -e: exit immediately if a command exits with a non-zero status. This prevents
@@ -115,6 +116,32 @@ readonly LOG_FILE
 DEBUG_MODE=false
 
 # --- Modular Documentation Functions ---
+
+docs_pre_flight_checks() {
+  cat <<'EOF'
+[ --pre-flight-checks ] - Documentation
+
+This initial step performs critical safety and environment checks to ensure the
+script can run successfully and without causing issues. It runs automatically
+before any other task.
+
+Actions:
+- Privilege Verification: Ensures the script is NOT run as the root user, as all
+  privileged operations are handled internally via 'sudo'.
+- Connectivity Check: Pings a reliable external server to confirm that an
+  internet connection is active, which is necessary for downloading packages.
+- Dependency Installation:
+  - Checks if 'yay' (the AUR helper) is installed. If not, it automatically
+    installs the prerequisite 'git' and 'base-devel' packages, then clones,
+    builds, and installs 'yay-bin' from the AUR.
+  - Checks for other essential commands required by the script itself (like 'curl',
+    'dmidecode', etc.) and installs any that are missing.
+- Configuration File Check: Verifies that all required '.txt' files (like
+  'packages.txt') exist in the 'preconfig' directory.
+- Sudo Priming: Runs 'sudo -v' to cache sudo credentials at the beginning,
+  preventing password prompts in the middle of a long-running task.
+EOF
+}
 
 docs_initial_setup() {
   cat <<'EOF'
@@ -224,6 +251,43 @@ Actions:
 EOF
 }
 
+docs_install_packages() {
+  cat <<'EOF'
+[ --install-packages ] - Documentation
+
+The main package installation task.
+
+Configuration:
+- This task reads package names line-by-line from 'preconfig/packages.txt'.
+- Lines starting with '#' and empty lines in the file are ignored.
+
+Actions:
+- Uses 'yay' to install all listed packages from both the official Arch
+  repositories and the Arch User Repository (AUR).
+- You will be prompted by 'yay' to confirm the installation and review any
+  PKGBUID diffs for AUR packages.
+EOF
+}
+
+docs_setup_dotfiles() {
+  cat <<'EOF'
+[ --setup-dotfiles ] - Documentation
+
+Symlinks user dotfiles from a predefined source directory into the user's home.
+
+Prerequisites:
+- A directory must exist at '~/linux-system/dotfiles/.config'. The script will
+  skip this task if this source directory is not found.
+
+Actions:
+- Iterates through all files and directories within '~/linux-system/dotfiles/.config'.
+- For each item, it creates a symbolic link from the source to the corresponding
+  location in '~/.config/'.
+- This allows for managing dotfiles in a version-controlled repository while
+  keeping them active in the user's home directory.
+EOF
+}
+
 docs_setup_nix() {
   cat <<'EOF'
 [ --setup-nix ] - Documentation
@@ -241,24 +305,6 @@ Actions:
   'nix-command' and 'flakes' experimental features.
 - Initializes and runs Home-Manager, a tool for declaratively managing a user's
   dotfiles and packages within the Nix ecosystem. It performs an initial activation.
-EOF
-}
-
-docs_install_packages() {
-  cat <<'EOF'
-[ --install-packages ] - Documentation
-
-The main package installation task.
-
-Configuration:
-- This task reads package names line-by-line from 'preconfig/packages.txt'.
-- Lines starting with '#' and empty lines in the file are ignored.
-
-Actions:
-- Uses 'yay' to install all listed packages from both the official Arch
-  repositories and the Arch User Repository (AUR).
-- You will be prompted by 'yay' to confirm the installation and review any
-  PKGBUID diffs for AUR packages.
 EOF
 }
 
@@ -344,17 +390,19 @@ installation. It is modular, allowing you to run the entire setup at once or
 execute specific tasks individually using flags.
 
 EOF
+  docs_pre_flight_checks
   docs_initial_setup
   docs_setup_extra_repos
   docs_kernel_and_drivers
   docs_setup_asus
-  docs_setup_greetd
-  docs_setup_nix
   docs_install_packages
   docs_manual_installations
-  docs_harden_system
+  docs_setup_dotfiles
+  docs_setup_nix
   docs_configure_user
   docs_cleanup
+  docs_setup_greetd
+  docs_harden_system
 }
 
 # Displays a brief usage summary.
@@ -365,17 +413,19 @@ print_usage() {
   echo -e "${C_BOLD}If no options are provided, the script will run all setup tasks interactively.${C_END}"
   echo ""
   echo -e "${C_HEADER}Options:${C_END}"
+  echo -e "  ${C_GREEN}--pre-flight-checks${C_END}       View docs for the mandatory pre-flight checks."
   echo -e "  ${C_GREEN}--initial-setup${C_END}           Perform initial system setup."
   echo -e "  ${C_GREEN}--setup-extra-repos${C_END}       Set up CachyOS and BlackArch repositories."
   echo -e "  ${C_GREEN}--kernel-and-drivers${C_END}      Install CachyOS kernel and NVIDIA drivers."
   echo -e "  ${C_GREEN}--setup-asus${C_END}              Run specific setup for ASUS laptops."
-  echo -e "  ${C_GREEN}--setup-greetd${C_END}            Setup greetd and tuigreet as the login manager."
-  echo -e "  ${C_GREEN}--setup-nix${C_END}               Install and configure Nix with Home-Manager."
   echo -e "  ${C_GREEN}--install-packages${C_END}        Install packages from 'packages.txt'."
   echo -e "  ${C_GREEN}--manual-installs${C_END}         Perform manual installation of third-party software."
-  echo -e "  ${C_GREEN}--harden-system${C_END}           Implement basic security enhancements."
+  echo -e "  ${C_GREEN}--setup-dotfiles${C_END}          Symlink user dotfiles from a local repository."
+  echo -e "  ${C_GREEN}--setup-nix${C_END}               Install and configure Nix with Home-Manager."
   echo -e "  ${C_GREEN}--configure-user${C_END}          Set up the user's environment."
   echo -e "  ${C_GREEN}--cleanup${C_END}                 Remove orphaned packages from the system."
+  echo -e "  ${C_GREEN}--setup-greetd${C_END}            Setup greetd and tuigreet as the login manager."
+  echo -e "  ${C_GREEN}--harden-system${C_END}           Implement basic security enhancements."
   echo -e "  ${C_YELLOW}--debug${C_END}                   Enable verbose command tracing for debugging."
   echo -e "  ${C_BLUE}--help${C_END}                    Display this help message and exit."
   echo -e "  ${C_BLUE}--docs${C_END}                    Display the full embedded documentation and exit."
@@ -408,13 +458,13 @@ run_as_user() {
 # when the script's overall output is being redirected to a log file via 'tee'.
 install_pkgs() {
   print_warning "You will be prompted to confirm the installation of the following packages: $*"
-  yay -S --needed "$@" </dev/tty
+  yay -S --needed </dev/tty
 }
 
 # Wrapper for package removal commands.
 remove_pkgs() {
   print_warning "You will be prompted to confirm the removal of the following packages: $*"
-  yay -Rns "$@" </dev/tty
+  yay -Rns </dev/tty
 }
 
 # --- Task Functions ---
@@ -445,7 +495,7 @@ task_setup_aur_helper() {
     cd "$tmp_dir"
     print_info "Building and installing 'yay-bin'..."
     print_warning "You will be prompted to confirm the build and installation."
-    run_as_user "makepkg -si < /dev/tty"
+    run_as_user "makepkg -si --noconfirm < /dev/tty"
   )
   print_success "'yay' has been installed successfully."
 }
@@ -590,7 +640,10 @@ task_setup_extra_repos() {
       tar xvf cachyos-repo.tar.xz
       cd cachyos-repo
       print_warning "The CachyOS setup script is interactive. Please follow the prompts."
-      sudo ./cachyos-repo.sh
+      # This is a valid use case for this redirection, as we want the script,
+      # even when run as root, to take input from the user's terminal.
+      # shellcheck disable=SC2024
+      sudo ./cachyos-repo.sh </dev/tty
     )
     print_success "CachyOS repository setup finished."
   fi
@@ -662,6 +715,10 @@ task_setup_asus() {
 Server = https://arch.asus-linux.org
 EOF
     )
+    # The 'tee' command is used here to correctly handle writing to a privileged
+    # file. A simple 'sudo echo "..." >> /file' would fail because the shell
+    # attempts the redirection before 'sudo' elevates privileges. Piping to
+    # 'sudo tee -a' ensures 'tee' runs as root and can write to the file.
     echo "$g14_repo_conf" | sudo tee -a /etc/pacman.conf >/dev/null
     print_info "Synchronizing databases with the new repository..."
     yay -Syu </dev/tty
@@ -717,6 +774,45 @@ EOF
   sudo systemctl enable greetd.service
 
   print_success "greetd setup complete."
+}
+
+# Reads the package list from 'packages.txt' and installs them.
+task_install_packages() {
+  print_step "Installing System Packages from File"
+  mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "$PRECONFIG_DIR/packages.txt")
+  if ((${#packages_to_install[@]} == 0)); then
+    print_warning "No packages found in 'packages.txt'. Skipping."
+    return
+  fi
+  install_pkgs "${packages_to_install[@]}"
+}
+
+# Symlinks user dotfiles from a predefined source directory.
+task_setup_dotfiles() {
+  print_step "Setting up User Dotfiles"
+
+  local dotfiles_source_dir="$USER_HOME/linux-system/dotfiles/.config"
+  local dotfiles_target_dir="$USER_HOME/.config"
+
+  if ! run_as_user "[ -d '$dotfiles_source_dir' ]"; then
+    print_warning "Dotfiles source directory not found at '$dotfiles_source_dir'. Skipping."
+    return
+  fi
+
+  print_info "Symlinking dotfiles from '$dotfiles_source_dir'..."
+
+  # Ensure the target directory exists
+  run_as_user "mkdir -p '$dotfiles_target_dir'"
+
+  # Find all files and directories in the source, and loop through them
+  while IFS= read -r -d '' item; do
+    local base_name
+    base_name=$(basename "$item")
+    print_info "  -> Linking '$base_name'..."
+    run_as_user "ln -sv '$item' '$dotfiles_target_dir/'"
+  done < <(run_as_user "find '$dotfiles_source_dir' -mindepth 1 -maxdepth 1 -print0")
+
+  print_success "Dotfiles setup complete."
 }
 
 # Installs and configures Nix, Flakes, and Home-Manager.
@@ -800,17 +896,6 @@ EOF
     run_as_user ". '$hm_session_vars'"
   fi
   print_success "Nix, Home-Manager, and Flakes setup complete."
-}
-
-# Reads the package list from 'packages.txt' and installs them.
-task_install_packages() {
-  print_step "Installing System Packages from File"
-  mapfile -t packages_to_install < <(grep -vE '^\s*#|^\s*$' "$PRECONFIG_DIR/packages.txt")
-  if ((${#packages_to_install[@]} == 0)); then
-    print_warning "No packages found in 'packages.txt'. Skipping."
-    return
-  fi
-  install_pkgs "${packages_to_install[@]}"
 }
 
 # Installs third-party software that is not available in standard repositories.
@@ -934,7 +1019,7 @@ EOF
   fi
 }
 
-# Sets up the user's shell, dotfiles, and application configs.
+# Sets up the user's shell and application configs.
 task_configure_user() {
   print_step "Configuring User Environment for $TARGET_USER"
 
@@ -1005,6 +1090,15 @@ main() {
       # end of the command, preventing an "unbound variable" error when 'set -u' is active.
       # If '--docs' is found, display the relevant documentation and exit.
       # Otherwise, set RUN_ALL to false, run the task, and shift to the next argument.
+      --pre-flight-checks)
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_pre_flight_checks >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        # No task to run, this is docs-only and pre-flight runs for all.
+        shift
+        ;;
       --initial-setup)
         if [[ "${2:-}" == "--docs" ]]; then
           docs_initial_setup >/dev/tty
@@ -1041,24 +1135,6 @@ main() {
         task_setup_asus
         shift
         ;;
-      --setup-greetd)
-        if [[ "${2:-}" == "--docs" ]]; then
-          docs_setup_greetd >/dev/tty
-          exit 0
-        fi
-        RUN_ALL=false
-        task_setup_greetd
-        shift
-        ;;
-      --setup-nix)
-        if [[ "${2:-}" == "--docs" ]]; then
-          docs_setup_nix >/dev/tty
-          exit 0
-        fi
-        RUN_ALL=false
-        task_setup_nix
-        shift
-        ;;
       --install-packages)
         if [[ "${2:-}" == "--docs" ]]; then
           docs_install_packages >/dev/tty
@@ -1077,13 +1153,22 @@ main() {
         task_manual_installations
         shift
         ;;
-      --harden-system)
+      --setup-dotfiles)
         if [[ "${2:-}" == "--docs" ]]; then
-          docs_harden_system >/dev/tty
+          docs_setup_dotfiles >/dev/tty
           exit 0
         fi
         RUN_ALL=false
-        task_harden_system
+        task_setup_dotfiles
+        shift
+        ;;
+      --setup-nix)
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_setup_nix >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_setup_nix
         shift
         ;;
       --configure-user)
@@ -1102,6 +1187,24 @@ main() {
         fi
         RUN_ALL=false
         task_cleanup
+        shift
+        ;;
+      --setup-greetd)
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_setup_greetd >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_setup_greetd
+        shift
+        ;;
+      --harden-system)
+        if [[ "${2:-}" == "--docs" ]]; then
+          docs_harden_system >/dev/tty
+          exit 0
+        fi
+        RUN_ALL=false
+        task_harden_system
         shift
         ;;
       --debug)
@@ -1157,13 +1260,14 @@ main() {
       if [[ ! "$asus_choice" =~ ^[Nn]$ ]]; then task_setup_asus; fi
     fi
 
-    task_setup_greetd
-    task_setup_nix
     task_install_packages
     task_manual_installations
-    task_harden_system
+    task_setup_dotfiles
+    task_setup_nix
     task_configure_user
     task_cleanup
+    task_setup_greetd
+    task_harden_system
   fi
 
   set +x
