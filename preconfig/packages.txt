@@ -62,6 +62,7 @@ ninja
 nodejs-neovim
 onlyoffice-bin
 openssh
+papers
 papirus-icon-theme
 pay-respects-bin
 power-profiles-daemon

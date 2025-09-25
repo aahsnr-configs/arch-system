@@ -23,7 +23,7 @@
 # --- Script Task Order (Full Installation) ---
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
 #       (Includes automatic setup of the 'yay' AUR helper if not present).
-#   2.  Initial Setup: Optimizes pacman.conf, makepkg.conf, and environment variables.
+#   2.  Initial Setup: Optimizes pacman.conf, makepkg.conf, reflector, and environment variables.
 #   3.  Setup Extra Repos: Adds CachyOS and BlackArch repositories.
 #   4.  Install Kernel and Drivers: Installs the CachyOS kernel and NVIDIA drivers.
 #   5.  Setup for ASUS Laptops: Adds the g14 repo and installs specific tools.
@@ -31,7 +31,7 @@
 #   7.  Manual Installs: Installs third-party software like themes and VPNs.
 #   8.  Setup Dotfiles: Symlinks user dotfiles from a predefined source directory.
 #   9.  Setup Nix & Home-Manager: Installs and configures Nix with flakes.
-#   10. Configure User: Sets up the user's shell and services.
+#   10. Configure User: Sets up the user's shell, services, and XDG directories.
 #   11. Cleanup: Removes orphaned packages and cleans the Nix store.
 #   12. Setup Greeter: Configures greetd and tuigreet as the login manager.
 #   13. Harden System: Implements basic security enhancements and enables services.
@@ -161,6 +161,8 @@ Actions:
   flags (e.g., '-march=native') and parallel compilation.
 - Copies custom environment variables from 'preconfig/99-custom-env.sh.txt' to
   '/etc/profile.d/99-custom-env.sh', making them available system-wide.
+- Installs and configures 'reflector' to automatically update the pacman mirrorlist
+  with the fastest mirrors from specified countries.
 
 User Interaction:
 - After applying changes, it will display the contents of the modified files and
@@ -274,17 +276,22 @@ docs_setup_dotfiles() {
 [ --setup-dotfiles ] - Documentation
 
 Symlinks user dotfiles from a predefined source directory into the user's home.
+This task intelligently handles both top-level dotfiles (like '.bashrc') and
+nested configuration files (for '.config').
 
 Prerequisites:
-- A directory must exist at '~/linux-system/dotfiles/.config'. The script will
-  skip this task if this source directory is not found.
+- A directory must exist at '~/linux-system/dotfiles'. The script will skip this
+  task if this main source directory is not found.
 
 Actions:
-- Iterates through all files and directories within '~/linux-system/dotfiles/.config'.
-- For each item, it creates a symbolic link from the source to the corresponding
-  location in '~/.config/'.
-- This allows for managing dotfiles in a version-controlled repository while
-  keeping them active in the user's home directory.
+- Symlinks top-level files: It iterates through all files and directories in
+  '~/linux-system/dotfiles' (e.g., '.bashrc', '.gitconfig'), skipping the
+  '.config' directory itself, and creates a symbolic link for each in '~'.
+- Symlinks '.config' contents: It then iterates through all files and directories
+  within '~/linux-system/dotfiles/.config' and creates a symbolic link for each
+  in '~/.config/'.
+- This allows for managing a complete set of dotfiles in a version-controlled
+  repository while keeping them active in the user's home directory.
 EOF
 }
 
@@ -355,6 +362,8 @@ Actions:
 - Sets the default user shell to 'fish' using 'chsh'.
 - Configures 'npm' to use a local directory ('~/.npm-global') for global
   package installations, avoiding the need for 'sudo'.
+- Configures XDG Base Directories, including custom user folders and default
+  MIME type associations for common applications.
 - Enables and starts user-level systemd services required for the Hyprland
   desktop environment to function correctly, such as:
   - 'pipewire' and 'wireplumber' (for audio).
@@ -458,13 +467,13 @@ run_as_user() {
 # when the script's overall output is being redirected to a log file via 'tee'.
 install_pkgs() {
   print_warning "You will be prompted to confirm the installation of the following packages: $*"
-  yay -S --needed </dev/tty
+  yay -S --needed "$@" </dev/tty
 }
 
 # Wrapper for package removal commands.
 remove_pkgs() {
   print_warning "You will be prompted to confirm the removal of the following packages: $*"
-  yay -Rns </dev/tty
+  yay -Rns "$@" </dev/tty
 }
 
 # --- Task Functions ---
@@ -526,7 +535,7 @@ pre_flight_checks() {
 
   # Check for necessary script dependencies and prompt to install if missing.
   local missing_pkgs=()
-  for pkg in neovim wl-clipboard curl wget pciutils dmidecode; do
+  for pkg in neovim wl-clipboard curl wget pciutils dmidecode xdg-user-dirs; do
     if ! is_pkg_installed "$pkg"; then
       missing_pkgs+=("$pkg")
     fi
@@ -552,7 +561,7 @@ pre_flight_checks() {
   print_success "Checks passed. Configuring system for user: $TARGET_USER"
 }
 
-# Sets up environment variables, Pacman, and Makepkg configurations.
+# Sets up environment variables, Pacman, Makepkg, and Reflector configurations.
 task_initial_setup() {
   print_step "Performing Initial System Setup"
 
@@ -589,6 +598,14 @@ task_initial_setup() {
     print_error "Failed to copy makepkg.conf.txt to /etc/makepkg.conf. Aborting."
     exit 1
   fi
+
+  # --- Setup Reflector for Mirror Management ---
+  print_info "Setting up reflector to manage pacman mirrors..."
+  install_pkgs reflector
+  sudo systemctl enable --now reflector.service reflector.timer
+  print_info "Performing initial mirror list update for BD, IN, SG..."
+  sudo reflector --verbose -l 25 --country BD,IN,SG --sort rate --save /etc/pacman.d/mirrorlist
+  print_success "Reflector setup complete and mirrorlist updated."
 
   # --- Interactive Verification Loop ---
   local verified=false
@@ -791,29 +808,41 @@ task_install_packages() {
 task_setup_dotfiles() {
   print_step "Setting up User Dotfiles"
 
-  local dotfiles_source_dir="$USER_HOME/linux-system/dotfiles/.config"
-  local dotfiles_target_dir="$USER_HOME/.config"
+  local dotfiles_parent_dir="$USER_HOME/linux-system/dotfiles"
+  local dotfiles_config_source_dir="$dotfiles_parent_dir/.config"
+  local dotfiles_config_target_dir="$USER_HOME/.config"
 
-  if ! run_as_user "[ -d '$dotfiles_source_dir' ]"; then
-    print_warning "Dotfiles source directory not found at '$dotfiles_source_dir'. Skipping."
+  if ! run_as_user "[ -d '$dotfiles_parent_dir' ]"; then
+    print_warning "Dotfiles source directory not found at '$dotfiles_parent_dir'. Skipping."
     return
   fi
 
-  print_info "Symlinking dotfiles from '$dotfiles_source_dir'..."
+  # --- Symlink contents of .config ---
+  if run_as_user "[ -d '$dotfiles_config_source_dir' ]"; then
+    print_info "Symlinking contents of '$dotfiles_config_source_dir' to '$dotfiles_config_target_dir'..."
+    run_as_user "mkdir -p '$dotfiles_config_target_dir'"
+    while IFS= read -r -d '' item; do
+      local base_name
+      base_name=$(basename "$item")
+      print_info "  -> Linking '$base_name' into .config/..."
+      run_as_user "ln -svf '$item' '$dotfiles_config_target_dir/'"
+    done < <(run_as_user "find '$dotfiles_config_source_dir' -mindepth 1 -maxdepth 1 -print0")
+  else
+    print_info "No '.config' directory found in dotfiles source. Skipping."
+  fi
 
-  # Ensure the target directory exists
-  run_as_user "mkdir -p '$dotfiles_target_dir'"
-
-  # Find all files and directories in the source, and loop through them
+  # --- Symlink top-level dotfiles from the parent directory ---
+  print_info "Symlinking top-level dotfiles from '$dotfiles_parent_dir' to '$USER_HOME'..."
   while IFS= read -r -d '' item; do
     local base_name
     base_name=$(basename "$item")
-    print_info "  -> Linking '$base_name'..."
-    run_as_user "ln -sv '$item' '$dotfiles_target_dir/'"
-  done < <(run_as_user "find '$dotfiles_source_dir' -mindepth 1 -maxdepth 1 -print0")
+    print_info "  -> Linking '$base_name' into home directory..."
+    run_as_user "ln -svf '$item' '$USER_HOME/'"
+  done < <(run_as_user "find '$dotfiles_parent_dir' -mindepth 1 -maxdepth 1 ! -name '.config' -print0")
 
   print_success "Dotfiles setup complete."
 }
+
 
 # Installs and configures Nix, Flakes, and Home-Manager.
 task_setup_nix() {
@@ -1019,6 +1048,104 @@ EOF
   fi
 }
 
+# Helper function to set up XDG directories and MIME types.
+task_helper_setup_xdg() {
+  print_step "Configuring XDG Base Directories and MIME Associations"
+  local config_dir="${USER_HOME}/.config"
+
+  run_as_user "mkdir -p '${config_dir}'"
+
+  # --- Configure User Directories ---
+  print_info "Setting up XDG user directories..."
+  run_as_user "
+    cat <<EOF > '${config_dir}/user-dirs.locale'
+en_US
+EOF
+  "
+
+  run_as_user "
+    # Note: EOF is unquoted to allow for shell expansion of \${HOME}.
+    cat <<EOF > '${config_dir}/user-dirs.dirs'
+# This file defines the XDG user directories.
+XDG_DESKTOP_DIR=\"\${HOME}/Desktop\"
+XDG_DOCUMENTS_DIR=\"\${HOME}/Documents\"
+XDG_DOWNLOAD_DIR=\"\${HOME}/Downloads\"
+XDG_MUSIC_DIR=\"\${HOME}/Music\"
+XDG_PICTURES_DIR=\"\${HOME}/Pictures\"
+XDG_PUBLICSHARE_DIR=\"\${HOME}/Public\"
+XDG_TEMPLATES_DIR=\"\${HOME}/Templates\"
+XDG_VIDEOS_DIR=\"\${HOME}/Videos\"
+
+# Custom Directories
+XDG_DEV_DIR=\"\${HOME}/Dev\"
+XDG_SCREENSHOTS_DIR=\"\${HOME}/Pictures/Screenshots\"
+XDG_WALLPAPERS_DIR=\"\${HOME}/Pictures/Wallpapers\"
+XDG_TMP_DIR=\"\${HOME}/tmp\"
+EOF
+  "
+  print_info "Running xdg-user-dirs-update to create folders..."
+  run_as_user "xdg-user-dirs-update"
+  print_success "XDG user directories configured."
+
+  # --- Configure MIME Applications ---
+  print_info "Setting up default MIME type applications..."
+  run_as_user "
+    # Note: 'EOF' is quoted to prevent any shell expansion within the here-document.
+    cat <<'EOF' > '${config_dir}/mimeapps.list'
+# This file sets the default applications for MIME types.
+
+[Default Applications]
+# Images
+image/png=imv.desktop
+image/svg=imv.desktop
+image/jpeg=imv.desktop
+image/gif=imv.desktop
+
+# Audio
+audio/mp3=io.bassi.Amberol.desktop
+audio/flac=io.bassi.Amberol.desktop
+audio/wav=io.bassi.Amberol.desktop
+audio/aac=io.bassi.Amberol.desktop
+
+# Video
+video/mp4=mpv.desktop
+video/avi=mpv.desktop
+video/mkv=mpv.desktop
+
+# Browser Handlers for File Types
+application/x-extension-htm=zen-browser.desktop
+application/x-extension-html=zen-browser.desktop
+application/x-extension-shtml=zen-browser.desktop
+application/x-extension-xht=zen-browser.desktop
+application/x-extension-xhtml=zen-browser.desktop
+text/html=zen-browser.desktop
+
+# Browser Handlers for URL Schemes
+x-scheme-handler/about=zen-browser.desktop
+x-scheme-handler/ftp=zen-browser.desktop
+x-scheme-handler/http=zen-browser.desktop
+x-scheme-handler/https=zen-browser.desktop
+x-scheme-handler/unknown=zen-browser.desktop
+
+# Programming & Text Files
+text/plain=codium.desktop
+text/markdown=codium.desktop
+text/x-shellscript=codium.desktop
+text/css=codium.desktop
+application/json=codium.desktop
+application/javascript=codium.desktop
+text/x-python=codium.desktop
+text/x-csrc=codium.desktop
+text/x-c++src=codium.desktop
+
+# Other Associations
+application/pdf=org.gnome.Papers.desktop
+inode/directory=thunar.desktop
+EOF
+"
+  print_success "Default MIME applications configured."
+}
+
 # Sets up the user's shell and application configs.
 task_configure_user() {
   print_step "Configuring User Environment for $TARGET_USER"
@@ -1029,7 +1156,7 @@ task_configure_user() {
   fi
 
   print_info "Setting default shell for '$TARGET_USER' to fish..."
-  if run_as_user "chsh -s $(which fish)"; then
+  if chsh -s "$(which fish)" "$TARGET_USER" < /dev/tty; then
     print_success "Default shell set to fish."
   else
     print_error "Failed to set fish as the default shell."
@@ -1037,6 +1164,9 @@ task_configure_user() {
 
   print_info "Configuring NPM global directory..."
   run_as_user "mkdir -p '$USER_HOME/.npm-global' && npm config set prefix '$USER_HOME/.npm-global'"
+
+  # --- Setup XDG Directories and MIME types ---
+  task_helper_setup_xdg
 
   print_step "Setting up Hyprland Desktop Services"
   run_as_user "systemctl --user daemon-reload"
