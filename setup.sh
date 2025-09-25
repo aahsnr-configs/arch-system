@@ -153,7 +153,7 @@ Actions:
 - Modifies '/etc/pacman.conf' to:
   - Enable colored output ('Color').
   - Enable verbose package lists ('VerbosePkgLists').
-  - Enable parallel downloads ('ParallelDownloads = 10') for significantly
+  - Enable parallel dohttps://aur.archlinux.org/packages/limine-mkinitcpio-hookwnloads ('ParallelDownloads = 10') for significantly
     faster package installation and updates.
   - Enable the 'ILoveCandy' pacman animation for fun.
 - Overwrites '/etc/makepkg.conf' with the contents of 'preconfig/makepkg.conf.txt'.
@@ -315,7 +315,7 @@ Actions:
 EOF
 }
 
-docs_manual_installations() {
+docs_manual_installations() {https://aur.archlinux.org/packages/limine-mkinitcpio-hook
   cat <<'EOF'
 [ --manual-installs ] - Documentation
 
@@ -492,7 +492,7 @@ task_setup_aur_helper() {
   # Ensure base-devel and git are present before trying to build anything from the AUR.
   if ! is_pkg_installed git || ! is_pkg_installed make; then
     print_info "Installing 'git' and 'base-devel' to build the AUR helper..."
-    sudo pacman -S --needed --noconfirm git base-devel
+    sudo pacman -S --needed git base-devel
   fi
 
   local tmp_dir
@@ -504,7 +504,7 @@ task_setup_aur_helper() {
     cd "$tmp_dir"
     print_info "Building and installing 'yay-bin'..."
     print_warning "You will be prompted to confirm the build and installation."
-    run_as_user "makepkg -si --noconfirm < /dev/tty"
+    run_as_user "makepkg -si < /dev/tty"
   )
   print_success "'yay' has been installed successfully."
 }
@@ -843,7 +843,6 @@ task_setup_dotfiles() {
   print_success "Dotfiles setup complete."
 }
 
-
 # Installs and configures Nix, Flakes, and Home-Manager.
 task_setup_nix() {
   print_step "Setting up Nix, Home-Manager, and Flakes"
@@ -1156,7 +1155,7 @@ task_configure_user() {
   fi
 
   print_info "Setting default shell for '$TARGET_USER' to fish..."
-  if chsh -s "$(which fish)" "$TARGET_USER" < /dev/tty; then
+  if chsh -s "$(which fish)" "$TARGET_USER" </dev/tty; then
     print_success "Default shell set to fish."
   else
     print_error "Failed to set fish as the default shell."

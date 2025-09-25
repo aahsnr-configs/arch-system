@@ -23,6 +23,145 @@ in
 {
   # A list of packages to be installed into the user environment.
   home.packages = [
+    # --- Safe File/Folder Removal Script ---
+    (mkScript "safe-rm" ''
+      #!/usr/bin/env bash
+      #
+      # Description: A safer alternative to `rm`. Moves files to a trash
+      #              directory and prompts for confirmation. Works correctly
+      #              with both user and root privileges.
+      #
+      set -euo pipefail
+
+      # --- Configuration ---
+      # The trash directory is resolved based on the current user's HOME.
+      readonly TRASH_DIR="$HOME/.local/share/trash/files"
+
+      # --- Main Function ---
+      main() {
+          if [ "$#" -eq 0 ]; then
+              echo "Error: No files or directories specified." >&2
+              echo "Usage: $0 <file1> [<file2> ...]" >&2
+              exit 1
+          fi
+
+          # --- Step 1: Validate inputs and build a list of targets ---
+          local targets=()
+          for item in "$@"; do
+              if [ ! -e "$item" ]; then
+                  echo "Warning: '$item' not found, skipping." >&2
+                  continue
+              fi
+
+              local canonical_item
+              canonical_item=$(realpath -- "$item")
+              # Create the trash dir to resolve its canonical path reliably
+              mkdir -p "$TRASH_DIR"
+              local canonical_trash
+              canonical_trash=$(realpath -- "$TRASH_DIR")
+
+              if [ "$canonical_item" == "$canonical_trash" ]; then
+                  echo "Warning: Cannot move the trash directory into itself. Skipping '$item'." >&2
+                  continue
+              fi
+              targets+=("$item")
+          done
+
+          if [ ''${#targets[@]} -eq 0 ]; then
+              echo "No valid files or directories to move to trash."
+              exit 0
+          fi
+
+
+          # --- Step 2: List targets and ask for user confirmation ---
+          echo "The following items will be moved to the trash:"
+          printf "  - %s\n" "''${targets[@]}"
+          echo "Trash location: $TRASH_DIR"
+          echo ""
+
+          # Prompt the user. Default is Yes. Any input cancels.
+          read -p "Are you sure you want to continue? (Y/n): " -r REPLY
+          echo "" # Move to a new line
+
+          # If REPLY is not empty (i.e., user typed anything), cancel.
+          if [[ -n "$REPLY" ]]; then
+              echo "Operation cancelled by user."
+              exit 1
+          fi
+
+
+          # --- Step 3: Process the targets ---
+          echo "Moving items to trash..."
+          for item in "''${targets[@]}"; do
+              local base_name
+              base_name=$(basename "$item")
+
+              local trashed_name
+              trashed_name="$base_name-$(date +%s)-$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 5)"
+
+              echo " - '$item' -> '$trashed_name'"
+              mv -- "$item" "$TRASH_DIR/$trashed_name"
+          done
+
+          echo ""
+          echo "✅ Operation complete."
+          echo "To restore, check the trash directory: $TRASH_DIR"
+      }
+
+      main "$@"
+    '')
+
+    # --- Remove Neovim Configuration and Data Script ---
+    (mkScript "nuke-nvim" ''
+      #!/usr/bin/env bash
+      #
+      # Description: This script safely and sequentially removes the Neovim
+      #              configuration, state, and data directories.
+      #
+      set -euo pipefail
+
+      readonly NVIM_DIRS=(
+          "$HOME/.config/nvim"
+          "$HOME/.local/state/nvim"
+          "$HOME/.local/share/nvim"
+      )
+
+      main() {
+          echo "This script will permanently delete the following Neovim directories:"
+          for dir in "''${NVIM_DIRS[@]}"; do
+              echo "  - ''${dir}"
+          done
+          echo ""
+
+          # Prompt the user. Default is Yes. Any input cancels.
+          read -p "Are you sure you want to continue? (Y/n): " -r REPLY
+          echo ""
+
+          # If REPLY is not empty (i.e., user typed anything), cancel.
+          if [[ -n "$REPLY" ]]; then
+              echo "Operation cancelled by user."
+              exit 1
+          fi
+
+          echo ""
+          echo "Starting removal process..."
+
+          for dir in "''${NVIM_DIRS[@]}"; do
+              if [ -d "$dir" ]; then
+                  echo "Removing ''${dir}..."
+                  rm -rf "$dir"
+              else
+                  echo "Directory ''${dir} not found, skipping."
+              fi
+          done
+
+          echo ""
+          echo "Successfully removed Neovim directories."
+      }
+
+      main
+    '')
+
     # --- GitHub SSH Key Setup Script ---
     (mkScript "setup-github-keys" ''
       #!/usr/bin/env bash
