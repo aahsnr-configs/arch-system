@@ -28,7 +28,7 @@
 #   6.  Install Packages: Installs packages from 'packages.txt'.
 #   7.  Manual Installs: Installs third-party software like VPNs.
 #   8.  Setup Dotfiles: Symlinks user dotfiles from a predefined source directory.
-#   9.  Setup Nix & Home-Manager: Installs and configures Nix with flakes.
+#   9.  Setup Nix & Home-Manager: Installs and infigures Nix with flakes.
 #   10. Configure User: Sets up the user's shell, services, and XDG directories.
 #   11. Setup Editors: Configures Neovim and Doom Emacs with custom configs.
 #   12. Cleanup: Removes orphaned packages and cleans the Nix store.
@@ -48,18 +48,18 @@ cleanup() {
 }
 trap cleanup EXIT ERR INT TERM
 
-# --- User Interface: Catppuccin Macchiato Theme, Colors, and Icons ---
-readonly C_MAUVE=$'\033[38;2;203;166;247m'
-readonly C_LAVENDER=$'\033[38;2;180;190;254m'
-readonly C_PEACH=$'\033[38;2;250;179;135m'
-readonly C_SKY=$'\033[38;2;137;220;235m'
-readonly C_GREEN=$'\033[38;2;166;227;161m'
-readonly C_RED=$'\033[38;2;243;139;168m'
-readonly C_ROSEWATER=$'\033[38;2;245;224;220m'
-readonly C_SAPPHIRE=$'\033[38;2;116;199;236m'
-readonly C_YELLOW=$'\033[38;2;249;226;175m'
-readonly C_TEXT=$'\033[38;2;205;214;244m'
-readonly C_SUBTEXT1=$'\033[38;2;186;194;222m'
+# --- User Interface: Tokyonight Night Theme, Colors, and Icons ---
+readonly C_MAUVE=$'\033[38;2;187;154;247m'     # Tokyonight Purple (for Steps)
+readonly C_LAVENDER=$'\033[38;2;122;162;247m'  # Tokyonight Blue (for Descriptions)
+readonly C_PEACH=$'\033[38;2;224;175;104m'     # Tokyonight Orange (for Warnings)
+readonly C_SKY=$'\033[38;2;125;207;255m'       # Tokyonight Cyan (for File Paths)
+readonly C_GREEN=$'\033[38;2;158;206;106m'     # Tokyonight Green (for Success)
+readonly C_RED=$'\033[38;2;247;118;142m'       # Tokyonight Red (for Errors)
+readonly C_ROSEWATER=$'\033[38;2;187;154;247m' # Tokyonight Purple (for misc highlights)
+readonly C_SAPPHIRE=$'\033[38;2;122;162;247m'  # Tokyonight Blue (for Info)
+readonly C_YELLOW=$'\033[38;2;224;175;104m'    # Tokyonight Orange (for Prompts)
+readonly C_TEXT=$'\033[38;2;192;202;245m'      # Tokyonight Foreground (for main text)
+readonly C_SUBTEXT1=$'\033[38;2;169;177;214m'  # Tokyonight Light Blue (for subtle text)
 readonly C_BOLD=$'\033[1m'
 readonly C_ITALIC=$'\033[3m'
 readonly C_END=$'\033[0m'
@@ -1262,7 +1262,7 @@ main() {
     setup_logging # Initialize logging only when tasks are about to run.
   else
     # If no tasks and not in full mode, it means only doc flags were processed and exited,
-    - or invalid flags were passed. The script can exit cleanly.
+    # or invalid flags were passed. The script can exit cleanly.
     exit 0
   fi
 
