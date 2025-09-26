@@ -562,7 +562,7 @@ task_setup_aur_helper() {
 
   print_step "Setting up AUR Helper (paru)"
   print_info "Installing 'git' and 'base-devel' to build the AUR helper..."
-  install_pkgs git base-devel
+  sudo pacman -S --needed --noconfirm git base-devel
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
@@ -575,6 +575,30 @@ task_setup_aur_helper() {
     run_as_user "makepkg -si --noconfirm"
   )
   print_success "'paru' has been installed successfully."
+}
+
+task_setup_limine_hook() {
+  if is_pkg_installed "limine-mkinitcpio-hook"; then
+    print_success "limine-mkinitcpio-hook is already installed."
+    return
+  fi
+
+  print_step "Setting up Limine Bootloader Hook"
+  # This dependency should already be met by task_setup_aur_helper, but we check again for safety.
+  print_info "Ensuring 'git' and 'base-devel' are present to build the hook..."
+  sudo pacman -S --needed --noconfirm git base-devel
+
+  local tmp_dir
+  tmp_dir=$(mktemp -d)
+  TEMP_FILES+=("$tmp_dir")
+  sudo git clone https://aur.archlinux.org/limine-mkinitcpio-hook.git "$tmp_dir"
+  sudo chown -R "$TARGET_USER:$TARGET_USER" "$tmp_dir"
+  (
+    cd "$tmp_dir"
+    print_info "Building and installing 'limine-mkinitcpio-hook'..."
+    run_as_user "makepkg -si --noconfirm"
+  )
+  print_success "'limine-mkinitcpio-hook' has been installed successfully."
 }
 
 pre_flight_checks() {
@@ -604,7 +628,8 @@ pre_flight_checks() {
     exit 1
   fi
 
-  if ! command_exists paru; then task_setup_aur_helper; fi
+  task_setup_aur_helper
+  task_setup_limine_hook
 
   local missing_pkgs=()
   for pkg in neovim wl-clipboard curl wget pciutils dmidecode xdg-user-dirs; do
@@ -614,13 +639,6 @@ pre_flight_checks() {
   if ((${#missing_pkgs[@]} > 0)); then
     print_info "Installing missing script dependencies..."
     install_pkgs "${missing_pkgs[@]}"
-  fi
-
-  print_info "Ensuring Limine bootloader hook is installed..."
-  if ! is_pkg_installed "limine-mkinitcpio-hook"; then
-    install_pkgs "limine-mkinitcpio-hook"
-  else
-    print_success "limine-mkinitcpio-hook is already installed."
   fi
 
   local required_files=("$PRECONFIG_DIR/packages.txt" "$PRECONFIG_DIR/makepkg.conf.txt" "$PRECONFIG_DIR/99-custom-env.sh.txt")
@@ -734,7 +752,7 @@ task_setup_extra_repos() {
   fi
 
   print_info "Synchronizing databases and upgrading system..."
-  paru -Syu --noconfirm
+  paru -Syu --noconfirm --skipreview
 }
 
 task_kernel_and_drivers() {
@@ -770,7 +788,7 @@ task_setup_asus() {
   print_info "Configuring the [g14] repository in /etc/pacman.conf..."
   if ! grep -q "\[g14\]" /etc/pacman.conf; then
     echo -e "\n[g14]\nServer = https://arch.asus-linux.org" | sudo tee -a /etc/pacman.conf >/dev/null
-    paru -Syu --noconfirm
+    paru -Syu --noconfirm --skipreview
   fi
   print_success "The [g14] repository is configured."
 
