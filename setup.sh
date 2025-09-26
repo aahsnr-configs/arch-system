@@ -49,17 +49,15 @@ cleanup() {
 trap cleanup EXIT ERR INT TERM
 
 # --- User Interface: Tokyonight Night Theme, Colors, and Icons ---
-readonly C_MAUVE=$'\033[38;2;187;154;247m'     # Tokyonight Purple (for Steps)
-readonly C_LAVENDER=$'\033[38;2;122;162;247m'  # Tokyonight Blue (for Descriptions)
-readonly C_PEACH=$'\033[38;2;224;175;104m'     # Tokyonight Orange (for Warnings)
-readonly C_SKY=$'\033[38;2;125;207;255m'       # Tokyonight Cyan (for File Paths)
-readonly C_GREEN=$'\033[38;2;158;206;106m'     # Tokyonight Green (for Success)
-readonly C_RED=$'\033[38;2;247;118;142m'       # Tokyonight Red (for Errors)
-readonly C_ROSEWATER=$'\033[38;2;187;154;247m' # Tokyonight Purple (for misc highlights)
-readonly C_SAPPHIRE=$'\033[38;2;122;162;247m'  # Tokyonight Blue (for Info)
-readonly C_YELLOW=$'\033[38;2;224;175;104m'    # Tokyonight Orange (for Prompts)
-readonly C_TEXT=$'\033[38;2;192;202;245m'      # Tokyonight Foreground (for main text)
-readonly C_SUBTEXT1=$'\033[38;2;169;177;214m'  # Tokyonight Light Blue (for subtle text)
+readonly C_MAUVE=$'\033[38;2;187;154;247m'    # Tokyonight Purple (for Steps)
+readonly C_LAVENDER=$'\033[38;2;122;162;247m' # Tokyonight Blue (for Descriptions)
+readonly C_PEACH=$'\033[38;2;224;175;104m'    # Tokyonight Orange (for Warnings)
+readonly C_SKY=$'\033[38;2;125;207;255m'      # Tokyonight Cyan (for File Paths)
+readonly C_GREEN=$'\033[38;2;158;206;106m'    # Tokyonight Green (for Success)
+readonly C_RED=$'\033[38;2;247;118;142m'      # Tokyonight Red (for Errors)
+readonly C_SAPPHIRE=$'\033[38;2;122;162;247m' # Tokyonight Blue (for Info)
+readonly C_YELLOW=$'\033[38;2;224;175;104m'   # Tokyonight Orange (for Prompts)
+readonly C_TEXT=$'\033[38;2;192;202;245m'     # Tokyonight Foreground (for main text)
 readonly C_BOLD=$'\033[1m'
 readonly C_ITALIC=$'\033[3m'
 readonly C_END=$'\033[0m'
@@ -115,27 +113,29 @@ RUN_ALL=true
 
 docs_pre_flight_checks() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_PEACH}Performing Pre-flight Safety Checks${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Performing Pre-flight Safety Checks${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_SKY}This initial step performs critical safety and environment checks to ensure the
+${C_LAVENDER}This initial step performs critical safety and environment checks to ensure the
 script can run successfully.${C_END}
 
-${C_LAVENDER}${C_BOLD}Actions:${C_END}
-- ${C_LAVENDER}${C_BOLD}Privilege Verification:${C_END}${C_SKY} Ensures the script is ${C_RED}NOT${C_END}${C_SKY} run as the root user.${C_END}
-- ${C_LAVENDER}${C_BOLD}Connectivity Check:${C_END}${C_SKY} Pings ${C_SAPPHIRE}8.8.8.8${C_END}${C_SKY} to confirm internet access.${C_END}
-- ${C_LAVENDER}${C_BOLD}AUR Helper Setup:${C_END}
-  - ${C_SKY}Detects if ${C_GREEN}paru${C_END}${C_SKY} is installed.${C_END}
-  - ${C_SKY}If not found, it installs ${C_GREEN}git${C_END}${C_SKY} and ${C_GREEN}base-devel${C_END}${C_SKY}, clones the
-    ${C_SAPPHIRE}paru-bin.git${C_END}${C_SKY} repository, and builds it using ${C_SAPPHIRE}makepkg -si${C_END}${C_SKY}.${C_END}
-- ${C_LAVENDER}${C_BOLD}Dependency Installation:${C_END}
-  - ${C_SKY}Checks for and installs essential script dependencies:
-    ${C_GREEN}neovim${C_END}${C_SKY}, ${C_GREEN}wl-clipboard${C_END}${C_SKY}, ${C_GREEN}curl${C_END}${C_SKY}, ${C_GREEN}wget${C_END}${C_SKY}, ${C_GREEN}pciutils${C_END}${C_SKY}, ${C_GREEN}dmidecode${C_END}${C_SKY}, ${C_GREEN}xdg-user-dirs${C_END}${C_SKY}.${C_END}
-  - ${C_SKY}Ensures the ${C_GREEN}limine-mkinitcpio-hook${C_END}${C_SKY} package from the AUR is installed.${C_END}
-- ${C_LAVENDER}${C_BOLD}Configuration File Check:${C_END}${C_SKY} Verifies that these files exist:
-  - ${C_SAPPHIRE}${PRECONFIG_DIR}/packages.txt${C_END}
-  - ${C_SAPPHIRE}${PRECONFIG_DIR}/makepkg.conf.txt${C_END}
-  - ${C_SAPPHIRE}${PRECONFIG_DIR}/99-custom-env.sh.txt${C_END}
-- ${C_LAVENDER}${C_BOLD}Sudo Priming:${C_END}${C_SKY} Runs ${C_SAPPHIRE}sudo -v${C_END}${C_SKY} to cache credentials, preventing most
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Privilege Verification:${C_END}${C_TEXT} Ensures the script is ${C_RED}NOT${C_END}${C_TEXT} run as the root user.${C_END}
+- ${C_PEACH}${C_BOLD}Connectivity Check:${C_END}${C_TEXT} Pings ${C_SKY}8.8.8.8${C_END}${C_TEXT} to confirm internet access.${C_END}
+- ${C_PEACH}${C_BOLD}AUR Helper Setup:${C_END}
+  - ${C_TEXT}Detects if ${C_GREEN}paru${C_END}${C_TEXT} is installed.${C_END}
+  - ${C_TEXT}If not found, it installs ${C_GREEN}git${C_END}${C_TEXT} and ${C_GREEN}base-devel${C_END}${C_TEXT}, clones the
+    ${C_SKY}paru-bin.git${C_END}${C_TEXT} repository, and builds it using ${C_SKY}makepkg -si${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Dependency Installation:${C_END}
+  - ${C_TEXT}Checks for and installs essential script dependencies:
+    ${C_GREEN}neovim${C_END}${C_TEXT}, ${C_GREEN}wl-clipboard${C_END}${C_TEXT}, ${C_GREEN}curl${C_END}${C_TEXT}, ${C_GREEN}wget${C_END}${C_TEXT}, ${C_GREEN}pciutils${C_END}${C_TEXT}, ${C_GREEN}dmidecode${C_END}${C_TEXT}, ${C_GREEN}xdg-user-dirs${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Bootloader Hook:${C_END}${C_TEXT} Ensures the ${C_GREEN}limine-mkinitcpio-hook${C_END}${C_TEXT} package is installed
+  to automate bootloader updates when new kernels are installed.${C_END}
+- ${C_PEACH}${C_BOLD}Configuration File Check:${C_END}${C_TEXT} Verifies that these files exist:
+  - ${C_SKY}${PRECONFIG_DIR}/packages.txt${C_END}
+  - ${C_SKY}${PRECONFIG_DIR}/makepkg.conf.txt${C_END}
+  - ${C_SKY}${PRECONFIG_DIR}/99-custom-env.sh.txt${C_END}
+- ${C_PEACH}${C_BOLD}Sudo Priming:${C_END}${C_TEXT} Runs ${C_SKY}sudo -v${C_END}${C_TEXT} to cache credentials, preventing most
   password prompts during the script's execution.${C_END}
 EOF
 }
@@ -143,59 +143,62 @@ EOF
 docs_initial_setup() {
   cat <<EOF
 ${C_BOLD}${C_ITALIC}${C_MAUVE}Configuring Core System Files${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
 ${C_LAVENDER}Configures core system files for better performance and user experience.${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
-- ${C_PEACH}${C_BOLD}Environment Variables:${C_END}${C_LAVENDER} Copies the custom environment file
-  ${C_SKY}${PRECONFIG_DIR}/99-custom-env.sh.txt${C_END}${C_LAVENDER} to ${C_SKY}/etc/profile.d/99-custom-env.sh${C_END}${C_LAVENDER}.${C_END}
-- ${C_PEACH}${C_BOLD}Pacman Configuration:${C_END}${C_LAVENDER} Modifies ${C_SKY}/etc/pacman.conf${C_END}${C_LAVENDER} using ${C_SKY}sed${C_END}${C_LAVENDER} to:
-  - Enable ${C_SKY}Color${C_END}${C_LAVENDER} and add ${C_SKY}ILoveCandy${C_END}${C_LAVENDER}.${C_END}
-  - Enable ${C_SKY}VerbosePkgLists${C_END}${C_LAVENDER}.${C_END}
-  - Uncomment ${C_SKY}DisableDownloadTimeout${C_END}${C_LAVENDER}.${C_END}
-  - Set ${C_SKY}ParallelDownloads = 10${C_END}${C_LAVENDER}.${C_END}
-- ${C_PEACH}${C_BOLD}Makepkg Configuration:${C_END}${C_LAVENDER} Overwrites ${C_SKY}/etc/makepkg.conf${C_END}${C_LAVENDER} with the contents of
-  ${C_SKY}${PRECONFIG_DIR}/makepkg.conf.txt${C_END}${C_LAVENDER} to optimize package compilation.${C_END}
+- ${C_PEACH}${C_BOLD}Environment Variables:${C_END}${C_TEXT} Copies the custom environment file
+  ${C_SKY}${PRECONFIG_DIR}/99-custom-env.sh.txt${C_END}${C_TEXT} to ${C_SKY}/etc/profile.d/99-custom-env.sh${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Pacman Configuration:${C_END}${C_TEXT} Modifies ${C_SKY}/etc/pacman.conf${C_END}${C_TEXT} using ${C_SKY}sed${C_END}${C_TEXT} to:
+  - Enable ${C_SKY}Color${C_END}${C_TEXT} and add ${C_SKY}ILoveCandy${C_END}${C_TEXT}.${C_END}
+  - Enable ${C_SKY}VerbosePkgLists${C_END}${C_TEXT}.${C_END}
+  - Uncomment ${C_SKY}DisableDownloadTimeout${C_END}${C_TEXT}.${C_END}
+  - Set ${C_SKY}ParallelDownloads = 10${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Makepkg Configuration:${C_END}${C_TEXT} Overwrites ${C_SKY}/etc/makepkg.conf${C_END}${C_TEXT} with the contents of
+  ${C_SKY}${PRECONFIG_DIR}/makepkg.conf.txt${C_END}${C_TEXT} to optimize package compilation.${C_END}
 - ${C_PEACH}${C_BOLD}Mirrorlist Management:${C_END}
-  - ${C_LAVENDER}Installs the ${C_GREEN}reflector${C_END}${C_LAVENDER} package.${C_END}
-  - ${C_LAVENDER}Enables and starts ${C_SKY}reflector.service${C_END}${C_LAVENDER} and ${C_SKY}reflector.timer${C_END}${C_LAVENDER}.${C_END}
-  - ${C_LAVENDER}Performs an initial mirrorlist update, sorting by rate for servers in
-    Bangladesh, India, and Singapore, saving the result to ${C_SKY}/etc/pacman.d/mirrorlist${C_END}${C_LAVENDER}.${C_END}
-- ${C_YELLOW}${C_BOLD}User Verification:${C_END}
-  - ${C_LAVENDER}After making changes, the script displays the contents of ${C_SKY}/etc/pacman.conf${C_END}
-    ${C_LAVENDER}and ${C_SKY}/etc/makepkg.conf${C_END}${C_LAVENDER}.${C_END}
-  - ${C_LAVENDER}It then enters an interactive loop, prompting you to approve the changes
-    or edit the files directly using ${C_GREEN}nvim${C_END}${C_LAVENDER}.${C_END}
+  - ${C_TEXT}Installs the ${C_GREEN}reflector${C_END}${C_TEXT} package.${C_END}
+  - ${C_TEXT}Enables and starts ${C_SKY}reflector.service${C_END}${C_TEXT} and ${C_SKY}reflector.timer${C_END}${C_TEXT}.${C_END}
+  - ${C_TEXT}Performs an initial mirrorlist update, sorting by rate for servers in
+    Bangladesh, India, and Singapore, saving the result to ${C_SKY}/etc/pacman.d/mirrorlist${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}User Verification:${C_END}
+  - ${C_TEXT}After making changes, the script displays the contents of ${C_SKY}/etc/pacman.conf${C_END}
+    ${C_TEXT}and ${C_SKY}/etc/makepkg.conf${C_END}${C_TEXT}.${C_END}
+  - ${C_TEXT}It then enters an interactive loop, prompting you to approve the changes
+    or edit the files directly using ${C_GREEN}nvim${C_END}${C_TEXT}.${C_END}
 EOF
 }
 
 docs_setup_extra_repos() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_ROSEWATER}Setting Up Third-Party Repositories${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Setting Up Third-Party Repositories${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_SAPPHIRE}Adds and configures popular third-party pacman repositories.${C_END}
+${C_LAVENDER}Adds and configures popular third-party pacman repositories.${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
 - ${C_PEACH}${C_BOLD}CachyOS Repository:${C_END}
-  - ${C_SAPPHIRE}Checks if the ${C_SKY}[cachyos]${C_END}${C_SAPPHIRE} repository is already in ${C_SKY}/etc/pacman.conf${C_END}${C_SAPPHIRE}.${C_END}
-  - ${C_SAPPHIRE}If not, it downloads ${C_SKY}cachyos-repo.tar.xz${C_END}${C_SAPPHIRE}, extracts it, and runs the
-    official ${C_SKY}./cachyos-repo.sh${C_END}${C_SAPPHIRE} script.${C_END}
+  - ${C_TEXT}Checks if the ${C_SKY}[cachyos]${C_END}${C_TEXT} repository is already in ${C_SKY}/etc/pacman.conf${C_END}${C_TEXT}.${C_END}
+  - ${C_TEXT}If not, it downloads ${C_SKY}cachyos-repo.tar.xz${C_END}${C_TEXT}, extracts it, and runs the
+    official ${C_SKY}./cachyos-repo.sh${C_END}${C_TEXT} script.${C_END}
   - ${C_YELLOW}This part of the setup is interactive and requires user input.${C_END}
 - ${C_PEACH}${C_BOLD}BlackArch Repository:${C_END}
-  - ${C_SAPPHIRE}Checks if the ${C_SKY}[blackarch]${C_END}${C_SAPPHIRE} repository is already configured.${C_END}
-  - ${C_SAPPHIRE}If not, it downloads the official bootstrap script (${C_SKY}strap.sh${C_END}${C_SAPPHIRE}) from
-    ${C_SKY}blackarch.org${C_END}${C_SAPPHIRE} and executes it with root privileges.${C_END}
+  - ${C_TEXT}Checks if the ${C_SKY}[blackarch]${C_END}${C_TEXT} repository is already configured.${C_END}
+  - ${C_TEXT}If not, it downloads the official bootstrap script (${C_SKY}strap.sh${C_END}${C_TEXT}) from
+    ${C_SKY}blackarch.org${C_END}${C_TEXT} and executes it with root privileges.${C_END}
 - ${C_PEACH}${C_BOLD}System Upgrade:${C_END}
-  - ${C_SAPPHIRE}After adding the repositories, it forces a full system synchronization and
-    upgrade by running ${C_SKY}paru -Syu --noconfirm${C_END}${C_SAPPHIRE}.${C_END}
+  - ${C_TEXT}After adding the repositories, it forces a full system synchronization and
+    upgrade by running ${C_SKY}paru -Syu --noconfirm${C_END}${C_TEXT}.${C_END}
 EOF
 }
 
 docs_kernel_and_drivers() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_YELLOW}Installing Kernel & Graphics Drivers${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Installing Kernel & Graphics Drivers${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_TEXT}Installs the performance-optimized CachyOS kernel and NVIDIA's open-source drivers.${C_END}
+${C_LAVENDER}Installs the performance-optimized CachyOS kernel and NVIDIA's open-source drivers.${C_END}
 
 ${C_PEACH}${C_BOLD}Prerequisites:${C_END}
 - ${C_TEXT}The CachyOS repository must be enabled first (via ${C_SKY}--setup-extra-repos${C_END}${C_TEXT}).
@@ -208,31 +211,33 @@ ${C_PEACH}${C_BOLD}Actions:${C_END}
   - ${C_GREEN}nvidia-settings${C_END}${C_TEXT}, ${C_GREEN}vulkan-icd-loader${C_END}${C_TEXT}, ${C_GREEN}lib32-vulkan-icd-loader${C_END}${C_TEXT},
     ${C_GREEN}libva-nvidia-driver${C_END}
 
-${C_YELLOW}${C_BOLD}Required Follow-up Actions:${C_END}
-- ${C_YELLOW}You MUST manually update your bootloader configuration after this task to
-  boot the new kernel. The script does not do this for you.${C_END}
+${C_PEACH}${C_BOLD}Bootloader Automation:${C_END}
+- ${C_TEXT}The system is configured with the ${C_GREEN}limine-mkinitcpio-hook${C_END}${C_TEXT} package. This hook
+  automatically updates the Limine bootloader configuration whenever a new kernel
+  is installed or updated. No manual intervention is required.${C_END}
 EOF
 }
 
 docs_setup_asus() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_GREEN}Configuring ASUS Laptop Support${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Configuring ASUS Laptop Support${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_SUBTEXT1}Performs hardware-specific setup for ASUS laptops.${C_END}
+${C_LAVENDER}Performs hardware-specific setup for ASUS laptops.${C_END}
 
-${C_YELLOW}${C_BOLD}Condition:${C_END}
-- ${C_SUBTEXT1}This task is skipped automatically if ${C_SKY}dmidecode -s system-manufacturer${C_END}
-  ${C_SUBTEXT1}does not report "ASUS".${C_END}
+${C_PEACH}${C_BOLD}Condition:${C_END}
+- ${C_TEXT}This task is skipped automatically if ${C_SKY}dmidecode -s system-manufacturer${C_END}
+  ${C_TEXT}does not report "ASUS".${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
-- ${C_PEACH}${C_BOLD}Add GPG Key:${C_END}${C_SUBTEXT1} Imports and locally signs the GPG key required for the
+- ${C_PEACH}${C_BOLD}Add GPG Key:${C_END}${C_TEXT} Imports and locally signs the GPG key required for the
   ASUS Linux repository.${C_END}
-- ${C_PEACH}${C_BOLD}Add Repository:${C_END}${C_SUBTEXT1} Adds the ${C_SKY}[g14]${C_END}${C_SUBTEXT1} repository from ${C_SKY}https://arch.asus-linux.org${C_END}
-  to ${C_SKY}/etc/pacman.conf${C_END}${C_SUBTEXT1} and runs ${C_SKY}paru -Syu${C_END}${C_SUBTEXT1}.${C_END}
-- ${C_PEACH}${C_BOLD}Install Packages:${C_END}${C_SUBTEXT1} Installs ASUS-specific tools including:
-  - ${C_GREEN}asusctl${C_END}${C_SUBTEXT1}, ${C_GREEN}power-profiles-daemon${C_END}${C_SUBTEXT1}, ${C_GREEN}supergfxctl${C_END}${C_SUBTEXT1}, ${C_GREEN}switcheroo-control${C_END}${C_SUBTEXT1},
-    and ${C_GREEN}rog-control-center${C_END}${C_SUBTEXT1}.${C_END}
-- ${C_PEACH}${C_BOLD}Enable Services:${C_END}${C_SUBTEXT1} Enables and starts the required systemd services:
+- ${C_PEACH}${C_BOLD}Add Repository:${C_END}${C_TEXT} Adds the ${C_SKY}[g14]${C_END}${C_TEXT} repository from ${C_SKY}https://arch.asus-linux.org${C_END}
+  to ${C_SKY}/etc/pacman.conf${C_END}${C_TEXT} and runs ${C_SKY}paru -Syu${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Install Packages:${C_END}${C_TEXT} Installs ASUS-specific tools including:
+  - ${C_GREEN}asusctl${C_END}${C_TEXT}, ${C_GREEN}power-profiles-daemon${C_END}${C_TEXT}, ${C_GREEN}supergfxctl${C_END}${C_TEXT}, ${C_GREEN}switcheroo-control${C_END}${C_TEXT},
+    and ${C_GREEN}rog-control-center${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Enable Services:${C_END}${C_TEXT} Enables and starts the required systemd services:
   - ${C_SKY}power-profiles-daemon.service${C_END}
   - ${C_SKY}supergfxd.service${C_END}
   - ${C_SKY}switcheroo-control.service${C_END}
@@ -241,27 +246,29 @@ EOF
 
 docs_setup_greetd() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_SKY}Setting Up the Login Manager${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Setting Up the Login Manager${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
 ${C_LAVENDER}Configures a lightweight, terminal-based display manager (login screen).${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
-- ${C_PEACH}${C_BOLD}Installation:${C_END}${C_LAVENDER} Installs the ${C_GREEN}greetd${C_END}${C_LAVENDER} package and the ${C_GREEN}greetd-tuigreet${C_END}${C_LAVENDER} greeter.${C_END}
-- ${C_PEACH}${C_BOLD}Configuration:${C_END}${C_LAVENDER} Creates the configuration file at ${C_SKY}/etc/greetd/config.toml${C_END}
-  ${C_LAVENDER}and sets the default command to launch Hyprland via ${C_SKY}tuigreet --cmd Hyprland${C_END}${C_LAVENDER}.${C_END}
+- ${C_PEACH}${C_BOLD}Installation:${C_END}${C_TEXT} Installs the ${C_GREEN}greetd${C_END}${C_TEXT} package and the ${C_GREEN}greetd-tuigreet${C_END}${C_TEXT} greeter.${C_END}
+- ${C_PEACH}${C_BOLD}Configuration:${C_END}${C_TEXT} Creates the configuration file at ${C_SKY}/etc/greetd/config.toml${C_END}
+  ${C_TEXT}and sets the default command to launch Hyprland via ${C_SKY}tuigreet --cmd Hyprland${C_END}${C_TEXT}.${C_END}
 - ${C_PEACH}${C_BOLD}Conflict Resolution:${C_END}
-  - ${C_LAVENDER}Checks if the ${C_GREEN}sddm${C_END}${C_LAVENDER} package is installed.${C_END}
-  - ${C_LAVENDER}If found, it disables the ${C_SKY}sddm.service${C_END}${C_LAVENDER} and removes the package to
+  - ${C_TEXT}Checks if the ${C_GREEN}sddm${C_END}${C_TEXT} package is installed.${C_END}
+  - ${C_TEXT}If found, it disables the ${C_SKY}sddm.service${C_END}${C_TEXT} and removes the package to
     prevent conflicts with greetd.${C_END}
-- ${C_PEACH}${C_BOLD}Service Management:${C_END}${C_LAVENDER} Enables the ${C_SKY}greetd.service${C_END}${C_LAVENDER} to launch at boot.${C_END}
+- ${C_PEACH}${C_BOLD}Service Management:${C_END}${C_TEXT} Enables the ${C_SKY}greetd.service${C_END}${C_TEXT} to launch at boot.${C_END}
 EOF
 }
 
 docs_install_packages() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_SAPPHIRE}Installing System Packages${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Installing System Packages${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_TEXT}The main package installation task. It reads package names line-by-line from
+${C_LAVENDER}The main package installation task. It reads package names line-by-line from
 the configuration file and installs them.${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
@@ -276,119 +283,125 @@ EOF
 docs_setup_dotfiles() {
   cat <<EOF
 ${C_BOLD}${C_ITALIC}${C_MAUVE}Linking User Dotfiles${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_SKY}Symlinks configuration files (dotfiles) from a local source directory into the
+${C_LAVENDER}Symlinks configuration files (dotfiles) from a local source directory into the
 user's home directory.${C_END}
 
-${C_YELLOW}${C_BOLD}Condition:${C_END}
-- ${C_SKY}This task is skipped if the source directory ${C_LAVENDER}${USER_HOME}/linux-system/dotfiles${C_END}${C_SKY}
+${C_PEACH}${C_BOLD}Condition:${C_END}
+- ${C_TEXT}This task is skipped if the source directory ${C_SKY}${USER_HOME}/linux-system/dotfiles${C_END}${C_TEXT}
   is not found.${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
-- ${C_PEACH}${C_BOLD}Nested Configs:${C_END}${C_SKY} For every file and directory inside
-  ${C_LAVENDER}${USER_HOME}/linux-system/dotfiles/.config/${C_END}${C_SKY}, it creates a symbolic link
-  inside ${C_LAVENDER}${USER_HOME}/.config/${C_END}${C_SKY}.${C_END}
-- ${C_PEACH}${C_BOLD}Top-Level Dotfiles:${C_END}${C_SKY} For every file and directory at the top level of
-  ${C_LAVENDER}${USER_HOME}/linux-system/dotfiles/${C_END}${C_SKY} (excluding ${C_LAVENDER}.config${C_END}${C_SKY}), it creates a
-  symbolic link directly inside ${C_LAVENDER}${USER_HOME}/${C_END}${C_SKY}.${C_END}
-- ${C_SKY}All operations are performed as the target user.${C_END}
+- ${C_PEACH}${C_BOLD}Nested Configs:${C_END}${C_TEXT} For every file and directory inside
+  ${C_SKY}${USER_HOME}/linux-system/dotfiles/.config/${C_END}${C_TEXT}, it creates a symbolic link
+  inside ${C_SKY}${USER_HOME}/.config/${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Top-Level Dotfiles:${C_END}${C_TEXT} For every file and directory at the top level of
+  ${C_SKY}${USER_HOME}/linux-system/dotfiles/${C_END}${C_TEXT} (excluding ${C_SKY}.config${C_END}${C_TEXT}), it creates a
+  symbolic link directly inside ${C_SKY}${USER_HOME}/${C_END}${C_TEXT}.${C_END}
+- ${C_TEXT}All operations are performed as the target user.${C_END}
 EOF
 }
 
 docs_setup_nix() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_PEACH}Setting up Nix & Home-Manager${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Setting up Nix & Home-Manager${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
 ${C_LAVENDER}Installs and configures the Nix package manager with Home-Manager and Flakes.${C_END}
 
-${C_MAUVE}${C_BOLD}Actions:${C_END}
-- ${C_MAUVE}${C_BOLD}Nix Installation:${C_END}
-  - ${C_LAVENDER}Checks for the existence of the ${C_SKY}/nix/store${C_END}${C_LAVENDER} directory.${C_END}
-  - ${C_LAVENDER}If not found, it downloads and runs the official Determinate Systems installer.${C_END}
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Nix Installation:${C_END}
+  - ${C_TEXT}Checks for the existence of the ${C_SKY}/nix/store${C_END}${C_TEXT} directory.${C_END}
+  - ${C_TEXT}If not found, it downloads and runs the official Determinate Systems installer.${C_END}
   - ${C_YELLOW}The Nix installer is interactive and will require user confirmation.${C_END}
-- ${C_MAUVE}${C_BOLD}Environment Setup:${C_END}${C_LAVENDER} Sources the Nix environment from
-  ${C_SKY}/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh${C_END}${C_LAVENDER}.${C_END}
-- ${C_MAUVE}${C_BOLD}Nix Configuration:${C_END}${C_LAVENDER} Creates ${C_SKY}${USER_HOME}/.config/nix/nix.conf${C_END}${C_LAVENDER} to enable
-  the ${C_SKY}nix-command${C_END}${C_LAVENDER} and ${C_SKY}flakes${C_END}${C_LAVENDER} experimental features.${C_END}
-- ${C_MAUVE}${C_BOLD}Home-Manager Initialization:${C_END}
-  - ${C_LAVENDER}Runs ${C_SKY}nix run home-manager/master -- init --switch${C_END}${C_LAVENDER} to set up Home-Manager
+- ${C_PEACH}${C_BOLD}Environment Setup:${C_END}${C_TEXT} Sources the Nix environment from
+  ${C_SKY}/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Nix Configuration:${C_END}${C_TEXT} Creates ${C_SKY}${USER_HOME}/.config/nix/nix.conf${C_END}${C_TEXT} to enable
+  the ${C_SKY}nix-command${C_END}${C_TEXT} and ${C_SKY}flakes${C_END}${C_TEXT} experimental features.${C_END}
+- ${C_PEACH}${C_BOLD}Home-Manager Initialization:${C_END}
+  - ${C_TEXT}Runs ${C_SKY}nix run home-manager/master -- init --switch${C_END}${C_TEXT} to set up Home-Manager
     for the first time.${C_END}
-  - ${C_LAVENDER}Executes ${C_SKY}home-manager switch${C_END}${C_LAVENDER} to apply the configuration. If this fails,
+  - ${C_TEXT}Executes ${C_SKY}home-manager switch${C_END}${C_TEXT} to apply the configuration. If this fails,
     it retries once with a backup flag before the final attempt.${C_END}
 EOF
 }
 
 docs_manual_installations() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_ROSEWATER}Handling Manual Installations${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Handling Manual Installations${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_SUBTEXT1}Handles software that cannot be installed through a standard package manager.${C_END}
+${C_LAVENDER}Handles software that cannot be installed through a standard package manager.${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
 - ${C_PEACH}${C_BOLD}Private Internet Access VPN:${C_END}
-  - ${C_SUBTEXT1}Checks if the ${C_GREEN}pia-client${C_END}${C_SUBTEXT1} command already exists.${C_END}
-  - ${C_SUBTEXT1}If not, it downloads the official installer script
-    (${C_SKY}pia-linux-3.6.2-08398.run${C_END}${C_SUBTEXT1}) using ${C_SKY}wget${C_END}${C_SUBTEXT1}.${C_END}
-  - ${C_SUBTEXT1}It makes the script executable and then runs it.${C_END}
+  - ${C_TEXT}Checks if the ${C_GREEN}pia-client${C_END}${C_TEXT} command already exists.${C_END}
+  - ${C_TEXT}If not, it downloads the official installer script
+    (${C_SKY}pia-linux-3.6.2-08398.run${C_END}${C_TEXT}) using ${C_SKY}wget${C_END}${C_TEXT}.${C_END}
+  - ${C_TEXT}It makes the script executable and then runs it.${C_END}
   - ${C_YELLOW}The PIA installer has its own user interface and requires interaction.${C_END}
 EOF
 }
 
 docs_harden_system() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_RED}Applying System Security Hardening${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Applying System Security Hardening${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_PEACH}Applies a variety of security enhancements to the system.${C_END}
+${C_LAVENDER}Applies a variety of security enhancements to the system.${C_END}
 
-${C_LAVENDER}${C_BOLD}Actions:${C_END}
-- ${C_LAVENDER}${C_BOLD}Install Packages:${C_END}${C_PEACH} Installs security tools like ${C_GREEN}apparmor${C_END}${C_PEACH}, ${C_GREEN}audit${C_END}${C_PEACH},
-  ${C_GREEN}ufw${C_END}${C_PEACH}, ${C_GREEN}haveged${C_END}${C_PEACH}, and ${C_GREEN}lynis-git${C_END}${C_PEACH}.${C_END}
-- ${C_LAVENDER}${C_BOLD}Enable Services:${C_END}${C_PEACH} Enables and starts core security services like
-  ${C_SKY}auditd.service${C_END}${C_PEACH}, ${C_SKY}apparmor.service${C_END}${C_PEACH}, and ${C_SKY}sshd.service${C_END}${C_PEACH}.${C_END}
-- ${C_LAVENDER}${C_BOLD}Harden SSH:${C_END}${C_PEACH} Creates a config file at ${C_SKY}/etc/ssh/sshd_config.d/99-hardening.conf${C_END}${C_PEACH} to:
-  - Change the listening port to ${C_SKY}47${C_END}${C_PEACH}.${C_END}
-  - Disable root login (${C_SKY}PermitRootLogin no${C_END}${C_PEACH}).${C_END}
-  - Disable password-based authentication (${C_SKY}PasswordAuthentication no${C_END}${C_PEACH}).${C_END}
-- ${C_LAVENDER}${C_BOLD}Configure Firewall:${C_END}${C_PEACH} Uses ${C_GREEN}UFW${C_END}${C_PEACH} to:
-  - Allow incoming traffic on the new SSH port (${C_SKY}47/tcp${C_END}${C_PEACH}).${C_END}
-  - Deny traffic on the default SSH port (${C_SKY}22/tcp${C_END}${C_PEACH}).${C_END}
-  - Enable the firewall with ${C_SKY}ufw --force enable${C_END}${C_PEACH}.${C_END}
-- ${C_LAVENDER}${C_BOLD}Kernel Parameters:${C_END}${C_PEACH} Applies secure kernel runtime parameters by writing to
-  ${C_SKY}/etc/sysctl.d/99-custom-hardening.conf${C_END}${C_PEACH} and running ${C_SKY}sysctl -p${C_END}${C_PEACH}.${C_END}
-- ${C_LAVENDER}${C_BOLD}Proc Filesystem:${C_END}${C_PEACH} Hardens ${C_SKY}/proc${C_END}${C_PEACH} access by modifying the entry in ${C_SKY}/etc/fstab${C_END}
-  ${C_PEACH}to include ${C_SKY}hidepid=2${C_END}${C_PEACH}, preventing users from seeing each other's processes.${C_END}
+${C_PEACH}${C_BOLD}Actions:${C_END}
+- ${C_PEACH}${C_BOLD}Install Packages:${C_END}${C_TEXT} Installs security tools like ${C_GREEN}apparmor${C_END}${C_TEXT}, ${C_GREEN}audit${C_END}${C_TEXT},
+  ${C_GREEN}ufw${C_END}${C_TEXT}, ${C_GREEN}haveged${C_END}${C_TEXT}, and ${C_GREEN}lynis-git${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Enable Services:${C_END}${C_TEXT} Enables and starts core security services like
+  ${C_SKY}auditd.service${C_END}${C_TEXT}, ${C_SKY}apparmor.service${C_END}${C_TEXT}, and ${C_SKY}sshd.service${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Harden SSH:${C_END}${C_TEXT} Creates a config file at ${C_SKY}/etc/ssh/sshd_config.d/99-hardening.conf${C_END}${C_TEXT} to:
+  - Change the listening port to ${C_SKY}47${C_END}${C_TEXT}.${C_END}
+  - Disable root login (${C_SKY}PermitRootLogin no${C_END}${C_TEXT}).${C_END}
+  - Disable password-based authentication (${C_SKY}PasswordAuthentication no${C_END}${C_TEXT}).${C_END}
+- ${C_PEACH}${C_BOLD}Configure Firewall:${C_END}${C_TEXT} Uses ${C_GREEN}UFW${C_END}${C_TEXT} to:
+  - Allow incoming traffic on the new SSH port (${C_SKY}47/tcp${C_END}${C_TEXT}).${C_END}
+  - Deny traffic on the default SSH port (${C_SKY}22/tcp${C_END}${C_TEXT}).${C_END}
+  - Enable the firewall with ${C_SKY}ufw --force enable${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Kernel Parameters:${C_END}${C_TEXT} Applies secure kernel runtime parameters by writing to
+  ${C_SKY}/etc/sysctl.d/99-custom-hardening.conf${C_END}${C_TEXT} and running ${C_SKY}sysctl -p${C_END}${C_TEXT}.${C_END}
+- ${C_PEACH}${C_BOLD}Proc Filesystem:${C_END}${C_TEXT} Hardens ${C_SKY}/proc${C_END}${C_TEXT} access by modifying the entry in ${C_SKY}/etc/fstab${C_END}
+  ${C_TEXT}to include ${C_SKY}hidepid=2${C_END}${C_TEXT}, preventing users from seeing each other's processes.${C_END}
 EOF
 }
 
 docs_configure_user() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_YELLOW}Configuring User Environment${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Configuring User Environment${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_SKY}Performs user-specific setup for the target user's environment.${C_END}
+${C_LAVENDER}Performs user-specific setup for the target user's environment.${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
-- ${C_PEACH}${C_BOLD}Default Shell:${C_END}${C_SKY} Changes the target user's default shell to ${C_GREEN}fish${C_END}${C_SKY} using
-  the ${C_LAVENDER}chsh${C_END}${C_SKY} command.${C_END}
-- ${C_PEACH}${C_BOLD}NPM Configuration:${C_END}${C_SKY} Configures ${C_GREEN}npm${C_END}${C_SKY} to use a local directory for global
-  packages at ${C_LAVENDER}${USER_HOME}/.npm-global${C_END}${C_SKY}.${C_END}
+- ${C_PEACH}${C_BOLD}Default Shell:${C_END}${C_TEXT} Changes the target user's default shell to ${C_GREEN}fish${C_END}${C_TEXT} using
+  the ${C_SKY}chsh${C_END}${C_TEXT} command.${C_END}
+- ${C_PEACH}${C_BOLD}NPM Configuration:${C_END}${C_TEXT} Configures ${C_GREEN}npm${C_END}${C_TEXT} to use a local directory for global
+  packages at ${C_SKY}${USER_HOME}/.npm-global${C_END}${C_TEXT}.${C_END}
 - ${C_PEACH}${C_BOLD}XDG Configuration:${C_END}
-  - ${C_SKY}Runs ${C_LAVENDER}xdg-user-dirs-update${C_END}${C_SKY} to create standard user directories (Desktop,
+  - ${C_TEXT}Runs ${C_SKY}xdg-user-dirs-update${C_END}${C_TEXT} to create standard user directories (Desktop,
     Documents, etc.).${C_END}
-  - ${C_SKY}Creates ${C_LAVENDER}${USER_HOME}/.config/mimeapps.list${C_END}${C_SKY} to set default applications
+  - ${C_TEXT}Creates ${C_SKY}${USER_HOME}/.config/mimeapps.list${C_END}${C_TEXT} to set default applications
     for images, videos, text files, and web links.${C_END}
-- ${C_PEACH}${C_BOLD}User Services:${C_END}${C_SKY} Enables and starts user-level systemd services for:
-  - Audio: ${C_LAVENDER}pipewire.service${C_END}${C_SKY}, ${C_LAVENDER}pipewire-pulse.service${C_END}${C_SKY}, ${C_LAVENDER}wireplumber.service${C_END}
-  - Desktop: ${C_LAVENDER}hypridle.service${C_END}${C_SKY}, ${C_LAVENDER}hyprpaper.service${C_END}
+- ${C_PEACH}${C_BOLD}User Services:${C_END}${C_TEXT} Enables and starts user-level systemd services for:
+  - Audio: ${C_SKY}pipewire.service${C_END}${C_TEXT}, ${C_SKY}pipewire-pulse.service${C_END}${C_TEXT}, ${C_SKY}wireplumber.service${C_END}
+  - Desktop: ${C_SKY}hypridle.service${C_END}${C_TEXT}, ${C_SKY}hyprpaper.service${C_END}
 EOF
 }
 
 docs_setup_editors() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_GREEN}Setting Up Text Editors${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Setting Up Text Editors${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_TEXT}Clones and sets up custom configurations for Neovim and Doom Emacs.${C_END}
+${C_LAVENDER}Clones and sets up custom configurations for Neovim and Doom Emacs.${C_END}
 
-${C_YELLOW}${C_BOLD}Note:${C_END}
+${C_PEACH}${C_BOLD}Note:${C_END}
 - ${C_TEXT}If existing configurations are found, they will be backed up with a timestamp
   (e.g., ${C_SKY}${USER_HOME}/.config/nvim.bak-YYYY-MM-DD_HH-MM${C_END}${C_TEXT}).${C_END}
 - ${C_TEXT}This task will be skipped for an editor that is not installed.${C_END}
@@ -411,18 +424,19 @@ EOF
 
 docs_cleanup() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_SAPPHIRE}Performing System Cleanup${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Performing System Cleanup${C_END}
+${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_SUBTEXT1}Performs system maintenance tasks to free up disk space.${C_END}
+${C_LAVENDER}Performs system maintenance tasks to free up disk space.${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
 - ${C_PEACH}${C_BOLD}Remove Orphaned Packages:${C_END}
-  - ${C_SUBTEXT1}Uses ${C_SKY}pacman -Qtdq${C_END}${C_SUBTEXT1} to find packages that were installed as dependencies
+  - ${C_TEXT}Uses ${C_SKY}paru -Qtdq${C_END}${C_TEXT} to find packages that were installed as dependencies
     but are no longer required by any installed package.${C_END}
-  - ${C_SUBTEXT1}If orphans are found, they are removed with ${C_SKY}paru -Rns${C_END}${C_SUBTEXT1}.${C_END}
+  - ${C_TEXT}If orphans are found, they are removed with ${C_SKY}paru -Rns${C_END}${C_TEXT}.${C_END}
 - ${C_PEACH}${C_BOLD}Clean Nix Store:${C_END}
-  - ${C_YELLOW}${C_BOLD}Condition:${C_END}${C_SUBTEXT1} This step only runs if Nix is installed.${C_END}
-  - ${C_SUBTEXT1}Executes ${C_SKY}nix-collect-garbage -d${C_END}${C_SUBTEXT1} to delete old, unreferenced
+  - ${C_PEACH}${C_BOLD}Condition:${C_END}${C_TEXT} This step only runs if Nix is installed.${C_END}
+  - ${C_TEXT}Executes ${C_SKY}nix-collect-garbage -d${C_END}${C_TEXT} to delete old, unreferenced
     generations of packages from the Nix store.${C_END}
 EOF
 }
@@ -440,18 +454,31 @@ execute specific tasks individually using flags.${C_END}
 
 EOF
   docs_pre_flight_checks
+  echo -e "\n\n"
   docs_initial_setup
+  echo -e "\n\n"
   docs_setup_extra_repos
+  echo -e "\n\n"
   docs_kernel_and_drivers
+  echo -e "\n\n"
   docs_setup_asus
+  echo -e "\n\n"
   docs_install_packages
+  echo -e "\n\n"
   docs_manual_installations
+  echo -e "\n\n"
   docs_setup_dotfiles
+  echo -e "\n\n"
   docs_setup_nix
+  echo -e "\n\n"
   docs_configure_user
+  echo -e "\n\n"
   docs_setup_editors
+  echo -e "\n\n"
   docs_cleanup
+  echo -e "\n\n"
   docs_setup_greetd
+  echo -e "\n\n"
   docs_harden_system
 }
 
@@ -487,11 +514,11 @@ print_usage() {
 # --- Utility Functions ---
 
 command_exists() { command -v "$1" &>/dev/null; }
-is_pkg_installed() { pacman -Q "$1" &>/dev/null; }
+is_pkg_installed() { paru -Q "$1" &>/dev/null; }
 run_as_user() { sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export USER='$TARGET_USER'; $*"; }
 
 install_pkgs() {
-  paru -S --needed --noconfirm "$@"
+  paru -S --needed --noconfirm --skipreview "$@"
 }
 
 remove_pkgs() {
@@ -535,7 +562,7 @@ task_setup_aur_helper() {
 
   print_step "Setting up AUR Helper (paru)"
   print_info "Installing 'git' and 'base-devel' to build the AUR helper..."
-  sudo pacman -S --needed --noconfirm git base-devel
+  install_pkgs git base-devel
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
@@ -721,7 +748,7 @@ task_kernel_and_drivers() {
   install_pkgs linux-cachyos linux-cachyos-headers linux-cachyos-nvidia-open nvidia-utils lib32-nvidia-utils \
     nvidia-settings vulkan-icd-loader lib32-vulkan-icd-loader libva-nvidia-driver
 
-  print_warning "CachyOS kernel and NVIDIA drivers installed. You must regenerate your bootloader configuration."
+  print_info "Limine bootloader configuration is updated automatically by the mkinitcpio hook."
   print_success "CachyOS kernel and driver installation complete."
 }
 
@@ -1089,10 +1116,10 @@ task_cleanup() {
   print_step "Cleaning Up System"
 
   print_info "Checking for orphaned packages..."
-  if pacman -Qtdq >/dev/null; then
+  if paru -Qtdq >/dev/null; then
     print_warning "The following orphaned packages will be removed:"
-    pacman -Qtd | awk '{print "  - " $1 " " $2}'
-    paru -Rns --noconfirm "$(pacman -Qtdq)"
+    paru -Qtd | awk '{print "  - " $1 " " $2}'
+    paru -Rns --noconfirm "$(paru -Qtdq)"
   else
     print_success "No orphaned packages to remove."
   fi
