@@ -22,7 +22,7 @@
 #   1.  Pre-flight Checks: Verifies privileges, connectivity, dependencies, and required files.
 #       (Includes automatic setup of 'paru' and installation of 'limine-mkinitcpio-hook').
 #   2.  Initial Setup: Optimizes pacman.conf, makepkg.conf, reflector, and environment variables.
-#   3.  Setup Extra Repos: Adds CachyOS and BlackArch repositories.
+#   3.  Setup Extra Repos: Adds the CachyOS repository.
 #   4.  Install Kernel and Drivers: Installs the CachyOS kernel and NVIDIA drivers.
 #   5.  Setup for ASUS Laptops: Adds the g14 repo and installs specific tools.
 #   6.  Install Packages: Installs packages from 'packages.txt'.
@@ -172,10 +172,10 @@ EOF
 
 docs_setup_extra_repos() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_MAUVE}Setting Up Third-Party Repositories${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Setting Up the CachyOS Repository${C_END}
 ${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_LAVENDER}Adds and configures popular third-party pacman repositories.${C_END}
+${C_LAVENDER}Adds and configures the CachyOS pacman repository for performance-optimized packages.${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
 - ${C_PEACH}${C_BOLD}CachyOS Repository:${C_END}
@@ -183,13 +183,9 @@ ${C_PEACH}${C_BOLD}Actions:${C_END}
   - ${C_TEXT}If not, it downloads ${C_SKY}cachyos-repo.tar.xz${C_END}${C_TEXT}, extracts it, and runs the
     official ${C_SKY}./cachyos-repo.sh${C_END}${C_TEXT} script.${C_END}
   - ${C_YELLOW}This part of the setup is interactive and requires user input.${C_END}
-- ${C_PEACH}${C_BOLD}BlackArch Repository:${C_END}
-  - ${C_TEXT}Checks if the ${C_SKY}[blackarch]${C_END}${C_TEXT} repository is already configured.${C_END}
-  - ${C_TEXT}If not, it downloads the official bootstrap script (${C_SKY}strap.sh${C_END}${C_TEXT}) from
-    ${C_SKY}blackarch.org${C_END}${C_TEXT} and executes it with root privileges.${C_END}
 - ${C_PEACH}${C_BOLD}System Upgrade:${C_END}
-  - ${C_TEXT}After adding the repositories, it forces a full system synchronization and
-    upgrade by running ${C_SKY}paru -Syu --noconfirm${C_END}${C_TEXT}.${C_END}
+  - ${C_TEXT}After adding the repository, it forces a full system synchronization and
+    upgrade by running ${C_SKY}paru -Syu${C_END}${C_TEXT}.${C_END}
 EOF
 }
 
@@ -275,7 +271,7 @@ ${C_PEACH}${C_BOLD}Actions:${C_END}
 - ${C_TEXT}Reads the file ${C_SKY}${PRECONFIG_DIR}/packages.txt${C_END}${C_TEXT}.${C_END}
 - ${C_TEXT}Ignores any lines that are empty or start with a ${C_SKY}#${C_END}${C_TEXT} character.${C_END}
 - ${C_TEXT}Passes the entire list of remaining package names to a single
-  ${C_SKY}paru -S --needed --noconfirm${C_END}${C_TEXT} command to install them from both the
+  ${C_SKY}paru -S --needed${C_END}${C_TEXT} command to install them from both the
   official repositories and the AUR.${C_END}
 EOF
 }
@@ -491,7 +487,7 @@ print_usage() {
   echo -e "${C_MAUVE}Options:${C_END}"
   echo -e "  ${C_GREEN}--pre-flight-checks${C_END}       Verify system readiness before installation."
   echo -e "  ${C_GREEN}--initial-setup${C_END}           Perform initial system setup."
-  echo -e "  ${C_GREEN}--setup-extra-repos${C_END}       Set up CachyOS and BlackArch repositories."
+  echo -e "  ${C_GREEN}--setup-extra-repos${C_END}       Set up the CachyOS repository."
   echo -e "  ${C_GREEN}--kernel-and-drivers${C_END}      Install CachyOS kernel and NVIDIA drivers."
   echo -e "  ${C_GREEN}--setup-asus${C_END}              Run specific setup for ASUS laptops."
   echo -e "  ${C_GREEN}--install-packages${C_END}        Install packages from 'packages.txt'."
@@ -518,11 +514,11 @@ is_pkg_installed() { paru -Q "$1" &>/dev/null; }
 run_as_user() { sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export USER='$TARGET_USER'; $*"; }
 
 install_pkgs() {
-  paru -S --needed --noconfirm --skipreview "$@"
+  paru -S --needed --skipreview "$@"
 }
 
 remove_pkgs() {
-  paru -Rns --noconfirm "$@"
+  paru -Rns "$@"
 }
 
 prompt_to_run_task() {
@@ -562,7 +558,7 @@ task_setup_aur_helper() {
 
   print_step "Setting up AUR Helper (paru)"
   print_info "Installing 'git' and 'base-devel' to build the AUR helper..."
-  sudo pacman -S --needed --noconfirm git base-devel
+  sudo pacman -S --needed git base-devel
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
@@ -572,7 +568,7 @@ task_setup_aur_helper() {
   (
     cd "$tmp_dir"
     print_info "Building and installing 'paru-bin'..."
-    run_as_user "makepkg -si --noconfirm"
+    run_as_user "makepkg -si"
   )
   print_success "'paru' has been installed successfully."
 }
@@ -586,7 +582,7 @@ task_setup_limine_hook() {
   print_step "Setting up Limine Bootloader Hook"
   # This dependency should already be met by task_setup_aur_helper, but we check again for safety.
   print_info "Ensuring 'git' and 'base-devel' are present to build the hook..."
-  sudo pacman -S --needed --noconfirm git base-devel
+  sudo pacman -S --needed git base-devel
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
@@ -596,7 +592,7 @@ task_setup_limine_hook() {
   (
     cd "$tmp_dir"
     print_info "Building and installing 'limine-mkinitcpio-hook'..."
-    run_as_user "makepkg -si --noconfirm"
+    run_as_user "makepkg -si"
   )
   print_success "'limine-mkinitcpio-hook' has been installed successfully."
 }
@@ -717,7 +713,7 @@ task_initial_setup() {
 }
 
 task_setup_extra_repos() {
-  print_step "Setting up Extra Repositories (CachyOS & BlackArch)"
+  print_step "Setting Up CachyOS Repository"
 
   if grep -q "\[cachyos\]" /etc/pacman.conf; then
     print_success "CachyOS repository is already configured."
@@ -738,21 +734,8 @@ task_setup_extra_repos() {
     print_success "CachyOS repository setup finished."
   fi
 
-  if grep -q "\[blackarch\]" /etc/pacman.conf; then
-    print_success "BlackArch repository is already configured."
-  else
-    print_info "Setting up the BlackArch repository..."
-    local strap_sh
-    strap_sh=$(mktemp)
-    TEMP_FILES+=("$strap_sh")
-    curl -o "$strap_sh" https://blackarch.org/strap.sh
-    chmod +x "$strap_sh"
-    sudo bash "$strap_sh"
-    print_success "BlackArch repository setup finished."
-  fi
-
   print_info "Synchronizing databases and upgrading system..."
-  paru -Syu --noconfirm --skipreview
+  paru -Syu --skipreview
 }
 
 task_kernel_and_drivers() {
@@ -788,7 +771,7 @@ task_setup_asus() {
   print_info "Configuring the [g14] repository in /etc/pacman.conf..."
   if ! grep -q "\[g14\]" /etc/pacman.conf; then
     echo -e "\n[g14]\nServer = https://arch.asus-linux.org" | sudo tee -a /etc/pacman.conf >/dev/null
-    paru -Syu --noconfirm --skipreview
+    paru -Syu --skipreview
   fi
   print_success "The [g14] repository is configured."
 
@@ -1141,7 +1124,7 @@ task_cleanup() {
   if paru -Qtdq >/dev/null; then
     print_warning "The following orphaned packages will be removed:"
     paru -Qtd | awk '{print "  - " $1 " " $2}'
-    paru -Rns --noconfirm "$(paru -Qtdq)"
+    paru -Rns "$(paru -Qtdq)"
   else
     print_success "No orphaned packages to remove."
   fi
@@ -1349,7 +1332,7 @@ main() {
     fi
 
     if prompt_to_run_task "Initial System Setup" "docs_initial_setup"; then task_initial_setup; fi
-    if prompt_to_run_task "Setup Extra Repositories" "docs_setup_extra_repos"; then task_setup_extra_repos; fi
+    if prompt_to_run_task "Setup CachyOS Repository" "docs_setup_extra_repos"; then task_setup_extra_repos; fi
 
     if grep -q "\[cachyos\]" /etc/pacman.conf; then
       read -p "$(echo -e "${C_SKY}${I_PROMPT} CachyOS repo detected. Install kernel/drivers? (Enter=Yes) [Y/n]: ${C_END}")" -r cachyos_choice
