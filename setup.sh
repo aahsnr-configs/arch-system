@@ -881,6 +881,10 @@ task_setup_dotfiles() {
     run_as_user "ln -svf '$item' '$USER_HOME/'"
   done < <(run_as_user "find '$dotfiles_parent_dir' -mindepth 1 -maxdepth 1 ! -name '.config' -print0")
 
+  print_info "Symlinking wallpaper directory..."
+  run_as_user "mkdir -p '$USER_HOME/Pictures'"
+  run_as_user "ln -svf '$USER_HOME/linux-system/dotfiles/Pictures/Wallpapers' '$USER_HOME/Pictures/'"
+
   print_success "Dotfiles setup complete."
 }
 
