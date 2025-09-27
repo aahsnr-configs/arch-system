@@ -29,7 +29,9 @@ foot
 foot-terminfo
 fuzzel
 fzf
+gammastep
 gcc-libs
+geoclue
 git
 glibc
 go

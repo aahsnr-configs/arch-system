@@ -1082,7 +1082,7 @@ task_configure_user() {
 
   print_step "Setting up Hyprland Desktop Services"
   run_as_user "systemctl --user daemon-reload"
-  local user_services=("pipewire.service" "pipewire-pulse.service" "wireplumber.service" "hypridle.service" "hyprpaper.service")
+  local user_services=("pipewire" "pipewire-pulse" "wireplumber" "foot")
   for service in "${user_services[@]}"; do
     if run_as_user "systemctl --user enable --now '$service'"; then
       print_success "Enabled user service '$service'."

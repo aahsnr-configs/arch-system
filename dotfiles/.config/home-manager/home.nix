@@ -35,8 +35,8 @@
     ./pkgs
     ./scripts
     ./systemd
-    ./texlive
-    ./theming
+    #./texlive
+    #./theming
   ];
 
   nixpkgs = {

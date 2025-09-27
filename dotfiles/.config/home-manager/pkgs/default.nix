@@ -3,8 +3,5 @@
   home.packages = with pkgs; [
     nix-prefetch-git
     nix-prefetch-github
-    nil
-    nixfmt
-    nixpkgs-fmt
   ];
 }
