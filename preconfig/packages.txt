@@ -1,4 +1,3 @@
-acct
 adw-gtk-theme
 app2unit
 atuin
