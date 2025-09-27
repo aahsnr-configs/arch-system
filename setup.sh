@@ -6,9 +6,10 @@
 # This script automates the setup of a complete Hyprland Environment on Arch Linux.
 # It uses 'paru' as its AUR helper.
 #
-# MODIFICATION: All '--noconfirm' flags have been removed. Package manager commands
-# now use 'yes | ...' to automatically answer 'yes' to all prompts, including the
-# removal of conflicting packages, which prevents the script from halting.
+# MODIFICATION: The dangerous 'yes | ...' pipe has been replaced with the safer
+# '--noconfirm' flag for all package manager commands. This prevents the script
+# from blindly accepting potentially destructive actions. The script will now correctly
+# halt on unresolvable package conflicts, which is the desired safe behavior.
 # =================================================================================== #
 
 # --- Script Features ---
@@ -518,13 +519,13 @@ is_pkg_installed() { paru -Q "$1" &>/dev/null; }
 run_as_user() { sudo -u "$TARGET_USER" bash -c "export HOME='$USER_HOME'; export USER='$TARGET_USER'; $*"; }
 
 install_pkgs() {
-  # Pipe 'yes' to automatically handle all prompts, including conflicts.
-  yes | paru -S --needed --skipreview "$@"
+  # Use --noconfirm for safe, non-interactive installation.
+  paru -S --needed --skipreview --noconfirm "$@"
 }
 
 remove_pkgs() {
-  # Pipe 'yes' to automatically handle all prompts.
-  yes | paru -Rns "$@"
+  # Use --noconfirm for safe, non-interactive removal.
+  paru -Rns --noconfirm "$@"
 }
 
 prompt_to_run_task() {
@@ -564,7 +565,7 @@ task_setup_aur_helper() {
 
   print_step "Setting up AUR Helper (paru)"
   print_info "Installing 'git' and 'base-devel' to build the AUR helper..."
-  yes | sudo pacman -S --needed git base-devel
+  sudo pacman -S --needed --noconfirm git base-devel
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
@@ -574,7 +575,7 @@ task_setup_aur_helper() {
   (
     cd "$tmp_dir"
     print_info "Building and installing 'paru-bin'..."
-    run_as_user "yes | makepkg -si"
+    run_as_user "makepkg -si --noconfirm"
   )
   print_success "'paru' has been installed successfully."
 }
@@ -587,7 +588,7 @@ task_setup_limine_hook() {
 
   print_step "Setting up Limine Bootloader Hook"
   print_info "Ensuring 'git' and 'base-devel' are present to build the hook..."
-  yes | sudo pacman -S --needed git base-devel
+  sudo pacman -S --needed --noconfirm git base-devel
 
   local tmp_dir
   tmp_dir=$(mktemp -d)
@@ -597,7 +598,7 @@ task_setup_limine_hook() {
   (
     cd "$tmp_dir"
     print_info "Building and installing 'limine-mkinitcpio-hook'..."
-    run_as_user "yes | makepkg -si"
+    run_as_user "makepkg -si --noconfirm"
   )
   print_success "'limine-mkinitcpio-hook' has been installed successfully."
 }
@@ -740,7 +741,7 @@ task_setup_extra_repos() {
   fi
 
   print_info "Synchronizing databases and upgrading system..."
-  yes | paru -Syu --skipreview
+  paru -Syu --skipreview --noconfirm
 }
 
 task_kernel_and_drivers() {
@@ -776,7 +777,7 @@ task_setup_asus() {
   print_info "Configuring the [g14] repository in /etc/pacman.conf..."
   if ! grep -q "\[g14\]" /etc/pacman.conf; then
     echo -e "\n[g14]\nServer = https://arch.asus-linux.org" | sudo tee -a /etc/pacman.conf >/dev/null
-    yes | paru -Syu --skipreview
+    paru -Syu --skipreview --noconfirm
   fi
   print_success "The [g14] repository is configured."
 
@@ -1129,7 +1130,7 @@ task_cleanup() {
   if paru -Qtdq >/dev/null; then
     print_warning "The following orphaned packages will be removed:"
     paru -Qtd | awk '{print "  - " $1 " " $2}'
-    yes | paru -Rns "$(paru -Qtdq)"
+    paru -Rns --noconfirm "$(paru -Qtdq)"
   else
     print_success "No orphaned packages to remove."
   fi

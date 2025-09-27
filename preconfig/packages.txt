@@ -9,8 +9,8 @@ bat-extras
 bleachbit
 brightnessctl
 btop
-caelestia-cli
-caelestia-shell
+caelestia-cli-git
+caelestia-shell-git
 cliphist
 cmake
 dart-sass
@@ -72,7 +72,7 @@ procps-ng
 proselint
 pyprland
 python
-python-materialyoucolor
+python-materialyoucolor-git
 python-notify2
 python-pillow
 python-pip
