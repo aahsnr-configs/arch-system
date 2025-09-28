@@ -87,7 +87,7 @@ $battery\
 $time"""
 
 [fill]
-symbol = ' '
+symbol = ''
 
 [character]
 format = "$symbol "

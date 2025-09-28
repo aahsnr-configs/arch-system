@@ -23,7 +23,7 @@ function org-search -d "send a search string to org-mode"
         (mapcar #'org-link-display-format \
         (org-ql-query \
         :select #'org-get-heading \
-:from  (org-agenda-files) \
+        :from  (org-agenda-files) \
         :where (org-ql--query-string-to-sexp \"$argv\"))) \
         \"
     \"))")
@@ -35,24 +35,25 @@ function su
     command su --shell=/usr/bin/fish $argv
 end
 
-alias cat ='bat --paging=never'
-alias du = dust
-alias eza = 'eza --icons auto --git --group-directories-first --header'
-alias fd = 'fd --hidden --no-ignore --absolute-path'
-alias gg = lazygit
-alias grep = rg
-alias hm-switch = 'home-manager switch'
-alias la = 'eza -a'
-alias ll = 'eza -l'
-alias lla = 'eza -la'
-alias ls = eza
-alias lt = 'eza --tree'
-alias nixs = 'nix-shell -p'
-alias rmi = 'sudo rm -rf'
-alias sctl = systemctl
-alias sctle = 'sudo systemctl enable'
-alias sctls = 'sudo systemctl start'
-alias vi = nvim
+# Aliases
+alias cat='bat --paging=never'
+alias du='dust'
+alias eza='eza --icons auto --git --group-directories-first --header'
+alias fd='fd --hidden --no-ignore --absolute-path'
+alias gg='lazygit'
+alias grep='rg'
+alias hm-switch='home-manager switch'
+alias la='eza -a'
+alias ll='eza -l'
+alias lla='eza -la'
+alias ls='eza'
+alias lt='eza --tree'
+alias nixs='nix-shell -p'
+alias rmi='sudo rm -rf'
+alias sctl='systemctl'
+alias sctle='sudo systemctl enable'
+alias sctls='sudo systemctl start'
+alias vi='nvim'
 
 # Options
 set fish_greeting

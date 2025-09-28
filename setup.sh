@@ -969,13 +969,13 @@ task_harden_system() {
   print_step "Applying System Security Hardening"
 
   print_info "Installing security packages..."
-  install_pkgs acct apparmor apparmor.d-git audit arch-audit openssh procps-ng rng-tools \
+  install_pkgs apparmor apparmor.d-git audit arch-audit openssh procps-ng rng-tools \
     sysstat haveged lynis-git libpwquality bleachbit ufw
 
   print_info "Enabling core security services..."
-  local system_services=(acct auditd apparmor haveged rngd sshd)
+  local system_services=(auditd apparmor haveged rngd sshd)
   for service in "${system_services[@]}"; do
-    sudo systemctl enable --now "${service}.service" && print_success "Enabled '$service'."
+    sudo systemctl enable "${service}.service" && print_success "Enabled '$service'."
   done
 
   print_info "Configuring audit framework..."
@@ -1074,7 +1074,6 @@ task_configure_user() {
   task_helper_setup_xdg
 
   print_step "Setting up Hyprland Desktop Services"
-  run_as_user "systemctl --user daemon-reload"
   local user_services=("pipewire" "pipewire-pulse" "wireplumber" "foot")
   for service in "${user_services[@]}"; do
     if run_as_user "systemctl --user enable --now '$service'"; then
