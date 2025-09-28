@@ -28,17 +28,16 @@
 #       (Includes automatic setup of 'paru' and installation of 'limine-mkinitcpio-hook').
 #   2.  Initial Setup: Optimizes pacman.conf, makepkg.conf, reflector, and environment variables.
 #   3.  Setup Extra Repos: Adds the CachyOS repository.
-#   4.  Install Kernel and Drivers: Installs the CachyOS kernel and NVIDIA drivers.
-#   5.  Setup for ASUS Laptops: Adds the g14 repo and installs specific tools.
-#   6.  Install Packages: Installs packages from 'packages.txt'.
-#   7.  Manual Installs: Installs third-party software like VPNs.
-#   8.  Setup Dotfiles: Symlinks user dotfiles from a predefined source directory.
-#   9.  Setup Nix & Home-Manager: Installs and infigures Nix with flakes.
-#   10. Configure User: Sets up the user's shell, services, and XDG directories.
-#   11. Setup Editors: Configures Neovim and Doom Emacs with custom configs.
-#   12. Cleanup: Removes orphaned packages and cleans the Nix store.
-#   13. Setup Greeter: Configures greetd and tuigreet as the login manager.
-#   14. Harden System: Implements basic security enhancements and services.
+#   4.  Setup for ASUS Laptops: Adds the g14 repo and installs specific tools.
+#   5.  Install Packages: Installs packages from 'packages.txt'.
+#   6.  Manual Installs: Installs third-party software like VPNs.
+#   7.  Setup Dotfiles: Symlinks user dotfiles using 'stow'.
+#   8.  Setup Nix & Home-Manager: Installs and configures Nix with flakes.
+#   9.  Configure User: Sets up the user's shell, services, and XDG directories.
+#   10. Setup Editors: Configures Neovim and Doom Emacs with custom configs.
+#   11. Cleanup: Removes orphaned packages and cleans the Nix store.
+#   12. Setup Greeter: Configures greetd and tuigreet as the login manager.
+#   13. Harden System: Implements basic security enhancements and services.
 
 # --- Script Setup and Error Handling ---
 set -euo pipefail
@@ -194,31 +193,6 @@ ${C_PEACH}${C_BOLD}Actions:${C_END}
 EOF
 }
 
-docs_kernel_and_drivers() {
-  cat <<EOF
-${C_BOLD}${C_ITALIC}${C_MAUVE}Installing Kernel & Graphics Drivers${C_END}
-${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
-
-${C_LAVENDER}Installs the performance-optimized CachyOS kernel and NVIDIA's open-source drivers.${C_END}
-
-${C_PEACH}${C_BOLD}Prerequisites:${C_END}
-- ${C_TEXT}The CachyOS repository must be enabled first (via ${C_SKY}--setup-extra-repos${C_END}${C_TEXT}).
-  The task will be skipped if the repo is not found in ${C_SKY}/etc/pacman.conf${C_END}${C_TEXT}.${C_END}
-
-${C_PEACH}${C_BOLD}Actions:${C_END}
-- ${C_TEXT}Installs a suite of packages required for the kernel and NVIDIA graphics:
-  - ${C_GREEN}linux-cachyos${C_END}${C_TEXT}, ${C_GREEN}linux-cachyos-headers${C_END}
-  - ${C_GREEN}linux-cachyos-nvidia-open${C_END}${C_TEXT}, ${C_GREEN}nvidia-utils${C_END}${C_TEXT}, ${C_GREEN}lib32-nvidia-utils${C_END}
-  - ${C_GREEN}nvidia-settings${C_END}${C_TEXT}, ${C_GREEN}vulkan-icd-loader${C_END}${C_TEXT}, ${C_GREEN}lib32-vulkan-icd-loader${C_END}${C_TEXT},
-    ${C_GREEN}libva-nvidia-driver${C_END}
-
-${C_PEACH}${C_BOLD}Bootloader Automation:${C_END}
-- ${C_TEXT}The system is configured with the ${C_GREEN}limine-mkinitcpio-hook${C_END}${C_TEXT} package. This hook
-  automatically updates the Limine bootloader configuration whenever a new kernel
-  is installed or updated. No manual intervention is required.${C_END}
-EOF
-}
-
 docs_setup_asus() {
   cat <<EOF
 ${C_BOLD}${C_ITALIC}${C_MAUVE}Configuring ASUS Laptop Support${C_END}
@@ -283,24 +257,22 @@ EOF
 
 docs_setup_dotfiles() {
   cat <<EOF
-${C_BOLD}${C_ITALIC}${C_MAUVE}Linking User Dotfiles${C_END}
+${C_BOLD}${C_ITALIC}${C_MAUVE}Linking User Dotfiles with Stow${C_END}
 ${C_MAUVE}──────────────────────────────────────────────────────────────────${C_END}
 
-${C_LAVENDER}Symlinks configuration files (dotfiles) from a local source directory into the
-user's home directory.${C_END}
+${C_LAVENDER}Symlinks configuration files from a local 'dotfiles' directory into the user's
+home directory using the 'stow' utility.${C_END}
 
 ${C_PEACH}${C_BOLD}Condition:${C_END}
-- ${C_TEXT}This task is skipped if the source directory ${C_SKY}${USER_HOME}/linux-system/dotfiles${C_END}${C_TEXT}
-  is not found.${C_END}
+- ${C_TEXT}This task requires a 'dotfiles' directory to exist in the same location
+  as the setup script. If not found, the task will be skipped.${C_END}
 
 ${C_PEACH}${C_BOLD}Actions:${C_END}
-- ${C_PEACH}${C_BOLD}Nested Configs:${C_END}${C_TEXT} For every file and directory inside
-  ${C_SKY}${USER_HOME}/linux-system/dotfiles/.config/${C_END}${C_TEXT}, it creates a symbolic link
-  inside ${C_SKY}${USER_HOME}/.config/${C_END}${C_TEXT}.${C_END}
-- ${C_PEACH}${C_BOLD}Top-Level Dotfiles:${C_END}${C_TEXT} For every file and directory at the top level of
-  ${C_SKY}${USER_HOME}/linux-system/dotfiles/${C_END}${C_TEXT} (excluding ${C_SKY}.config${C_END}${C_TEXT}), it creates a
-  symbolic link directly inside ${C_SKY}${USER_HOME}/${C_END}${C_TEXT}.${C_END}
-- ${C_TEXT}All operations are performed as the target user.${C_END}
+- ${C_PEACH}${C_BOLD}Install Stow:${C_END}${C_TEXT} Checks if the ${C_GREEN}stow${C_END}${C_TEXT} package is installed and installs it if missing.${C_END}
+- ${C_PEACH}${C_BOLD}Change Directory:${C_END}${C_TEXT} Navigates into the ${C_SKY}${SCRIPT_DIR}/dotfiles/${C_END}${C_TEXT} directory.${C_END}
+- ${C_PEACH}${C_BOLD}Execute Stow:${C_END}${C_TEXT} Runs the command ${C_SKY}stow . -t ~${C_END}${C_TEXT} as the target user.
+  This command symlinks all packages within the dotfiles directory to the user's
+  home directory, creating the correct file structure.${C_END}
 EOF
 }
 
@@ -460,8 +432,6 @@ EOF
   echo -e "\n\n"
   docs_setup_extra_repos
   echo -e "\n\n"
-  docs_kernel_and_drivers
-  echo -e "\n\n"
   docs_setup_asus
   echo -e "\n\n"
   docs_install_packages
@@ -493,7 +463,6 @@ print_usage() {
   echo -e "  ${C_GREEN}--pre-flight-checks${C_END}       Verify system readiness before installation."
   echo -e "  ${C_GREEN}--initial-setup${C_END}           Perform initial system setup."
   echo -e "  ${C_GREEN}--setup-extra-repos${C_END}       Set up the CachyOS repository."
-  echo -e "  ${C_GREEN}--kernel-and-drivers${C_END}      Install CachyOS kernel and NVIDIA drivers."
   echo -e "  ${C_GREEN}--setup-asus${C_END}              Run specific setup for ASUS laptops."
   echo -e "  ${C_GREEN}--install-packages${C_END}        Install packages from 'packages.txt'."
   echo -e "  ${C_GREEN}--manual-installs${C_END}         Perform manual installation of third-party software."
@@ -744,21 +713,6 @@ task_setup_extra_repos() {
   paru -Syu --skipreview --noconfirm
 }
 
-task_kernel_and_drivers() {
-  print_step "Installing CachyOS Kernel and NVIDIA Drivers"
-  if ! grep -q "\[cachyos\]" /etc/pacman.conf; then
-    print_warning "CachyOS repository is not enabled. Skipping."
-    return
-  fi
-
-  print_info "Installing CachyOS kernel and corresponding NVIDIA drivers..."
-  install_pkgs linux-cachyos linux-cachyos-headers linux-cachyos-nvidia-open nvidia-utils lib32-nvidia-utils \
-    nvidia-settings vulkan-icd-loader lib32-vulkan-icd-loader libva-nvidia-driver
-
-  print_info "Limine bootloader configuration is updated automatically by the mkinitcpio hook."
-  print_success "CachyOS kernel and driver installation complete."
-}
-
 task_setup_asus() {
   print_step "Setting up for ASUS Laptops (using g14 Repository)"
   if ! sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
@@ -840,41 +794,28 @@ task_install_packages() {
 }
 
 task_setup_dotfiles() {
-  print_step "Setting up User Dotfiles"
+  print_step "Setting up User Dotfiles using Stow"
 
-  local dotfiles_parent_dir="$USER_HOME/linux-system/dotfiles"
-  local dotfiles_config_source_dir="$dotfiles_parent_dir/.config"
-  local dotfiles_config_target_dir="$USER_HOME/.config"
-
-  if ! run_as_user "[ -d '$dotfiles_parent_dir' ]"; then
-    print_warning "Dotfiles source directory not found at '$dotfiles_parent_dir'. Skipping."
+  local dotfiles_dir="$SCRIPT_DIR/dotfiles"
+  if [ ! -d "$dotfiles_dir" ]; then
+    print_warning "Dotfiles directory not found at '$dotfiles_dir'. Skipping."
     return
   fi
 
-  if run_as_user "[ -d '$dotfiles_config_source_dir' ]"; then
-    print_info "Symlinking contents of '$dotfiles_config_source_dir'..."
-    run_as_user "mkdir -p '$dotfiles_config_target_dir'"
-    while IFS= read -r -d '' item; do
-      local base_name
-      base_name=$(basename "$item")
-      print_info "  -> Linking '$base_name' into .config/..."
-      run_as_user "ln -svf '$item' '$dotfiles_config_target_dir/'"
-    done < <(run_as_user "find '$dotfiles_config_source_dir' -mindepth 1 -maxdepth 1 -print0")
+  if ! command_exists stow; then
+    print_info "The 'stow' package is required but not installed. Installing it now..."
+    install_pkgs stow
   fi
 
-  print_info "Symlinking top-level dotfiles from '$dotfiles_parent_dir'..."
-  while IFS= read -r -d '' item; do
-    local base_name
-    base_name=$(basename "$item")
-    print_info "  -> Linking '$base_name' into home directory..."
-    run_as_user "ln -svf '$item' '$USER_HOME/'"
-  done < <(run_as_user "find '$dotfiles_parent_dir' -mindepth 1 -maxdepth 1 ! -name '.config' -print0")
+  print_info "Changing directory to '$dotfiles_dir'..."
+  cd "$dotfiles_dir"
 
-  print_info "Symlinking wallpaper directory..."
-  run_as_user "mkdir -p '$USER_HOME/Pictures'"
-  run_as_user "ln -svf '$USER_HOME/linux-system/dotfiles/Pictures/Wallpapers' '$USER_HOME/Pictures/'"
+  print_info "Executing 'stow . -t $USER_HOME' to symlink dotfiles..."
+  run_as_user "stow . -t '$USER_HOME'"
+  print_success "Dotfiles have been successfully stowed."
 
-  print_success "Dotfiles setup complete."
+  # Return to the original directory
+  cd "$SCRIPT_DIR"
 }
 
 task_setup_nix() {
@@ -1184,14 +1125,6 @@ main() {
         TASKS_TO_RUN+=("setup_extra_repos")
         shift
         ;;
-      --kernel-and-drivers)
-        if [[ "${2:-}" == "--docs" ]]; then
-          docs_kernel_and_drivers >/dev/tty
-          exit 0
-        fi
-        TASKS_TO_RUN+=("kernel_and_drivers")
-        shift
-        ;;
       --setup-asus)
         if [[ "${2:-}" == "--docs" ]]; then
           docs_setup_asus >/dev/tty
@@ -1339,10 +1272,6 @@ main() {
     if prompt_to_run_task "Initial System Setup" "docs_initial_setup"; then task_initial_setup; fi
     if prompt_to_run_task "Setup CachyOS Repository" "docs_setup_extra_repos"; then task_setup_extra_repos; fi
 
-    if grep -q "\[cachyos\]" /etc/pacman.conf; then
-      read -p "$(echo -e "${C_SKY}${I_PROMPT} CachyOS repo detected. Install kernel/drivers? (Enter=Yes) [Y/n]: ${C_END}")" -r cachyos_choice
-      if [[ -z "$cachyos_choice" ]]; then task_kernel_and_drivers; fi
-    fi
     if sudo dmidecode -s system-manufacturer | grep -qi "ASUS"; then
       read -p "$(echo -e "${C_SKY}${I_PROMPT} ASUS hardware detected. Install specific tools? (Enter=Yes) [Y/n]: ${C_END}")" -r asus_choice
       if [[ -z "$asus_choice" ]]; then task_setup_asus; fi

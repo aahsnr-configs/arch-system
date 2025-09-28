@@ -72,7 +72,6 @@ procps-ng
 proselint
 pyprland
 python
-python-materialyoucolor-git
 python-notify2
 python-pillow
 python-pip
