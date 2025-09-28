@@ -1,0 +1,14 @@
+- [x] hyprland/animations.conf [settings.conf in .hyprdots]
+- [x] hyprland/decoration.conf [settings.conf in .hyprdots]
+- [x] hyprland/env.conf [env.conf in .hyprdots]
+- [x] hyprland/execs.conf [autostart.conf in .hyprdots]
+- [x] hyprland/general.conf [settings.conf in .hyprdots]
+- [x] hyprland/gestures.conf [settings.conf in .hyprdots]
+- [x] hyprland/group.conf [settings.conf in .hyprdots]
+- [x] hyprland/input.conf [settings.conf in .hyprdots]
+- [x] hyprland/keybinds.conf [keybindings.conf in .hyprdots]
+- [x] hyprland/misc.conf
+- [x] hyprland/rules.conf [settings.conf in .hyprdots]
+- [x] scheme/
+- [x] scripts/
+- [ ] hyprland.conf
