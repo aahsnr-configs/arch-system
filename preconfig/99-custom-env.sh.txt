@@ -1,0 +1,21 @@
+#!/bin/sh
+# System-wide environment variables. Override in your ~/.bashrc for per-user settings.
+
+# Set default applications
+EDITOR="${EDITOR:-/usr/bin/nvim}"
+PAGER="${PAGER:-/usr/bin/less}"
+TERMINAL="kitty"
+VISUAL="nvim"
+
+XDG_BIN_HOME=${XDG_BIN_HOME:-$HOME/.local/bin}
+XDG_CACHE_HOME=${XDG_CACHE_HOME:-$HOME/.cache}
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
+XDG_STATE_HOME=${XDG_STATE_HOME:-$HOME/.local/state}
+BACKUP_DIR=${BACKUP_DIR:-$HOME/backup}
+
+# Append custom directories to the system PATH
+PATH="$PATH:$HOME/.cargo/bin:$HOME/go/bin:$HOME/.bun/bin:$HOME/.local/bin:$HOME/.local/bin/hypr:$HOME/.config/emacs/bin:$HOME/.npm-global/bin"
+
+# Export all variables
+export EDITOR PAGER TERMINAL VISUAL PATH

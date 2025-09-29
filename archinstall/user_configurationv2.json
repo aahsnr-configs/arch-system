@@ -1,0 +1,183 @@
+{
+    "app_config": {
+        "audio_config": {
+            "audio": "pipewire"
+        },
+        "bluetooth_config": {
+            "enabled": true
+        }
+    },
+    "archinstall-language": "English",
+    "auth_config": {},
+    "bootloader": "Limine",
+    "custom_commands": [],
+    "disk_config": {
+        "btrfs_options": {
+            "snapshot_config": null
+        },
+        "config_type": "manual_partitioning",
+        "device_modifications": [
+            {
+                "device": "/dev/nvme0n1",
+                "partitions": [
+                    {
+                        "btrfs": [],
+                        "dev_path": null,
+                        "flags": [
+                            "boot",
+                            "esp"
+                        ],
+                        "fs_type": "fat32",
+                        "mount_options": [],
+                        "mountpoint": "/boot",
+                        "obj_id": "4bdf9ad0-5a6d-422e-9e95-5a6b3450c2e7",
+                        "size": {
+                            "sector_size": {
+                                "unit": "B",
+                                "value": 512
+                            },
+                            "unit": "GiB",
+                            "value": 1
+                        },
+                        "start": {
+                            "sector_size": {
+                                "unit": "B",
+                                "value": 512
+                            },
+                            "unit": "MiB",
+                            "value": 1
+                        },
+                        "status": "create",
+                        "type": "primary"
+                    },
+                    {
+                        "btrfs": [
+                            {
+                                "mountpoint": "/",
+                                "name": "@"
+                            },
+                            {
+                                "mountpoint": "/home",
+                                "name": "@home"
+                            },
+                            {
+                                "mountpoint": "/opt",
+                                "name": "@opt"
+                            },
+                            {
+                                "mountpoint": "/root",
+                                "name": "@root"
+                            },
+                            {
+                                "mountpoint": "/srv",
+                                "name": "@srv"
+                            },
+                            {
+                                "mountpoint": "/nix",
+                                "name": "@nix"
+                            },
+                            {
+                                "mountpoint": "/usr/local",
+                                "name": "@usr@local"
+                            },
+                            {
+                                "mountpoint": "/var",
+                                "name": "@var"
+                            },
+                            {
+                                "mountpoint": "/var/cache",
+                                "name": "@var@cache"
+                            },
+                            {
+                                "mountpoint": "/var/cache/pacman/pkg",
+                                "name": "@pkg"
+                            },
+                            {
+                                "mountpoint": "/var/crash",
+                                "name": "@var@crash"
+                            },
+                            {
+                                "mountpoint": "/var/tmp",
+                                "name": "@var@tmp"
+                            },
+                            {
+                                "mountpoint": "/var/spool",
+                                "name": "@var@spool"
+                            },
+                            {
+                                "mountpoint": "/var/log",
+                                "name": "@var@log"
+                            },
+                            {
+                                "mountpoint": "/var/log/audit",
+                                "name": "@var@log@audit"
+                            }
+                        ],
+                        "dev_path": null,
+                        "flags": [],
+                        "fs_type": "btrfs",
+                        "mount_options": [
+                            "compress=zstd"
+                        ],
+                        "mountpoint": null,
+                        "obj_id": "c9a43ea3-74a4-4e97-9912-770b4a8f9f5f",
+                        "size": {
+                            "sector_size": {
+                                "unit": "B",
+                                "value": 512
+                            },
+                            "unit": "B",
+                            "value": 511033999360
+                        },
+                        "start": {
+                            "sector_size": {
+                                "unit": "B",
+                                "value": 512
+                            },
+                            "unit": "B",
+                            "value": 1074790400
+                        },
+                        "status": "create",
+                        "type": "primary"
+                    }
+                ],
+                "wipe": true
+            }
+        ],
+        "disk_encryption": {
+            "encryption_type": "luks",
+            "lvm_volumes": [],
+            "partitions": [
+                "c9a43ea3-74a4-4e97-9912-770b4a8f9f5f"
+            ]
+        }
+    },
+    "hostname": "zephyrus",
+    "kernels": [
+        "linux-zen"
+    ],
+    "locale_config": {
+        "kb_layout": "us",
+        "sys_enc": "UTF-8",
+        "sys_lang": "en_US.UTF-8"
+    },
+    "mirror_config": {
+        "custom_repositories": [],
+        "custom_servers": [],
+        "mirror_regions": {},
+        "optional_repositories": [
+            "multilib"
+        ]
+    },
+    "network_config": {
+        "type": "nm"
+    },
+    "ntp": true,
+    "packages": [],
+    "parallel_downloads": 10,
+    "script": null,
+    "services": [],
+    "swap": true,
+    "timezone": "UTC",
+    "version": "3.0.10"
+}

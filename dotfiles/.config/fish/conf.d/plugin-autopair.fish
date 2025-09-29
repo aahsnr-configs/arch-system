@@ -1,0 +1,1 @@
+/nix/store/w87jajqlpwd3bx7452nzc0ikivhv6b0x-home-manager-files/.config/fish/conf.d/plugin-autopair.fish

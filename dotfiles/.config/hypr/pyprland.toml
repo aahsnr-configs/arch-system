@@ -1,0 +1,30 @@
+# ~/.config/hypr/pyprland.toml
+[pyprland]
+plugins = ["scratchpads"]
+
+[scratchpads.terminals]
+animation = "fromTop"
+margin = 50
+size = "75% 60%"
+max_size = "1920px 100%"
+
+[scratchpads.term]
+command = "foot --class foot-dropterm"
+class = "foot-dropterm"
+use = "terminals"
+
+[scratchpads.tuifm]
+command = "foot --class explorer -e yazi"
+class = "explorer"
+size = "90% 90%"
+margin = 50
+animation = "fromBottom"
+unfocus = "hide"
+
+[scratchpads.tuigit]
+command = "foot --class tuigit -e lazygit"
+class = "tuigit"
+size = "80% 80%"
+margin = 50
+animation = "fromTop"
+unfocus = "hide"

@@ -1,0 +1,104 @@
+[[mgr.prepend]]
+desc = "Go back"
+on = "h"
+run = "leave"
+
+[[mgr.prepend]]
+desc = "Move down"
+on = "j"
+run = "arrow 1"
+
+[[mgr.prepend]]
+desc = "Move up"
+on = "k"
+run = "arrow -1"
+
+[[mgr.prepend]]
+desc = "Enter"
+on = "l"
+run = "enter"
+
+[[mgr.prepend]]
+desc = "Move to bottom"
+on = "G"
+run = "arrow bot"
+
+[[mgr.prepend]]
+desc = "Copy"
+on = "y"
+run = "yank"
+
+[[mgr.prepend]]
+desc = "Cut"
+on = "d"
+run = "yank --cut"
+
+[[mgr.prepend]]
+desc = "Paste"
+on = "p"
+run = "paste"
+
+[[mgr.prepend]]
+desc = "Remove"
+on = ["d", "d"]
+run = "remove"
+
+[[mgr.prepend]]
+desc = "Create"
+on = "a"
+run = "create"
+
+[[mgr.prepend]]
+desc = "Rename"
+on = "r"
+run = "rename"
+
+[[mgr.prepend]]
+desc = "New tab"
+on = "t"
+run = "tab_create --current"
+
+[[mgr.prepend]]
+desc = "Close tab"
+on = "w"
+run = "tab_close"
+
+[[mgr.prepend]]
+desc = "Previous tab"
+on = "["
+run = "tab_switch -1 --relative"
+
+[[mgr.prepend]]
+desc = "Next tab"
+on = "]"
+run = "tab_switch 1 --relative"
+
+[[mgr.prepend]]
+desc = "Quit"
+on = "q"
+run = "quit"
+
+[[mgr.prepend]]
+desc = "Shell"
+on = ":"
+run = "shell --interactive"
+
+[[mgr.prepend]]
+desc = "Shell (blocking)"
+on = "!"
+run = "shell --block"
+
+[[mgr.prepend]]
+desc = "Help"
+on = "?"
+run = "help"
+
+[[mgr.prepend]]
+desc = "Toggle hidden"
+on = "<C-h>"
+run = "hidden toggle"
+
+[[mgr.prepend]]
+desc = "Suspend"
+on = "<C-z>"
+run = "suspend"

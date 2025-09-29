@@ -1,0 +1,227 @@
+{
+  "app_config": {
+    "audio_config": {
+      "audio": "pipewire"
+    },
+    "bluetooth_config": {
+      "enabled": true
+    }
+  },
+  "archinstall-language": "English",
+  "auth_config": {},
+  "bootloader": "Limine",
+  "custom_commands": [],
+  "disk_config": {
+    "btrfs_options": {
+      "snapshot_config": null
+    },
+    "config_type": "manual_partitioning",
+    "device_modifications": [
+      {
+        "device": "/dev/nvme0n1",
+        "partitions": [
+          {
+            "btrfs": [],
+            "dev_path": null,
+            "flags": ["boot", "esp"],
+            "fs_type": "fat32",
+            "mount_options": [],
+            "mountpoint": "/boot",
+            "obj_id": "4bdf9ad0-5a6d-422e-9e95-5a6b3450c2e7",
+            "size": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "GiB",
+              "value": 1
+            },
+            "start": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "MiB",
+              "value": 1
+            },
+            "status": "create",
+            "type": "primary"
+          },
+          {
+            "btrfs": [
+              {
+                "mountpoint": "/",
+                "name": "@"
+              },
+              {
+                "mountpoint": "/home",
+                "name": "@home"
+              },
+              {
+                "mountpoint": "/opt",
+                "name": "@opt"
+              },
+              {
+                "mountpoint": "/root",
+                "name": "@root"
+              },
+              {
+                "mountpoint": "/srv",
+                "name": "@srv"
+              },
+              {
+                "mountpoint": "/nix",
+                "name": "@nix"
+              },
+              {
+                "mountpoint": "/usr/local",
+                "name": "@usr@local"
+              },
+              {
+                "mountpoint": "/var",
+                "name": "@var"
+              },
+              {
+                "mountpoint": "/var/cache",
+                "name": "@var@cache"
+              },
+              {
+                "mountpoint": "/var/cache/pacman/pkg",
+                "name": "@pkg"
+              },
+              {
+                "mountpoint": "/var/crash",
+                "name": "@var@crash"
+              },
+              {
+                "mountpoint": "/var/tmp",
+                "name": "@var@tmp"
+              },
+              {
+                "mountpoint": "/var/spool",
+                "name": "@var@spool"
+              },
+              {
+                "mountpoint": "/var/log",
+                "name": "@var@log"
+              },
+              {
+                "mountpoint": "/var/log/audit",
+                "name": "@var@log@audit"
+              },
+              {
+                "mountpoint": "/.snapshots",
+                "name": "@snapshots"
+              }
+            ],
+            "dev_path": null,
+            "flags": [],
+            "fs_type": "btrfs",
+            "mount_options": ["compress=zstd"],
+            "mountpoint": null,
+            "obj_id": "c9a43ea3-74a4-4e97-9912-770b4a8f9f5f",
+            "size": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "B",
+              "value": 511033999360
+            },
+            "start": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "B",
+              "value": 1074790400
+            },
+            "status": "create",
+            "type": "primary"
+          }
+        ],
+        "wipe": true
+      }
+    ],
+    "disk_encryption": {
+      "encryption_type": "luks",
+      "iter_time": 10000,
+      "lvm_volumes": [],
+      "partitions": ["c9a43ea3-74a4-4e97-9912-770b4a8f9f5f"]
+    }
+  },
+  "hostname": "zephyrus",
+  "kernels": ["linux-zen"],
+  "locale_config": {
+    "kb_layout": "us",
+    "sys_enc": "UTF-8",
+    "sys_lang": "en_US.UTF-8"
+  },
+  "mirror_config": {
+    "custom_repositories": [],
+    "custom_servers": [],
+    "mirror_regions": {
+      "Bangladesh": [
+        "http://mirror.xeonbd.com/archlinux/$repo/os/$arch",
+        "https://mirror.xeonbd.com/archlinux/$repo/os/$arch",
+        "http://mirror.limda.net/archlinux/$repo/os/$arch",
+        "https://mirror.limda.net/archlinux/$repo/os/$arch"
+      ],
+      "India": [
+        "http://in.mirrors.cicku.me/archlinux/$repo/os/$arch",
+        "https://in.mirrors.cicku.me/archlinux/$repo/os/$arch",
+        "https://mirror.del2.albony.in/archlinux/$repo/os/$arch",
+        "https://mirror.maa.albony.in/archlinux/$repo/os/$arch",
+        "http://in-mirror.garudalinux.org/archlinux/$repo/os/$arch",
+        "https://in-mirror.garudalinux.org/archlinux/$repo/os/$arch",
+        "http://mirror.sahil.world/archlinux/$repo/os/$arch",
+        "https://mirror.sahil.world/archlinux/$repo/os/$arch",
+        "http://mirrors.nxtgen.com/archlinux-mirror/$repo/os/$arch",
+        "https://mirrors.nxtgen.com/archlinux-mirror/$repo/os/$arch",
+        "https://mirrors.abhy.me/archlinux/$repo/os/$arch",
+        "https://in.arch.niranjan.co/$repo/os/$arch",
+        "http://mirrors.saswata.cc/archlinux/$repo/os/$arch",
+        "https://mirrors.saswata.cc/archlinux/$repo/os/$arch",
+        "https://archlinux.kushwanthreddy.com/$repo/os/$arch"
+      ],
+      "Singapore": [
+        "https://download.nus.edu.sg/mirror/archlinux/$repo/os/$arch",
+        "http://sg.mirrors.cicku.me/archlinux/$repo/os/$arch",
+        "https://sg.mirrors.cicku.me/archlinux/$repo/os/$arch",
+        "http://mirror.aktkn.sg/archlinux/$repo/os/$arch",
+        "https://mirror.aktkn.sg/archlinux/$repo/os/$arch",
+        "http://mirror.guillaumea.fr/archlinux/$repo/os/$arch",
+        "https://mirror.guillaumea.fr/archlinux/$repo/os/$arch",
+        "http://mirror.jingk.ai/archlinux/$repo/os/$arch",
+        "https://mirror.jingk.ai/archlinux/$repo/os/$arch",
+        "http://ossmirror.mycloud.services/os/linux/archlinux/$repo/os/$arch",
+        "http://mirror.sg.gs/archlinux/$repo/os/$arch",
+        "https://mirror.sg.gs/archlinux/$repo/os/$arch",
+        "https://singapore.mirror.pkgbuild.com/$repo/os/$arch",
+        "https://sg.arch.niranjan.co/$repo/os/$arch",
+        "http://mirror.freedif.org/archlinux/$repo/os/$arch",
+        "https://mirror.freedif.org/archlinux/$repo/os/$arch",
+        "http://mirror.sg.cdn-perfprod.com/archlinux/$repo/os/$arch",
+        "https://mirror.sg.cdn-perfprod.com/archlinux/$repo/os/$arch"
+      ]
+    },
+    "optional_repositories": ["multilib"]
+  },
+  "network_config": {
+    "type": "nm"
+  },
+  "ntp": true,
+  "packages": [
+    "git",
+    "linux-zen-headers",
+    "neovim",
+    "wl-clipboard",
+    "amd-ucode"
+  ],
+  "parallel_downloads": 10,
+  "script": null,
+  "services": [],
+  "swap": true,
+  "timezone": "UTC",
+  "version": "3.0.10"
+}
