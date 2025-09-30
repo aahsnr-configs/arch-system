@@ -9,14 +9,16 @@ bat-extras
 bleachbit
 brightnessctl
 btop
-caelestia-cli-git
-caelestia-shell-git
+caelestia-cli
+caelestia-shell
 cliphist
 cmake
+cpio
 dart-sass
 dconf
 ddcutil
 dust
+downgrade
 emacs-lsp-booster
 emacs-wayland
 eza
@@ -72,6 +74,7 @@ procps-ng
 proselint
 pyprland
 python
+python-materialyoucolor
 python-notify2
 python-pillow
 python-pip
