@@ -32,7 +32,8 @@
 - [ ] write a pacman hook that automatically runs `pac-clean` when removing pacman either using paru or pacman. There must be another hook for running `pac-clean` after an AUR package finishes installing
 - [ ] setup @swap file
 - [ ] fix config files using stow
-- [ ] change caelestia clock to AM/PM
+- [x] change caelestia clock to AM/PM
+- [ ] prevent hm from setting theme as it interferes with caelestia automatically changing theme
 
 ---
 

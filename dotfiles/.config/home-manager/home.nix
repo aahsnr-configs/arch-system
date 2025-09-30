@@ -31,6 +31,7 @@
     # ./atuin
     # ./bat
     # ./btop
+    ./catppuccin
     ./dev
     # ./eza
     # ./fd-find
