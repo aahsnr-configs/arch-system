@@ -14,20 +14,6 @@
       "size": {
         "scale": 1
       }
-    },
-    "padding": {
-      "scale": 1
-    },
-    "rounding": {
-      "scale": 1
-    },
-    "spacing": {
-      "scale": 1
-    },
-    "transparency": {
-      "enabled": false,
-      "base": 0.9,
-      "layers": 0.4
     }
   },
   "general": {
@@ -153,10 +139,10 @@
       "showLockStatus": true
     },
     "tray": {
-      "background": false,
+      "background": true,
       "compact": true,
       "iconSubs": [],
-      "recolour": false
+      "recolour": true
     },
     "workspaces": {
       "activeIndicator": true,
