@@ -48,20 +48,20 @@
       "criticalLevel": 3
     },
     "idle": {
-      "lockBeforeSleep": false,
+      "lockBeforeSleep": true,
       "inhibitWhenAudio": true,
       "timeouts": [
         {
-          "timeout": 180,
+          "timeout": 600,
           "idleAction": "lock"
         },
         {
-          "timeout": 300,
+          "timeout": 900,
           "idleAction": "dpms off",
           "returnAction": "dpms on"
         },
         {
-          "timeout": 600,
+          "timeout": 1200,
           "idleAction": ["systemctl", "suspend-then-hibernate"]
         }
       ]
@@ -130,7 +130,7 @@
     },
     "showOnHover": true,
     "status": {
-      "showAudio": false,
+      "showAudio": true,
       "showBattery": true,
       "showBluetooth": true,
       "showKbLayout": false,
@@ -318,9 +318,9 @@
     "playerAliases": [
       { "from": "com.github.th_ch.youtube_music", "to": "YT Music" }
     ],
-    "weatherLocation": "",
+    "weatherLocation": "Dhaka",
     "useFahrenheit": false,
-    "useTwelveHourClock": false,
+    "useTwelveHourClock": true,
     "smartScheme": true,
     "visualiserBars": 45
   },
