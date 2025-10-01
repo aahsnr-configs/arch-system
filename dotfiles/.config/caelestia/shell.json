@@ -157,8 +157,8 @@
     }
   },
   "border": {
-    "rounding": 18,
-    "thickness": 6
+    "rounding": 14,
+    "thickness": 3
   },
   "dashboard": {
     "enabled": true,
