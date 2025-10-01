@@ -33,7 +33,15 @@
 - [ ] setup @swap file
 - [ ] fix config files using stow
 - [x] change caelestia clock to AM/PM
-- [ ] prevent hm from setting theme as it interferes with caelestia automatically changing theme
+- [x] prevent hm from setting theme as it interferes with caelestia automatically changing theme
+- [ ] Set roboto font as the default normal font, normal mono font, sans font and
+- [ ] Integrate the fisher plugin manager setup along with instructions to install popular fish plugins into the setup script
+
+```
+paru -S ttf-roboto ttf-roboto-mono-nerd
+```
+
+- [ ] Implement hyprterm scripts for kitty and foot and integrate into home-manager scripts hmModule
 
 ## Issues
 
