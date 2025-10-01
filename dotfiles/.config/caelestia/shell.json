@@ -8,8 +8,8 @@
     "font": {
       "family": {
         "material": "Material Symbols Rounded",
-        "mono": "JetBrainsMono Nerd Font",
-        "sans": "JetBrains Mono"
+        "mono": "JetBrains Mono",
+        "sans": "Rubik"
       },
       "size": {
         "scale": 1
@@ -157,7 +157,7 @@
     }
   },
   "border": {
-    "rounding": 18,
+    "rounding": 12,
     "thickness": 6
   },
   "dashboard": {

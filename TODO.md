@@ -35,6 +35,18 @@
 - [x] change caelestia clock to AM/PM
 - [ ] prevent hm from setting theme as it interferes with caelestia automatically changing theme
 
+## Issues
+
+---
+
+- [ ] Maybe nvidia env variables fixes nvidia issues
+- [ ] Disable shadow if it costs performance
+
+- [ ] Enable the following plugins
+  - hyprscrolling
+  - [hyprtasking](https://github.com/raybbian/hyprtasking)
+- [ ] Find rubik variations using font server
+
 ---
 
 # setup.sh tasks
@@ -46,4 +58,4 @@
 - [ ] [Separate Function] Integrate neovim setup from https://docs.astronvim.com/configuration/manage_user_config/. Integration for emacs step will be added later
 
 - [ ] reable nvidia-powerd if performance degrades
-- [ ] disabling blur makes hdr ineffective
+- [ ] hdr seems to have blurring issues

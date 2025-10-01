@@ -28,29 +28,12 @@
   };
 
   imports = [
-    # ./atuin
-    # ./bat
-    # ./btop
-    ./catppuccin
     ./dev
-    # ./eza
-    # ./fd-find
-    # ./fish
-    # ./fzf
     ./git
     ./keyring
     ./lazygit
-    # ./pay-respects
-    # ./pkgs
-    # ./ripgrep
     ./scripts
-    # ./starship
     ./systemd
-    # ./texlive
-    ./theming
-    # ./tmux
-    # ./yazi
-    # ./zoxide
   ];
 
   nixpkgs = {

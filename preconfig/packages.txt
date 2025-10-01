@@ -130,5 +130,7 @@ aspell
 hspell 
 nuspell 
 libvoikko
+ffnvcodec-headers
+opencl-nvidia
 
 
