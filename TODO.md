@@ -44,3 +44,6 @@
 - [ ] [Separate Function] Add the follow mon-arch repos CachyOS and Blackarch
 
 - [ ] [Separate Function] Integrate neovim setup from https://docs.astronvim.com/configuration/manage_user_config/. Integration for emacs step will be added later
+
+- [ ] reable nvidia-powerd if performance degrades
+- [ ] disabling blur makes hdr ineffective
