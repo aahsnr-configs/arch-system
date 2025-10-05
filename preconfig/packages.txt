@@ -136,5 +136,5 @@ gst-libav
 gst-plugins-bad
 gst-plugins-good
 font-manager
-
+upscayl-bin
 

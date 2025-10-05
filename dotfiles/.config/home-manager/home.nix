@@ -30,7 +30,6 @@
   imports = [
     ./dev
     ./git
-    ./keyring
     ./lazygit
     ./scripts
     ./systemd

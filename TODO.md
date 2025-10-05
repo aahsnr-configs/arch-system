@@ -85,6 +85,12 @@ paru -S ttf-roboto ttf-roboto-mono-nerd
 
 - [ ] setup snapshots, snapper and limine integration.
 
+- [ ] include the stuff from [Hyprland nvidia](https://wiki.hypr.land/Nvidia/) into setup.sh
+
+- [ ] **_Important_** implement the (https://wiki.hypr.land/Nvidia/) into my current setup
+
+- [ ] Make starship show the directory in shortened form
+
 ## Issues
 
 ---
@@ -96,3 +102,4 @@ paru -S ttf-roboto ttf-roboto-mono-nerd
   - [hyprtasking](https://github.com/raybbian/hyprtasking)
 - [ ] Find rubik variations using font server
 - [ ] re-enable nvidia-powerd if performance degrades
+- [ ] since I am using non-Arch repos for most pkgs, adding local mirrors slows download speed, so adding them is not necessary, just rate them
