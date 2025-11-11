@@ -17,19 +17,32 @@
 - [x] atuin
 - [x] bat
 - [x] btop
+- [ ] cliphist
 - [x] eza
 - [x] fd
-- [x] fzf
 - [x] fish
+- [x] fzf
+- [ ] gh
+- [ ] git
+- [x] imv
+- [x] kitty
+- [x] lazygit
+- [x] mpv
 - [x] pay-respects
 - [x] ripgrep
 - [x] starship
-- [x] tmux
+- [x] scripts
+- [x] swappy
+- [x] tealdeer
+- [ ] tmux
+- [x] udiskie
 - [x] yazi
-- [ ] zoxide
-
-- [ ] yazi plugins
+- [ ] zathura
+- [x] zoxide
+- [x] yazi plugins
 - [ ] tmux plugins
+- [ ] niri (compare both config-backup and nixos-backup)
+- [x] swappy
 
 ## Arch Linux Tasks
 

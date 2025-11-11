@@ -1,30 +1,3 @@
-# ~/.config/imv/config
-
-# ======================
-# Options Section
-# ======================
-[options]
-# Catppuccin Mocha Theme Colors (6-digit hex format)
-background = 1E1E2E
-overlay_background_color = 1E1E2E
-overlay_text_color = CDD6F4
-overlay_font = monospace:12
-
-# Performance and behavior settings
-suppress_default_binds = true
-loop_input = true
-recursive = true
-shuffle = false
-scaling = shrink
-upscaling = linear
-list_files_at_exit = false
-
-# Window behavior
-fullscreen = false
-width = 1200
-height = 800
-initial_pan = 0.5,0.5
-
 # ======================
 # Aliases Section
 # ======================
