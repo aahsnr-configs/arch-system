@@ -1,3 +1,4 @@
+#!/bin/fish
 function main
     # Define the paths to be removed
     set -l nvim_paths \
