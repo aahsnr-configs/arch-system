@@ -1,3 +1,4 @@
+#!/bin/fish
 echo "Setting up SSH keys for multiple GitHub accounts..."
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
