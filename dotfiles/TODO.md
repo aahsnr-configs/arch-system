@@ -18,7 +18,7 @@
 - [x] atuin
 - [x] bat
 - [x] btop
-- [ ] cliphist
+- [x] cliphist
 - [x] eza
 - [x] fd
 - [x] fish
@@ -42,7 +42,7 @@
 - [x] zoxide
 - [x] yazi plugins
 - [ ] tmux plugins
-- [ ] niri (compare both config-backup and nixos-backup)
+- [x] niri (compare both config-backup and nixos-backup)
 - [x] swappy
 
 ## Arch Linux Tasks

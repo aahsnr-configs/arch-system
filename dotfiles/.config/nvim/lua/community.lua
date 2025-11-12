@@ -10,6 +10,5 @@ return {
   { import = "astrocommunity.pack.lua" },
   { import = "astrocommunity.pack.python-ruff" },
   { import = "astrocommunity.pack.markdown" },
-  { import = "astrocommunity.pack.nix" },
   -- import/override with your plugins folder
 }

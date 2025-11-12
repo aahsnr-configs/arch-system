@@ -74,9 +74,12 @@ else;
   eza --tree --level=2 {};
  end'
 
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
 # More Tools
 zoxide init fish | source
 starship init fish | source
 pay-respects fish --alias | source
 atuin init fish | source
 direnv hook fish | source
+

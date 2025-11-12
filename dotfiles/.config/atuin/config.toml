@@ -4,5 +4,4 @@ sync_address = "https://api.atuin.sh"
 sync_frequency = "5m"
 
 [daemon]
-enabled = true
-systemd_socket = true
+enabled = false
