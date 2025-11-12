@@ -161,8 +161,11 @@ binds {
 
     // === Application Launchers ===
     Mod+Return hotkey-overlay-title="Open Terminal" { spawn "kitty"; }
-    Mod+E hotkey-overlay-title="File Manager: Nautilus" {
+    Mod+Shift+E hotkey-overlay-title="File Manager: Nautilus" {
         spawn "nautilus";
+    }
+    Mod+E hotkey-overlay-title="Open Emacs" {
+        spawn "emacsclient" "-c" "-a" "'emacs'";
     }
 
     // === Window Management ===
