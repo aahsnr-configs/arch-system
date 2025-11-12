@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Swappy's config will handle the save directory, but we ensure it exists.
+mkdir -p "''${HOME}/Pictures/Screenshots"
+
+MODE=$1
+
+case "$MODE" in
+  full)
+    # Capture the entire focused output and pipe to swappy
+    ${pkgs.grim}/bin/grim - | ${pkgs.swappy}/bin/swappy -f -
+    ;;
+  select)
+    # Select a region or window with slurp, capture it with grim, and pipe to swappy
+    ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp)" - | ${pkgs.swappy}/bin/swappy -f -
+    ;;
+  *)
+    echo "Usage: $0 {full|select}" >&2
+    exit 1
+    ;;
+esac

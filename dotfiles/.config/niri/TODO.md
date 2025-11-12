@@ -1,16 +1,16 @@
-- [ ] include
-- [ ] spawn-at-startup: add udiskie
-- [ ] config-notification
-- [ ] hotkey-overlay
-- [ ] environment
-- [ ] overview
-- [ ] output
-- [ ] input
-- [ ] gestures
-- [ ] prefer-no-csd
-- [ ] layout
-- [ ] cursor
-- [ ] binds
-- [ ] window-rule
-- [ ] layer-rule
+- [x] include
+- [x] spawn-at-startup: add udiskie
+- [x] config-notification
+- [x] hotkey-overlay
+- [x] environment
+- [x] overview
+- [x] output
+- [x] input
+- [x] gestures
+- [x] prefer-no-csd
+- [x] layout
+- [x] cursor
+- [x] binds
+- [x] window-rule
+- [x] layer-rule
 - [ ] animations
