@@ -128,6 +128,9 @@ binds {
     Mod+Alt+L hotkey-overlay-title="Lock Screen" { 
         spawn "dms" "ipc" "call" "lock" "lock"; 
     }
+    // Mod+X hotkey-overlay-title="Power Menu" { 
+    //     spawn "dms" "ipc" "call" "power-menu" "toggle"; 
+    // }
     Ctrl+Alt+Delete hotkey-overlay-title="Task Manager" { 
         spawn "dms" "ipc" "call" "processlist" "toggle"; 
     }
