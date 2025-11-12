@@ -2,7 +2,7 @@ prefer-no-csd
 
 spawn-at-startup "dms" "run"
 spawn-at-startup "wl-paste" "--watch" "cliphist" "store"
-spawn-at-startup "niri-switch-daemon"
+spawn-at-startup "niriswitcher"
 spawn-at-startup "udiskie"
 spawn-at-startup "nirinit" "--save-interval" "300"
 spawn-at-startup "atuin" "daemon"
@@ -104,7 +104,7 @@ cursor {
 }
 
 binds {
-    Mod+Space hotkey-overlay-title="Application Launcher" { 
+    Mod+D hotkey-overlay-title="Application Launcher" { 
         spawn "dms" "ipc" "call" "spotlight" "toggle"; 
     }
     Mod+V hotkey-overlay-title="Clipboard Manager" { 
@@ -156,6 +156,7 @@ binds {
 
     // === System & Overview ===
     Mod+Tab repeat=false { toggle-overview; }
+    Alt+Tab repeat=false { spawn "niriswitcherctl" "show" "--window"; }
     Mod+Shift+Slash { show-hotkey-overlay; }
 
     // === Application Launchers ===
