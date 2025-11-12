@@ -13,4 +13,4 @@
 - [x] binds
 - [x] window-rule
 - [x] layer-rule
-- [ ] animations
+- [x] animations
