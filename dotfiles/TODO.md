@@ -57,19 +57,13 @@
 - [ ] Add nix-zsh-completions plugin
 - [ ] change starship.toml file
 
-## hmModules for Configs in [Matt-FTW](https://github.com/Matt-FTW/dotfiles.git)
+## Configs to use from [Matt-FTW](https://github.com/Matt-FTW/dotfiles.git)
 
-- [ ] yazi
-- [ ] switch to fish
-
-## Hyprland Settings from end-4
-
-- [x] colors.conf
-- [x] env.conf
-- [ ] execs.conf with my missing ones
-- [x] general.conf
-- [ ] keybindings.conf
-- [x] rules.conf
+- [ ] atuin
+- [ ] likely fish
+- [ ] bat
+- [ ] btop
+- [ ] fastfetch
 
 ## Issues
 

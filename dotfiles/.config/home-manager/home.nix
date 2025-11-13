@@ -28,6 +28,7 @@
   };
 
   imports = [
+    ./niri-extras
     ./dev
     ./git
   ];

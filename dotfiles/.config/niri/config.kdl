@@ -2,24 +2,26 @@ prefer-no-csd
 
 spawn-at-startup "dms" "run"
 spawn-at-startup "wl-paste" "--watch" "cliphist" "store"
-spawn-at-startup "niriswitcher"
 spawn-at-startup "udiskie"
-spawn-at-startup "nirinit" "--save-interval" "300"
 spawn-at-startup "atuin" "daemon"
+spawn-sh-at-startup "nfsm"
+spawn-at-startup "niri-switch-daemon"
+spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
 
 environment {
   XDG_CURRENT_DESKTOP "niri"
   QT_QPA_PLATFORM "wayland"
   ELECTRON_OZONE_PLATFORM_HINT "auto"
-  QT_QPA_PLATFORMTHEME "gtk3"
-  QT_QPA_PLATFORMTHEME_QT6 "gtk3"
+  QT_QPA_PLATFORMTHEME "gtk4"
+  QT_QPA_PLATFORMTHEME_QT6 "gtk4"
   TERMINAL "kitty"
+  DMS_SCREENSHOT_EDITOR "satty"
 }
 
 output "HDMI-A-1" {
     scale 1.0
     transform "normal"
-    mode "1920x1080@60"
+    mode "1920x1080@120"
 }
 output "eDP-1" {
     off
@@ -128,9 +130,9 @@ binds {
     Mod+Alt+L hotkey-overlay-title="Lock Screen" { 
         spawn "dms" "ipc" "call" "lock" "lock"; 
     }
-    // Mod+X hotkey-overlay-title="Power Menu" { 
-    //     spawn "dms" "ipc" "call" "power-menu" "toggle"; 
-    // }
+    Mod+X hotkey-overlay-title="Power Menu" { 
+        spawn "dms" "ipc" "call" "powermenu" "toggle"; 
+    }
     Ctrl+Alt+Delete hotkey-overlay-title="Task Manager" { 
         spawn "dms" "ipc" "call" "processlist" "toggle"; 
     }
@@ -159,7 +161,7 @@ binds {
 
     // === System & Overview ===
     Mod+Tab repeat=false { toggle-overview; }
-    Alt+Tab repeat=false { spawn "niriswitcherctl" "show" "--window"; }
+    Alt+Tab { spawn "niri-switch"; }
     Mod+Shift+Slash { show-hotkey-overlay; }
 
     // === Application Launchers ===
@@ -174,7 +176,7 @@ binds {
     // === Window Management ===
     Mod+Q repeat=false { close-window; }
     Mod+F { maximize-column; }
-    Mod+Shift+F { fullscreen-window; }
+    Mod+Shift+F { spawn "nfsm-cli"; }
     Mod+Shift+T { toggle-window-floating; }
     Mod+Shift+V { switch-focus-between-floating-and-tiling; }
     Mod+W { toggle-column-tabbed-display; }
