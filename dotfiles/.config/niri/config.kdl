@@ -5,8 +5,11 @@ spawn-at-startup "wl-paste" "--watch" "cliphist" "store"
 spawn-at-startup "udiskie"
 spawn-at-startup "atuin" "daemon"
 spawn-sh-at-startup "nfsm"
-spawn-at-startup "niri-switch-daemon"
+spawn-at-startup "niriswitcher"
 spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
+spawn-at-startup "gnome-control-center"
+spawn-at-startup "emacs" "--daemon"
+spawn-at-startup "rog-control-center"
 
 environment {
   XDG_CURRENT_DESKTOP "niri"
@@ -21,7 +24,7 @@ environment {
 output "HDMI-A-1" {
     scale 1.0
     transform "normal"
-    mode "1920x1080@120"
+    mode "1920x1080@60"
 }
 output "eDP-1" {
     off
@@ -32,6 +35,7 @@ input {
     keyboard {
         xkb {
             layout "us"
+            options "ctrl:nocaps"
         }
         repeat-delay 600
         repeat-rate 25
