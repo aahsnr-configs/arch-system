@@ -1,1 +1,0 @@
-setup-github-keys.fish
