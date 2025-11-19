@@ -142,20 +142,60 @@
 * Development Tools
 ** Jupyter
 #+begin_src emacs-lisp
-(after! jupyter
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; CORE JUPYTER SETUP - DOOM COMPATIBLE
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(after! ob-jupyter
   ;; Basic configuration for jupyter-python blocks
   (setq org-babel-default-header-args:jupyter-python
         '((:async . "yes")
           (:session . "py")
           (:kernel . "python3")))
 
-  ;; Override python blocks to use jupyter
-  (org-babel-jupyter-override-src-block "python")
+  ;; IMPORTANT: Override python blocks with jupyter AFTER loading
+  ;; This must happen inside after! ob-jupyter for Doom's lazy loading
+  (org-babel-jupyter-override-src-block "python"))
 
-  ;; Set proper major mode for jupyter-python blocks
-  (add-to-list 'org-src-lang-modes '("jupyter-python" . python-ts)))
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; ENSURE OVERRIDE HAPPENS AFTER FIRST EXECUTION
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-;; ANSI color support for org-babel results
+;; Hook into Doom's lazy loading mechanism to ensure override happens
+(add-hook! '+org-babel-load-functions
+  (defun +org-babel-load-jupyter-and-override-h (lang)
+    "Load jupyter for python and override python blocks with jupyter."
+    (when (eq lang 'python)
+      ;; Load ob-jupyter
+      (require 'ob-jupyter nil t)
+      ;; Make local aliases
+      (org-babel-jupyter-make-local-aliases)
+      ;; Override python with jupyter-python
+      (org-babel-jupyter-override-src-block "python"))))
+
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; CORFU COMPATIBILITY FIX
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(after! jupyter-org-client
+  ;; Remove jupyter completion to avoid conflict with Corfu
+  ;; This prevents "wrong-type-argument markerp nil" errors
+  (defun +jupyter-disable-completion-h ()
+    "Remove jupyter-org-completion-at-point from completion functions."
+    (remove-hook 'completion-at-point-functions
+                 #'jupyter-org-completion-at-point
+                 t))
+
+  ;; Apply to org-mode buffers
+  (add-hook 'org-mode-hook #'+jupyter-disable-completion-h)
+
+  ;; Also disable when jupyter-org-interaction-mode activates
+  (add-hook 'jupyter-org-interaction-mode-hook #'+jupyter-disable-completion-h))
+
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; ANSI COLOR SUPPORT (Your existing implementation)
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 (defun +org-babel-ansi-colors-h ()
   "Apply ANSI color codes to the current org-babel result block."
   (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
@@ -168,7 +208,10 @@
 
 (add-hook 'org-babel-after-execute-hook #'+org-babel-ansi-colors-h)
 
-;; Jupyter output post-processing for raw mode
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; RESULT OUTPUT MODE (Your existing implementation)
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 (defun +jupyter-org-scalar (value)
   "Handle scalar values for raw output mode."
   (cond
@@ -185,13 +228,38 @@
       (+jupyter-org-scalar value)
     (funcall orig-fn value)))
 
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; REQUEST QUEUING (Recommended for better execution control)
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-(after! ob-async
-  (setq ob-async-no-async-languages-alist '("jupyter-python")))
-#+end_src
+(after! jupyter-org-client
+  ;; Enable client-side request queuing
+  ;; Prevents overwhelming the kernel with multiple simultaneous requests
+  (setq jupyter-org-queue-requests t))
 
-** LSP in Org Source Blocks
-#+begin_src emacs-lisp
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; RESOURCE DIRECTORY (Better organization of generated files)
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(after! ob-jupyter
+  ;; Set directory for auto-generated images and files
+  (setq org-babel-jupyter-resource-directory
+        (expand-file-name ".jupyter-resources/" org-directory)))
+
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; PANDOC INTEGRATION (Optional - for better HTML/Markdown rendering)
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+(after! ob-jupyter
+  ;; Convert HTML/Markdown/LaTeX results to org format using pandoc
+  ;; Enable with :pandoc t header argument
+  (when (executable-find "pandoc")
+    (setq jupyter-org-pandoc-convertable '("text/html" "text/markdown" "text/latex"))))
+
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; LSP IN ORG SOURCE BLOCKS (Your existing implementation)
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 (defun +org-src-eglot-setup-h ()
   "Enable Eglot in org-src-mode buffers that have tangle files.
 This sets buffer-file-name to the tangle target so LSP can properly
@@ -238,6 +306,31 @@ identify the file and project context."
           (eglot-ensure))))))
 
 (add-hook 'org-src-mode-hook #'+org-src-eglot-setup-h)
+
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+;; HELPER FUNCTIONS
+;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+;; Toggle request queuing interactively
+(defun +jupyter/toggle-request-queuing ()
+  "Toggle jupyter-org-queue-requests on/off."
+  (interactive)
+  (setq jupyter-org-queue-requests (not jupyter-org-queue-requests))
+  (message "Jupyter request queuing: %s"
+           (if jupyter-org-queue-requests "ON" "OFF")))
+
+;; Verify python block override is working
+(defun +jupyter/verify-override ()
+  "Check if python blocks are properly overridden with jupyter."
+  (interactive)
+  (message "Python execute function: %s"
+           (if (fboundp 'org-babel-execute:python)
+               (symbol-function 'org-babel-execute:python)
+             "NOT FOUND"))
+  (message "Python header args: %s"
+           (if (boundp 'org-babel-default-header-args:python)
+               org-babel-default-header-args:python
+             "NOT SET")))
 #+end_src
 
 ** Version Control

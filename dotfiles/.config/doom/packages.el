@@ -40,12 +40,6 @@
 (package! flymake-ruff)
 (package! eldoc-box)
 
-;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;;; Ignored/Disabled Packages
-;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-(package! helm-bibtex :ignore t)
-(package! hydra :ignore t)
-
 ;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ;;; Unpinned Packages
 ;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━
