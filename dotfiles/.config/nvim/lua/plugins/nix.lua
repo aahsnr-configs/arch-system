@@ -37,4 +37,6 @@ return {
       },
     },
   },
+
+  "kidonng/nix.fish",
 }

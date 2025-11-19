@@ -31,6 +31,7 @@
     ./niri-extras
     ./dev
     ./git
+    ./xdg
   ];
 
   nixpkgs = {

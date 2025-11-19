@@ -4,6 +4,7 @@ set -U fish_user_paths $HOME/.cargo/bin $HOME/go/bin $HOME/.bun/bin $HOME/.local
 
 # EXPORT
 set TERMINAL kitty
+set BROWSER brave
 set EDITOR nvim
 set VISUAL "emacsclient -c -a emacs"
 set PAGER "bat --paging=always --style=plain"
