@@ -49,16 +49,25 @@
 #+begin_src emacs-lisp
 (add-hook! 'doom-first-buffer-hook
   (size-indication-mode -1)
-  (setq-default mode-line-percent-position nil)
-  )
+  (setq-default mode-line-percent-position nil))
 
 (after! doom-modeline
   (setq doom-modeline-height 25
         doom-modeline-column-zero-based nil
         doom-modeline-bar-width 3
+
+        ;; File/buffer name settings
         doom-modeline-buffer-file-size nil
-        doom-modeline-buffer-file-name-style 'auto
-        ))
+        doom-modeline-buffer-file-name-style 'file-name  ; Only show filename, not full path
+
+        doom-modeline-buffer-encoding nil ; Hide UTF-8 encoding display
+        doom-modeline-percent-position nil ; Hide percentage position
+        doom-modeline-major-mode-icon nil ; Hide major mode icon
+        doom-modeline-major-mode-color-icon nil ; Disable colored major mode icon
+
+        ;; VCS settings - show icon but hide branch name
+        doom-modeline-vcs-icon t ; Keep VCS icon
+        doom-modeline-vcs-max-length 0)) ; Hide branch name
 #+end_src
 
 ** Line Numbers
@@ -95,15 +104,15 @@
          (prog-mode . rainbow-delimiters-mode))
   :config
   (custom-set-faces!
-   '(rainbow-delimiters-depth-1-face :foreground "#89b4fa")  ; Blue
-   '(rainbow-delimiters-depth-2-face :foreground "#cba6f7")  ; Mauve
-   '(rainbow-delimiters-depth-3-face :foreground "#f9e2af")  ; Yellow
-   '(rainbow-delimiters-depth-4-face :foreground "#89dceb")  ; Sky
-   '(rainbow-delimiters-depth-5-face :foreground "#f38ba8")  ; Red
-   '(rainbow-delimiters-depth-6-face :foreground "#a6e3a1")  ; Green
-   '(rainbow-delimiters-depth-7-face :foreground "#fab387")  ; Peach
-   '(rainbow-delimiters-depth-8-face :foreground "#cdd6f4")  ; Text
-   '(rainbow-delimiters-depth-9-face :foreground "#bac2de"))) ; Subtext1
+   '(rainbow-delimiters-depth-1-face :foreground "#89b4fa")
+   '(rainbow-delimiters-depth-2-face :foreground "#cba6f7")
+   '(rainbow-delimiters-depth-3-face :foreground "#f9e2af")
+   '(rainbow-delimiters-depth-4-face :foreground "#89dceb")
+   '(rainbow-delimiters-depth-5-face :foreground "#f38ba8")
+   '(rainbow-delimiters-depth-6-face :foreground "#a6e3a1")
+   '(rainbow-delimiters-depth-7-face :foreground "#fab387")
+   '(rainbow-delimiters-depth-8-face :foreground "#cdd6f4")
+   '(rainbow-delimiters-depth-9-face :foreground "#bac2de")))
 #+end_src
 
 ** Rainbow Mode
@@ -142,252 +151,6 @@
 ;; Treat clipboard input as UTF-8 string first; compound text next, etc.
 (when (display-graphic-p)
   (setq x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
-#+end_src
-
-* Development Tools
-** Corfu
-#+begin_src emacs-lisp
-(after! corfu-popupinfo
- (setq corfu-popupinfo-hide t
-       corfu-popupinfo-max-width 80
-       corfu-popupinfo-max-height 20))
-#+end_src
-
-** Eldoc Box
-#+begin_src emacs-lisp
-(use-package! eldoc-box
-  :config
-  (setq eldoc-box-clear-with-C-g t)
-  (setq eldoc-box-hover-at-point-mode t)
-  (setq eldoc-box-mouse-mode nil)
-  (setq eldoc-box-only-multi-line t)
-  (add-hook 'eglot-managed-mode-hook #'eldoc-box-hover-mode t))
-#+end_src
-
-** Jupyter
-#+begin_src emacs-lisp
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; CORE JUPYTER SETUP - DOOM COMPATIBLE
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-(after! ob-jupyter
-  ;; Basic configuration for jupyter-python blocks
-  (setq org-babel-default-header-args:jupyter-python
-        '((:async . "yes")
-          (:session . "py")
-          (:kernel . "python3")))
-
-  ;; IMPORTANT: Override python blocks with jupyter AFTER loading
-  ;; This must happen inside after! ob-jupyter for Doom's lazy loading
-  (org-babel-jupyter-override-src-block "python"))
-
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; ENSURE OVERRIDE HAPPENS AFTER FIRST EXECUTION
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-;; Hook into Doom's lazy loading mechanism to ensure override happens
-(add-hook! '+org-babel-load-functions
-  (defun +org-babel-load-jupyter-and-override-h (lang)
-    "Load jupyter for python and override python blocks with jupyter."
-    (when (eq lang 'python)
-      ;; Load ob-jupyter
-      (require 'ob-jupyter nil t)
-      ;; Make local aliases
-      (org-babel-jupyter-make-local-aliases)
-      ;; Override python with jupyter-python
-      (org-babel-jupyter-override-src-block "python"))))
-
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; CORFU COMPATIBILITY FIX
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-(after! jupyter-org-client
-  ;; Remove jupyter completion to avoid conflict with Corfu
-  ;; This prevents "wrong-type-argument markerp nil" errors
-  (defun +jupyter-disable-completion-h ()
-    "Remove jupyter-org-completion-at-point from completion functions."
-    (remove-hook 'completion-at-point-functions
-                 #'jupyter-org-completion-at-point
-                 t))
-
-  ;; Apply to org-mode buffers
-  (add-hook 'org-mode-hook #'+jupyter-disable-completion-h)
-
-  ;; Also disable when jupyter-org-interaction-mode activates
-  (add-hook 'jupyter-org-interaction-mode-hook #'+jupyter-disable-completion-h))
-
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; ANSI COLOR SUPPORT (Your existing implementation)
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-(defun +org-babel-ansi-colors-h ()
-  "Apply ANSI color codes to the current org-babel result block."
-  (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
-    (save-excursion
-      (goto-char beg)
-      (when (looking-at org-babel-result-regexp)
-        (let ((end (org-babel-result-end))
-              (ansi-color-context-region nil))
-          (ansi-color-apply-on-region beg end))))))
-
-(add-hook 'org-babel-after-execute-hook #'+org-babel-ansi-colors-h)
-
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; RESULT OUTPUT MODE (Your existing implementation)
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-(defun +jupyter-org-scalar (value)
-  "Handle scalar values for raw output mode."
-  (cond
-   ((stringp value) value)
-   (t (jupyter-org-scalar value))))
-
-(defvar +jupyter-raw-output-mode nil
-  "When non-nil, display raw jupyter output without post-processing.")
-
-(defadvice! +jupyter-org-scalar-around-a (orig-fn value)
-  "Conditionally enable raw output for jupyter results."
-  :around #'jupyter-org-scalar
-  (if +jupyter-raw-output-mode
-      (+jupyter-org-scalar value)
-    (funcall orig-fn value)))
-
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; REQUEST QUEUING (Recommended for better execution control)
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-(after! jupyter-org-client
-  ;; Enable client-side request queuing
-  ;; Prevents overwhelming the kernel with multiple simultaneous requests
-  (setq jupyter-org-queue-requests t))
-
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; RESOURCE DIRECTORY (Better organization of generated files)
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-(after! ob-jupyter
-  ;; Set directory for auto-generated images and files
-  (setq org-babel-jupyter-resource-directory
-        (expand-file-name ".jupyter-resources/" org-directory)))
-
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; PANDOC INTEGRATION (Optional - for better HTML/Markdown rendering)
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-(after! ob-jupyter
-  ;; Convert HTML/Markdown/LaTeX results to org format using pandoc
-  ;; Enable with :pandoc t header argument
-  (when (executable-find "pandoc")
-    (setq jupyter-org-pandoc-convertable '("text/html" "text/markdown" "text/latex"))))
-
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; LSP IN ORG SOURCE BLOCKS (Your existing implementation)
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-(defun +org-src-eglot-setup-h ()
-  "Enable Eglot in org-src-mode buffers that have tangle files.
-This sets buffer-file-name to the tangle target so LSP can properly
-identify the file and project context."
-  (when (and (boundp 'org-src-mode)
-             org-src-mode
-             (or (derived-mode-p 'python-ts-mode)
-                 (derived-mode-p 'python-mode)))
-    ;; Get source block info safely
-    (when-let* ((info (ignore-errors (org-babel-get-src-block-info)))
-                (params (nth 2 info))
-                (tangle-file (cdr (assq :tangle params))))
-
-      ;; Only proceed if tangle is set to a real file (not "no" or "nil")
-      (when (and tangle-file
-                 (stringp tangle-file)
-                 (not (member tangle-file '("no" "nil")))
-                 (not (string-empty-p tangle-file)))
-
-        ;; Resolve tangle file path relative to the org file
-        (when-let* ((org-buffer (and (boundp 'org-src--beg-marker)
-                                    org-src--beg-marker
-                                    (marker-buffer org-src--beg-marker)))
-                   (org-file (buffer-file-name org-buffer))
-                   (org-dir (file-name-directory org-file))
-                   (tangle-path (expand-file-name tangle-file org-dir)))
-
-          ;; Create tangle file and directory if they don't exist
-          (let ((tangle-dir (file-name-directory tangle-path)))
-            (unless (file-directory-p tangle-dir)
-              (make-directory tangle-dir t))
-            (unless (file-exists-p tangle-path)
-              (with-temp-file tangle-path
-                (insert (format "# Tangled from: %s\n" org-file)))))
-
-          ;; Set buffer-file-name so Eglot can identify the project/file
-          (setq-local buffer-file-name tangle-path)
-
-          ;; Disable problematic UI features in org-src buffers
-          (setq-local eldoc-echo-area-use-multiline-p nil
-                      eglot-autoshutdown nil)
-
-          ;; Start Eglot
-          (eglot-ensure))))))
-
-(add-hook 'org-src-mode-hook #'+org-src-eglot-setup-h)
-
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; HELPER FUNCTIONS
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-;; Toggle request queuing interactively
-(defun +jupyter/toggle-request-queuing ()
-  "Toggle jupyter-org-queue-requests on/off."
-  (interactive)
-  (setq jupyter-org-queue-requests (not jupyter-org-queue-requests))
-  (message "Jupyter request queuing: %s"
-           (if jupyter-org-queue-requests "ON" "OFF")))
-
-;; Verify python block override is working
-(defun +jupyter/verify-override ()
-  "Check if python blocks are properly overridden with jupyter."
-  (interactive)
-  (message "Python execute function: %s"
-           (if (fboundp 'org-babel-execute:python)
-               (symbol-function 'org-babel-execute:python)
-             "NOT FOUND"))
-  (message "Python header args: %s"
-           (if (boundp 'org-babel-default-header-args:python)
-               org-babel-default-header-args:python
-             "NOT SET")))
-#+end_src
-
-** Version Control
-#+begin_src emacs-lisp
-(after! magit
-  (setq magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
-
-(use-package! magit-todos
-  :after magit
-  :config (magit-todos-mode 1))
-
-(setq forge-owned-accounts '(("aahsnr")))
-#+end_src
-
-** Vertico
-#+begin_src emacs-lisp
-(after! vertico
-  (setq vertico-count 10))
-#+end_src
-
-** Flymake
-#+begin_src emacs-lisp
-(after! flymake
-  ;; Don't show diagnostics at end of line (Task 3)
-  (setq flymake-show-diagnostics-at-end-of-line nil)
-
-  ;; Configure how diagnostics are displayed
-  ;; Keep the fringe indicators and modeline, but no inline text
-  (setq flymake-indicator-type 'fringes)
-
-  ;; Optionally: Adjust flymake timing for better responsiveness
-  (setq flymake-no-changes-timeout 0.5)
-  (setq flymake-start-on-save-buffer t))
 #+end_src
 
 * Dired
@@ -571,6 +334,322 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 (use-package! consult-org-roam
   :after org-roam
   :init (consult-org-roam-mode 1))
+#+end_src
+
+* Development Tools
+** Corfu
+#+begin_src emacs-lisp
+(after! corfu-popupinfo
+ (setq corfu-popupinfo-hide t
+       corfu-popupinfo-max-width 80
+       corfu-popupinfo-max-height 20))
+#+end_src
+
+** Eldoc Box
+#+begin_src emacs-lisp
+(use-package! eldoc-box
+  :after eldoc
+  :hook (eglot-managed-mode . eldoc-box-hover-mode)
+  :init
+  (setq eldoc-box-clear-with-C-g t
+        eldoc-box-only-multi-line t
+        ;; eldoc-box-mouse-mode nil
+        ;; eldoc-box-hover-at-point-mode t
+        eldoc-idle-delay 0.3)
+
+  :config
+  (custom-set-faces!
+   '(eldoc-box-body :background "#313244"
+                    :foreground "#cdd6f4")
+   '(eldoc-box-border :background "#45475a"))
+  (setq eldoc-box-max-pixel-width 800
+        eldoc-box-max-pixel-height 400))
+#+end_src
+
+** Jupyter
+#+begin_src emacs-lisp
+(after! ob-jupyter
+  ;; Basic configuration for jupyter-python blocks
+  (setq org-babel-default-header-args:jupyter-python
+        '((:async . "yes")
+          (:session . "py")
+          (:kernel . "python3")))
+
+  ;; IMPORTANT: Override python blocks with jupyter AFTER loading
+  ;; This must happen inside after! ob-jupyter for Doom's lazy loading
+  (org-babel-jupyter-override-src-block "python"))
+
+;; Hook into Doom's lazy loading mechanism to ensure override happens
+(add-hook! '+org-babel-load-functions
+  (defun +org-babel-load-jupyter-and-override-h (lang)
+    "Load jupyter for python and override python blocks with jupyter."
+    (when (eq lang 'python)
+      ;; Load ob-jupyter
+      (require 'ob-jupyter nil t)
+      ;; Make local aliases
+      (org-babel-jupyter-make-local-aliases)
+      ;; Override python with jupyter-python
+      (org-babel-jupyter-override-src-block "python"))))
+
+(after! jupyter-org-client
+  ;; Remove jupyter completion to avoid conflict with Corfu
+  ;; This prevents "wrong-type-argument markerp nil" errors
+  (defun +jupyter-disable-completion-h ()
+    "Remove jupyter-org-completion-at-point from completion functions."
+    (remove-hook 'completion-at-point-functions
+                 #'jupyter-org-completion-at-point
+                 t))
+
+  ;; Apply to org-mode buffers
+  (add-hook 'org-mode-hook #'+jupyter-disable-completion-h)
+
+  ;; Also disable when jupyter-org-interaction-mode activates
+  (add-hook 'jupyter-org-interaction-mode-hook #'+jupyter-disable-completion-h))
+
+(defun +org-babel-ansi-colors-h ()
+  "Apply ANSI color codes to the current org-babel result block."
+  (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
+    (save-excursion
+      (goto-char beg)
+      (when (looking-at org-babel-result-regexp)
+        (let ((end (org-babel-result-end))
+              (ansi-color-context-region nil))
+          (ansi-color-apply-on-region beg end))))))
+
+(add-hook 'org-babel-after-execute-hook #'+org-babel-ansi-colors-h)
+
+(defun +jupyter-org-scalar (value)
+  "Handle scalar values for raw output mode."
+  (cond
+   ((stringp value) value)
+   (t (jupyter-org-scalar value))))
+
+(defvar +jupyter-raw-output-mode nil
+  "When non-nil, display raw jupyter output without post-processing.")
+
+(defadvice! +jupyter-org-scalar-around-a (orig-fn value)
+  "Conditionally enable raw output for jupyter results."
+  :around #'jupyter-org-scalar
+  (if +jupyter-raw-output-mode
+      (+jupyter-org-scalar value)
+    (funcall orig-fn value)))
+
+(after! jupyter-org-client
+  ;; Enable client-side request queuing
+  ;; Prevents overwhelming the kernel with multiple simultaneous requests
+  (setq jupyter-org-queue-requests t))
+
+(after! ob-jupyter
+  ;; Set directory for auto-generated images and files
+  (setq org-babel-jupyter-resource-directory
+        (expand-file-name ".jupyter-resources/" org-directory)))
+
+(after! ob-jupyter
+  ;; Convert HTML/Markdown/LaTeX results to org format using pandoc
+  ;; Enable with :pandoc t header argument
+  (when (executable-find "pandoc")
+    (setq jupyter-org-pandoc-convertable '("text/html" "text/markdown" "text/latex"))))
+
+(defun +org-src-eglot-setup-h ()
+  "Enable Eglot in org-src-mode buffers that have tangle files.
+This sets buffer-file-name to the tangle target so LSP can properly
+identify the file and project context."
+  (when (and (boundp 'org-src-mode)
+             org-src-mode
+             (or (derived-mode-p 'python-ts-mode)
+                 (derived-mode-p 'python-mode)))
+    ;; Get source block info safely
+    (when-let* ((info (ignore-errors (org-babel-get-src-block-info)))
+                (params (nth 2 info))
+                (tangle-file (cdr (assq :tangle params))))
+
+      ;; Only proceed if tangle is set to a real file (not "no" or "nil")
+      (when (and tangle-file
+                 (stringp tangle-file)
+                 (not (member tangle-file '("no" "nil")))
+                 (not (string-empty-p tangle-file)))
+
+        ;; Resolve tangle file path relative to the org file
+        (when-let* ((org-buffer (and (boundp 'org-src--beg-marker)
+                                    org-src--beg-marker
+                                    (marker-buffer org-src--beg-marker)))
+                   (org-file (buffer-file-name org-buffer))
+                   (org-dir (file-name-directory org-file))
+                   (tangle-path (expand-file-name tangle-file org-dir)))
+
+          ;; Create tangle file and directory if they don't exist
+          (let ((tangle-dir (file-name-directory tangle-path)))
+            (unless (file-directory-p tangle-dir)
+              (make-directory tangle-dir t))
+            (unless (file-exists-p tangle-path)
+              (with-temp-file tangle-path
+                (insert (format "# Tangled from: %s\n" org-file)))))
+
+          ;; Set buffer-file-name so Eglot can identify the project/file
+          (setq-local buffer-file-name tangle-path)
+
+          ;; Disable problematic UI features in org-src buffers
+          (setq-local eldoc-echo-area-use-multiline-p nil
+                      eglot-autoshutdown nil)
+
+          ;; Start Eglot
+          (eglot-ensure))))))
+
+(add-hook 'org-src-mode-hook #'+org-src-eglot-setup-h)
+
+;; Toggle request queuing interactively
+(defun +jupyter/toggle-request-queuing ()
+  "Toggle jupyter-org-queue-requests on/off."
+  (interactive)
+  (setq jupyter-org-queue-requests (not jupyter-org-queue-requests))
+  (message "Jupyter request queuing: %s"
+           (if jupyter-org-queue-requests "ON" "OFF")))
+
+;; Verify python block override is working
+(defun +jupyter/verify-override ()
+  "Check if python blocks are properly overridden with jupyter."
+  (interactive)
+  (message "Python execute function: %s"
+           (if (fboundp 'org-babel-execute:python)
+               (symbol-function 'org-babel-execute:python)
+             "NOT FOUND"))
+  (message "Python header args: %s"
+           (if (boundp 'org-babel-default-header-args:python)
+               org-babel-default-header-args:python
+             "NOT SET")))
+#+end_src
+
+** Version Control
+#+begin_src emacs-lisp
+(after! magit
+  (setq magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+
+(use-package! magit-todos
+  :after magit
+  :config (magit-todos-mode 1))
+
+(setq forge-owned-accounts '(("aahsnr")))
+#+end_src
+
+** Vertico
+#+begin_src emacs-lisp
+(after! vertico
+  (setq vertico-count 10))
+#+end_src
+
+* Python Programming
+** Formatting: Use Ruff as the primary formatter
+#+begin_src emacs-lisp
+(setq-hook! 'python-mode-hook +format-with 'ruff)
+(setq-hook! 'python-ts-mode-hook +format-with 'ruff)
+#+end_src
+
+** REPL configuration
+#+begin_src emacs-lisp
+(setq +python-ipython-repl-args '("-i" "--simple-prompt" "--no-color-info"))
+(setq +python-jupyter-repl-args '("--simple-prompt"))
+#+end_src
+
+** EGLOT + BASEDPYRIGHT: Type checking and language server features
+#+begin_src emacs-lisp
+ (after! eglot
+  ;; Use basedpyright as the LSP server for Python
+  ;; Basedpyright is a Pyright fork focused on type checking, type inference,
+  ;; and module resolution - core language server features
+  (set-eglot-client! '(python-mode python-ts-mode)
+                     '("basedpyright-langserver" "--stdio"))
+
+  ;;; Delegate capabilities to specialized tools
+  ;; These capabilities are better handled by dedicated Emacs packages:
+  (setq eglot-ignored-server-capabilities
+        '(:hoverProvider                      ; â†’ eldoc + eldoc-box handles documentation
+          :documentFormattingProvider         ; â†’ apheleia + ruff handles formatting
+          :documentRangeFormattingProvider    ; â†’ apheleia + ruff handles range formatting
+          :documentOnTypeFormattingProvider   ; â†’ apheleia + ruff handles on-type formatting
+          :foldingRangeProvider))             ; â†’ tree-sitter handles code folding
+
+  ;;; Keep enabled (handled by eglot):
+  ;; - :documentHighlightProvider (highlights symbol occurrences)
+  ;; - :completionProvider (code completion)
+  ;; - :definitionProvider (go-to-definition)
+  ;; - :referencesProvider (find references)
+  ;; - :renameProvider (rename symbols)
+  ;; - :codeActionProvider (code actions/quickfixes)
+  ;; - :signatureHelpProvider (function signatures)
+
+  ;;; Basedpyright Configuration: Focus on TYPE CHECKING ONLY
+  ;; Division of labor:
+  ;; BASEDPYRIGHT handles: Types, module resolution, type stubs, type inference
+  ;; RUFF handles: Linting, code style, unused code, syntax errors, import sorting
+  (setq-default eglot-workspace-configuration
+                '(:basedpyright
+                  (:analysis
+                   (:typeCheckingMode "recommended"  ; Balance between strict and permissive
+
+                    :diagnosticSeverityOverrides
+                    (;; Unused code detection â†’ Ruff handles via F401, F841 rules
+                     :reportUnusedImport "none"
+                     :reportUnusedVariable "none"
+                     :reportUnusedClass "none"
+                     :reportUnusedFunction "none"
+                     :reportUnusedCallResult "none"
+
+                     ;; Module and import analysis
+                     :reportMissingImports "warning"              ; Can't find module
+                     :reportMissingModuleSource "warning"         ; Stub exists but no source
+
+                     ;; Type consistency and safety
+                     :reportUndefinedVariable "warning"           ; Variable not defined
+                     :reportIncompatibleMethodOverride "warning"  ; Method signature mismatch
+                     :reportIncompatibleVariableOverride "warning"; Variable type mismatch
+                     :reportAttributeAccessIssue "warning"        ; Invalid attribute access
+
+                     ;; Type stub and annotation support
+                     :reportMissingTypeStubs "none"              ; Warning if stubs missing (can be noisy)
+                     :reportMissingTypeArgument "warning"        ; Generic without type args
+
+                     ;; Reduced noise from gradual typing
+                     :reportUnknownMemberType "none"             ; Unknown member types (gradual typing)
+                     :reportUnknownParameterType "none"          ; Unknown param types (gradual typing)
+                     :reportUnknownVariableType "none"           ; Unknown var types (gradual typing)
+                     :reportUnknownArgumentType "none")))))      ; Unknown arg types (gradual typing)
+
+  ;; This ensures diagnostics from both eglot (basedpyright) and flymake (ruff)
+  ;; are shown through eldoc-box at point, avoiding duplicate popups
+  (add-hook 'eglot-managed-mode-hook
+            (lambda ()
+              ;; Prioritize flymake-eldoc-function for diagnostics display
+              (setq eldoc-documentation-functions
+                    (cons #'flymake-eldoc-function
+                          (remove #'flymake-eldoc-function eldoc-documentation-functions)))
+              ;; Use compose strategy to show all available documentation
+              (setq-local eldoc-documentation-strategy #'eldoc-documentation-compose))))
+#+end_src
+
+** RUFF: Fast linting via Flymake backend
+#+begin_src emacs-lisp
+;; Ruff's responsibilities:
+;; - Code style enforcement (PEP 8 via pycodestyle rules)
+;; - Unused imports/variables (F401, F841, etc.)
+;; - Syntax error detection
+;; - Import organization and sorting (isort-equivalent)
+;; - Code complexity checks (McCabe, etc.)
+;; - Common bug patterns (flake8-bugbear equivalent)
+;; - Security issues (bandit-equivalent)
+;; - 800+ built-in rules from Flake8 ecosystem
+(use-package! flymake-ruff
+  :after flymake
+  :hook (eglot-managed-mode . flymake-ruff-load))
+
+;; Configure flymake to work harmoniously with eldoc-box
+;; - Diagnostics shown via eldoc-box at point (not inline at end of line)
+;; - Fringe indicators for quick visual feedback
+;; - Fast responsiveness for immediate feedback
+(after! flymake
+  (setq flymake-show-diagnostics-at-end-of-line nil
+        flymake-indicator-type 'fringes
+        flymake-no-changes-timeout 0.5
+        flymake-start-on-save-buffer t))
 #+end_src
 
 * LaTeX
@@ -821,63 +900,6 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
        :desc "Preview fragment" "p" #'org-latex-preview
        :desc "Export to PDF" "e" #'org-latex-export-to-pdf
        :desc "Toggle fragtog" "f" #'org-fragtog-mode))
-#+end_src
-
-* Python Programming
-*Next Week modify the below code to use doom emacs syntax only except for eglot*
-=kite-anemic-onward@duck.com=
-#+begin_src emacs-lisp
-(setq-hook! 'python-mode-hook +format-with 'ruff)
-(setq-hook! 'python-ts-mode-hook +format-with 'ruff)
-
-(setq +python-ipython-repl-args '("-i" "--simple-prompt" "--no-color-info"))
-(setq +python-jupyter-repl-args '("--simple-prompt"))
-
-(after! eglot
-  ;; Add basedpyright to eglot-server-programs
-  (set-eglot-client! '(python-mode python-ts-mode)
-                     "pylsp" "pyls"
-                     '("basedpyright-langserver" "--stdio")
-                     '("pyright-langserver" "--stdio")
-                     "ruff-lsp")
-  (setq eglot-ignored-server-capabilities
-        '(:hoverProvider
-          ;; :documentHighlightProvider
-          ;; :documentFormattingProvider
-          ;; :documentRangeFormattingProvider
-          ;; :documentOnTypeFormattingProvider
-          :colorProvider
-          :foldingRangeProvider))
-
-  (setq-default flymake-show-diagnostics-at-end-of-line nil)
-
-  ;;; will add back later
-  ;; FIXED: Proper plist structure for eglot-workspace-configuration
-  (setq-default eglot-workspace-configuration
-                '(:basedpyright
-                  (:analysis
-                   (:typeCheckingMode "recommended"
-                    :diagnosticSeverityOverrides
-                    (:reportUnusedVariable "none"
-                     :reportUnusedClass "none"
-                     :reportUnusedFunction "none"
-                     :reportUnusedCallResult "none"
-                     :reportMissingImports "warning"
-                     :reportUndefinedVariable "warning"))))))
-
-(use-package! flymake-ruff
-  :after flymake
-  :hook (eglot-managed-mode . flymake-ruff-load))
-  ;;; will add later
-  ;; :config
-  ;; ;; Ensure ruff backend runs after eglot backend
-  ;; (defun my/ensure-flymake-backends ()
-  ;;   "Ensure both eglot and ruff backends are active."
-  ;;   (when (and (bound-and-true-p eglot--managed-mode)
-  ;;              (not (memq 'flymake-ruff flymake-diagnostic-functions)))
-  ;;     (flymake-ruff-load)))
-
-  ;; (add-hook 'eglot-managed-mode-hook #'my/ensure-flymake-backends 90))
 #+end_src
 
 * PDF Tools
