@@ -44,10 +44,3 @@
 ;;; Unpinned Packages
 ;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 (unpin! consult)
-(unpin! vertico)
-(unpin! orderless)
-(unpin! marginalia)
-(unpin! embark)
-(unpin! embark-consult)
-(unpin! corfu)
-(unpin! cape)

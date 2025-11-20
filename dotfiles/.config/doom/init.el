@@ -21,7 +21,10 @@
        ;;layout            ; auie,ctsrnm is the superior home row
 
        :completion
-       (corfu +icons +orderless +dabbrev)
+       (corfu
+        +icons
+        +orderless
+        +dabbrev)
        ;;company           ; the ultimate code completion backend
        ;;helm              ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
@@ -65,11 +68,15 @@
        ;;parinfer          ; turn lisp into python, sort of
        rotate-text       ; cycle region at point between text candidates
        snippets          ; my elves. They type so I don't have to
-       (whitespace +guess +trim)  ; a butler for your whitespace
+       (whitespace
+        +guess
+        +trim)
        word-wrap         ; soft wrapping with language-aware indent
 
        :emacs
-       (dired +icons +dirvish)
+       (dired
+        +icons
+        +dirvish)
        electric          ; smarter, keyword-based electric-indent
        ;;eww               ; the internet is gross
        (ibuffer +icons)  ; interactive buffer management
@@ -84,7 +91,9 @@
        vterm             ; the best terminal emulation in Emacs
 
        :checkers
-       (syntax +flymake +icons +childframe)
+       (syntax
+        +flymake
+        +icons)
        ;;(spell +flyspell) ; tasing you for misspelling mispelling
        ;;grammar           ; tasing grammar mistake every you make
 
@@ -100,7 +109,9 @@
        lookup              ; navigate your code and its documentation
        ;;llm                 ; when I said you needed friends, I didn't mean...
        (magit +forge)
-       (lsp +eglot +booster)
+       (lsp
+        +eglot
+        +booster)
        ;;make              ; run make tasks from Emacs
        ;;pass              ; password manager for nerds
        pdf                 ; pdf enhancements
@@ -147,21 +158,37 @@
        ;;javascript        ; all(hope(abandon(ye(who(enter(here))))))
        ;;julia             ; a better, faster MATLAB
        ;;kotlin            ; a better, slicker Java(Script)
-       (latex +cdlatex +lsp +fold)
+       (latex
+        +cdlatex
+        +lsp
+        +fold)
        ;;lean              ; for folks with too much to prove
        ;;ledger            ; be audit you can be
        ;;lua               ; one-based indices? one-based indices
        markdown            ; writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
-       (nix +lsp +tree-sitter)
+       (nix
+        +lsp
+        +tree-sitter)
        ;;ocaml             ; an objective camel
-       (org +dragndrop +gnuplot +pretty +jupyter +notes +pandoc +roam)
+       (org
+        +dragndrop
+        +gnuplot
+        +pretty
+        +jupyter
+        +notes
+        +pandoc
+        +roam)
        ;;php               ; perl's insecure younger brother
        ;;plantuml          ; diagrams for confusing people more
        ;;graphviz          ; diagrams for confusing yourself even more
        ;;purescript        ; javascript, but functional
-       (python +lsp +tree-sitter)
-       (qt +lsp +tree-sitter)
+       (python
+        +lsp
+        +tree-sitter)
+       (qt
+        +lsp
+        +tree-sitter)
        ;;racket            ; a DSL for DSLs
        ;;raku              ; the artist formerly known as perl6
        ;;rest              ; Emacs as a REST client

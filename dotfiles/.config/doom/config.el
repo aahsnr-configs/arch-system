@@ -86,8 +86,13 @@
   :hook ((prog-mode . rainbow-mode)
          (org-mode . rainbow-mode)))
 
-(setq which-key-idle-delay 0.3
-      which-key-allow-imprecise-window-fit nil)
+(after! which-key
+  (setq which-key-idle-delay 0.3
+        which-key-allow-imprecise-window-fit nil
+        which-key-separator " → "
+        which-key-max-display-columns nil
+        which-key-popup-type 'side-window
+        which-key-side-window-max-width 0.33))
 
 (use-package! sudo-edit
   :commands sudo-edit)
@@ -102,6 +107,19 @@
 ;; Treat clipboard input as UTF-8 string first; compound text next, etc.
 (when (display-graphic-p)
   (setq x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
+
+(after! corfu-popupinfo
+ (setq corfu-popupinfo-hide t
+       corfu-popupinfo-max-width 80
+       corfu-popupinfo-max-height 20))
+
+(use-package! eldoc-box
+  :config
+  (setq eldoc-box-clear-with-C-g t)
+  (setq eldoc-box-hover-at-point-mode t)
+  (setq eldoc-box-mouse-mode nil)
+  (setq eldoc-box-only-multi-line t)
+  (add-hook 'eglot-managed-mode-hook #'eldoc-box-hover-mode t))
 
 ;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ;; CORE JUPYTER SETUP - DOOM COMPATIBLE
@@ -707,43 +725,57 @@ identify the file and project context."
        :desc "Export to PDF" "e" #'org-latex-export-to-pdf
        :desc "Toggle fragtog" "f" #'org-fragtog-mode))
 
+(setq-hook! 'python-mode-hook +format-with 'ruff)
 (setq-hook! 'python-ts-mode-hook +format-with 'ruff)
 
 (setq +python-ipython-repl-args '("-i" "--simple-prompt" "--no-color-info"))
 (setq +python-jupyter-repl-args '("--simple-prompt"))
 
 (after! eglot
-  (add-to-list 'eglot-server-programs
-               '(python-ts-mode "basedpyright-langserver" "--stdio"))
+  ;; Add basedpyright to eglot-server-programs
+  (set-eglot-client! '(python-mode python-ts-mode)
+                     "pylsp" "pyls"
+                     '("basedpyright-langserver" "--stdio")
+                     '("pyright-langserver" "--stdio")
+                     "ruff-lsp")
+  (setq eglot-ignored-server-capabilities
+        '(:hoverProvider
+          ;; :documentHighlightProvider
+          ;; :documentFormattingProvider
+          ;; :documentRangeFormattingProvider
+          ;; :documentOnTypeFormattingProvider
+          :colorProvider
+          :foldingRangeProvider))
+
   (setq-default flymake-show-diagnostics-at-end-of-line nil)
 
+  ;;; will add back later
+  ;; FIXED: Proper plist structure for eglot-workspace-configuration
   (setq-default eglot-workspace-configuration
                 '(:basedpyright
                   (:analysis
-                   (:diagnosticSeverityOverrides
-                    :reportUnusedImport "none"
-                    :reportUnusedVariable "none"
-                    :reportUnusedClass "none"
-                    :reportUnusedFunction "none"
-                    :reportUnusedCallResult "none"
-                    :reportMissingImports "warning"
-                    :reportUndefinedVariable "warning"
-                    :typeCheckingMode "recommended")
-                   ))))
+                   (:typeCheckingMode "recommended"
+                    :diagnosticSeverityOverrides
+                    (:reportUnusedVariable "none"
+                     :reportUnusedClass "none"
+                     :reportUnusedFunction "none"
+                     :reportUnusedCallResult "none"
+                     :reportMissingImports "warning"
+                     :reportUndefinedVariable "warning"))))))
 
 (use-package! flymake-ruff
   :after flymake
-  :hook (eglot-managed-mode . flymake-ruff-load)
-  :config
-  ;; Ensure ruff backend runs after eglot backend
-  ;; This way both backends coexist properly
-  (defun my/ensure-flymake-backends ()
-    "Ensure both eglot and ruff backends are active."
-    (when (and (bound-and-true-p eglot--managed-mode)
-               (not (memq 'flymake-ruff flymake-diagnostic-functions)))
-      (flymake-ruff-load)))
+  :hook (eglot-managed-mode . flymake-ruff-load))
+  ;;; will add later
+  ;; :config
+  ;; ;; Ensure ruff backend runs after eglot backend
+  ;; (defun my/ensure-flymake-backends ()
+  ;;   "Ensure both eglot and ruff backends are active."
+  ;;   (when (and (bound-and-true-p eglot--managed-mode)
+  ;;              (not (memq 'flymake-ruff flymake-diagnostic-functions)))
+  ;;     (flymake-ruff-load)))
 
-  (add-hook 'eglot-managed-mode-hook #'my/ensure-flymake-backends 90))
+  ;; (add-hook 'eglot-managed-mode-hook #'my/ensure-flymake-backends 90))
 
 (setq-default pdf-view-display-size 'fit-page)
 (add-hook! 'pdf-view-mode-hook #'pdf-view-midnight-minor-mode)
