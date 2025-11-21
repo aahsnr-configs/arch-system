@@ -46,6 +46,10 @@
 - [ ] Fonts from tecosaur
 - [ ] Emojis from tecosaur
 
+# Issues
+- [ ] Flymake and eldoc-box showing at the same time
+- [ ] eglot is not being enabled in org source blocks
+
 # Perform the following tasks in order
 - [ ] Org Mode Optimizations
 - [ ]

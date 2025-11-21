@@ -339,22 +339,19 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 * Development Tools
 ** Corfu
 #+begin_src emacs-lisp
-(after! corfu-popupinfo
- (setq corfu-popupinfo-hide t
-       corfu-popupinfo-max-width 80
-       corfu-popupinfo-max-height 20))
+(after! corfu
+  (corfu-popupinfo-mode -1))
 #+end_src
 
 ** Eldoc Box
 #+begin_src emacs-lisp
 (use-package! eldoc-box
-  :after eldoc
   :hook (eglot-managed-mode . eldoc-box-hover-mode)
   :init
   (setq eldoc-box-clear-with-C-g t
         eldoc-box-only-multi-line t
-        ;; eldoc-box-mouse-mode nil
-        ;; eldoc-box-hover-at-point-mode t
+        eldoc-box-mouse-mode nil
+        eldoc-box-hover-at-point-mode t  ;; Show at cursor point
         eldoc-idle-delay 0.3)
 
   :config
@@ -366,48 +363,330 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
         eldoc-box-max-pixel-height 400))
 #+end_src
 
+
 ** Jupyter
+*** Core Jupyter Setup
+Doom's =+jupyter= flag handles loading =ob-jupyter=. We configure default header
+arguments and ensure python blocks are overridden with jupyter-python for
+seamless execution.
+
 #+begin_src emacs-lisp
+;; ═══════════════════════════════════════════════════════════════════════════
+;; JUPYTER CORE CONFIGURATION
+;; ═══════════════════════════════════════════════════════════════════════════
+
 (after! ob-jupyter
-  ;; Basic configuration for jupyter-python blocks
+  ;; Default header arguments for jupyter-python blocks
   (setq org-babel-default-header-args:jupyter-python
         '((:async . "yes")
           (:session . "py")
-          (:kernel . "python3")))
+          (:kernel . "python3")
+          (:exports . "both")
+          (:results . "output")))
 
-  ;; IMPORTANT: Override python blocks with jupyter AFTER loading
-  ;; This must happen inside after! ob-jupyter for Doom's lazy loading
-  (org-babel-jupyter-override-src-block "python"))
+  ;; Override python blocks with jupyter AFTER ob-jupyter loads
+  ;; This lets you use #+begin_src python instead of jupyter-python
+  (org-babel-jupyter-override-src-block "python")
 
-;; Hook into Doom's lazy loading mechanism to ensure override happens
+  ;; Resource directory for images and other outputs
+  (setq org-babel-jupyter-resource-directory
+        (expand-file-name ".jupyter-resources/" org-directory))
+
+  ;; Pandoc integration for richer output rendering
+  (when (executable-find "pandoc")
+    (setq jupyter-org-pandoc-convertable
+          '("text/html" "text/markdown" "text/latex"))))
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; DOOM LAZY LOADING INTEGRATION
+;; ═══════════════════════════════════════════════════════════════════════════
+
+;; Ensure jupyter is properly loaded when executing python blocks
 (add-hook! '+org-babel-load-functions
-  (defun +org-babel-load-jupyter-and-override-h (lang)
-    "Load jupyter for python and override python blocks with jupyter."
+  (defun +jupyter-load-and-override-h (lang)
+    "Load jupyter for python and apply overrides."
     (when (eq lang 'python)
-      ;; Load ob-jupyter
       (require 'ob-jupyter nil t)
-      ;; Make local aliases
-      (org-babel-jupyter-make-local-aliases)
-      ;; Override python with jupyter-python
-      (org-babel-jupyter-override-src-block "python"))))
+      (when (featurep 'ob-jupyter)
+        (org-babel-jupyter-make-local-aliases)
+        (org-babel-jupyter-override-src-block "python")))))
+#+end_src
+
+*** Corfu Completion Compatibility
+Jupyter's built-in completion conflicts with Corfu. We remove it to prevent
+"wrong-type-argument markerp nil" errors while preserving LSP-based completion.
+
+#+begin_src emacs-lisp
+;; ═══════════════════════════════════════════════════════════════════════════
+;; CORFU COMPATIBILITY
+;; ═══════════════════════════════════════════════════════════════════════════
 
 (after! jupyter-org-client
-  ;; Remove jupyter completion to avoid conflict with Corfu
-  ;; This prevents "wrong-type-argument markerp nil" errors
   (defun +jupyter-disable-completion-h ()
-    "Remove jupyter-org-completion-at-point from completion functions."
-    (remove-hook 'completion-at-point-functions
-                 #'jupyter-org-completion-at-point
-                 t))
+    "Remove jupyter-org-completion-at-point to avoid Corfu conflicts."
+    (setq-local completion-at-point-functions
+                (delq 'jupyter-org-completion-at-point
+                      completion-at-point-functions)))
 
-  ;; Apply to org-mode buffers
+  ;; Apply to org-mode and when jupyter-org-interaction-mode activates
   (add-hook 'org-mode-hook #'+jupyter-disable-completion-h)
+  (add-hook 'jupyter-org-interaction-mode-hook #'+jupyter-disable-completion-h)
 
-  ;; Also disable when jupyter-org-interaction-mode activates
-  (add-hook 'jupyter-org-interaction-mode-hook #'+jupyter-disable-completion-h))
+  ;; Enable request queuing for better async behavior
+  (setq jupyter-org-queue-requests t))
+#+end_src
+
+*** LSP in Org Source Blocks (oglot-style)
+This implementation allows full Eglot LSP support when editing source blocks
+with =C-c '=. It requires:
+1. A =:tangle= header pointing to a real file
+2. The tangled file to exist (run =org-babel-tangle= first)
+3. The block content to appear exactly once in the tangled file
+
+#+begin_src emacs-lisp
+;; ═══════════════════════════════════════════════════════════════════════════
+;; LSP SUPPORT FOR ORG SOURCE BLOCKS
+;; ═══════════════════════════════════════════════════════════════════════════
+
+(defgroup +org-src-lsp nil
+  "LSP support for org source blocks via Eglot."
+  :group 'org)
+
+(defcustom +org-src-lsp-enabled-modes '(python-mode python-ts-mode)
+  "Major modes where LSP should be enabled in org-src buffers.
+Add modes here that you want to have LSP support when editing
+source blocks with `org-edit-special'."
+  :type '(repeat symbol)
+  :group '+org-src-lsp)
+
+(defun +org-src-lsp--edit-prep (info)
+  "Setup Eglot in org-src buffer using tangled file content.
+INFO is the return value of `org-babel-get-src-block-info'.
+
+This implements the oglot.el approach: load the tangled file into
+the org-src buffer, narrow to the current block, then start Eglot.
+The LSP server sees the complete file context for accurate analysis."
+  (let ((ok t)
+        (point (point))
+        (body (nth 1 info))
+        (params (nth 2 info))
+        filename)
+
+    ;; Verify we're in org-src-mode
+    (unless (bound-and-true-p org-src-mode)
+      (setq ok nil))
+
+    ;; Get tangle filename
+    (when ok
+      (setq filename (cdr (assq :tangle params)))
+      (when (or (null filename)
+                (string= filename "no")
+                (string= filename "yes"))
+        (setq ok nil)
+        (message "LSP requires :tangle header with explicit filename")))
+
+    ;; Expand filename relative to org file directory
+    (when ok
+      (when-let* ((beg-marker org-src--beg-marker)
+                  (org-buffer (marker-buffer beg-marker))
+                  ((buffer-live-p org-buffer))
+                  (org-file (buffer-file-name org-buffer))
+                  (org-dir (file-name-directory org-file)))
+        (setq filename (expand-file-name filename org-dir)))
+
+      ;; Check file exists and is readable
+      (unless (file-readable-p filename)
+        (setq ok nil)
+        (message "Tangled file %s not found - run org-babel-tangle first"
+                 (abbreviate-file-name filename))))
+
+    ;; Verify block appears exactly once in tangled file
+    (when ok
+      (with-temp-buffer
+        (insert-file-contents filename 'visit nil nil 'replace)
+        (goto-char (point-min))
+        (let ((count 0))
+          (while (search-forward body nil t)
+            (cl-incf count))
+          (cond
+           ((= count 0)
+            (setq ok nil)
+            (message "Block not found in %s - tangle may be outdated"
+                     (file-name-nondirectory filename)))
+           ((> count 1)
+            (setq ok nil)
+            (message "Block appears %d times in %s - cannot disambiguate"
+                     count (file-name-nondirectory filename)))))))
+
+    ;; Load tangled file, narrow to block, start Eglot
+    (when ok
+      (goto-char (point-min))
+      (insert-file-contents filename 'visit nil nil 'replace)
+      (search-forward body)
+
+      ;; Preserve cursor position within block
+      (goto-char (+ (match-beginning 0) (1- point)))
+
+      ;; Narrow to block region
+      (narrow-to-region (match-beginning 0) (match-end 0))
+
+      ;; Associate buffer with tangled file for LSP project detection
+      (setq-local buffer-file-name filename)
+
+      ;; Configure eldoc for org-src context
+      (setq-local eldoc-echo-area-use-multiline-p nil)
+
+      ;; Disable corfu-popupinfo to avoid display issues
+      (when (bound-and-true-p corfu-popupinfo-mode)
+        (corfu-popupinfo-mode -1))
+
+      ;; Start Eglot
+      (eglot-ensure))))
+
+;; Register edit-prep functions for Python variants
+(defun org-babel-edit-prep:python (info)
+  "Setup LSP for Python source blocks."
+  (+org-src-lsp--edit-prep info))
+
+(defun org-babel-edit-prep:jupyter-python (info)
+  "Setup LSP for Jupyter Python source blocks."
+  (+org-src-lsp--edit-prep info))
+
+;; ═══════════════════════════════════════════════════════════════════════════
+;; CLEANUP ON SAVE/EXIT
+;; ═══════════════════════════════════════════════════════════════════════════
+
+(defun +org-src-lsp--cleanup ()
+  "Remove hidden text before saving/exiting org-src buffer.
+When we load the tangled file and narrow, text outside the narrowed
+region must be deleted before writing back to the org file."
+  (when (and (bound-and-true-p org-src-mode)
+             (apply #'derived-mode-p +org-src-lsp-enabled-modes)
+             ;; Only cleanup if we have hidden content (buffer was widened)
+             (or (> (point-min) 1)
+                 (< (point-max) (buffer-size))))
+    (save-excursion
+      ;; Delete content before narrowed region
+      (let ((narrow-beg (point-min))
+            (narrow-end (point-max)))
+        (widen)
+        (delete-region (point-min) narrow-beg)
+        ;; Adjust for deleted content
+        (delete-region narrow-end (point-max))))))
+
+(advice-add 'org-edit-src-exit :before #'+org-src-lsp--cleanup)
+(advice-add 'org-edit-src-save :before #'+org-src-lsp--cleanup)
+#+end_src
+
+*** Comments Link Toggle
+The =:comments link= header argument adds markers in tangled files that help
+identify the source of each block. This is useful for debugging and keeping
+tangled files synchronized with the org file.
+
+#+begin_src emacs-lisp
+;; ═══════════════════════════════════════════════════════════════════════════
+;; COMMENTS LINK TOGGLE (from oglot.el)
+;; ═══════════════════════════════════════════════════════════════════════════
+
+(defconst +org-src-lsp--comments-link-re
+  "\\( :comments link\\)\\|\\( *$\\)"
+  "Regexp to match :comments link or end of header-args line.")
+
+(defun +org-src-lsp-toggle-comments-link ()
+  "Toggle :comments link in Python header-args property.
+When enabled, tangled files include comments linking back to the
+org file, which helps with synchronization and debugging."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (let ((ha-re "^[[:blank:]]*#\\+property:[[:blank:]]+header-args:python"))
+      (if (re-search-forward ha-re nil t)
+          (when (re-search-forward +org-src-lsp--comments-link-re (line-end-position) t)
+            (if (match-string 1)
+                (replace-match "")
+              (replace-match " :comments link"))
+            (org-ctrl-c-ctrl-c)
+            (message "Python :comments link %s"
+                     (if (match-string 1) "disabled" "enabled")))
+        (user-error "No Python header-args property found")))))
+#+end_src
+
+*** Helper Functions
+Utility functions for working with Jupyter and literate programming.
+
+#+begin_src emacs-lisp
+;; ═══════════════════════════════════════════════════════════════════════════
+;; HELPER FUNCTIONS
+;; ═══════════════════════════════════════════════════════════════════════════
+
+(defun +jupyter/tangle-and-edit ()
+  "Tangle current block then open for editing with LSP support.
+Use this when you want to ensure the tangled file is up-to-date
+before editing a source block."
+  (interactive)
+  (if (org-in-src-block-p)
+      (let ((lang (org-element-property :language (org-element-at-point))))
+        (message "Tangling %s blocks..." lang)
+        (org-babel-tangle nil nil lang)
+        (org-edit-special))
+    (user-error "Not in a source block")))
+
+(defun +jupyter/toggle-request-queuing ()
+  "Toggle client-side request queuing for Jupyter."
+  (interactive)
+  (setq jupyter-org-queue-requests (not jupyter-org-queue-requests))
+  (message "Jupyter request queuing: %s"
+           (if jupyter-org-queue-requests "ON" "OFF")))
+
+(defun +jupyter/verify-setup ()
+  "Verify Jupyter and python override configuration."
+  (interactive)
+  (let ((results '()))
+    ;; Check ob-jupyter
+    (push (format "ob-jupyter loaded: %s" (featurep 'ob-jupyter)) results)
+
+    ;; Check python override
+    (push (format "python->jupyter override: %s"
+                  (if (fboundp 'org-babel-execute:python)
+                      (let ((fn (symbol-function 'org-babel-execute:python)))
+                        (if (and (symbolp fn)
+                                 (string-match "jupyter" (symbol-name fn)))
+                            "YES"
+                          "NO (using ob-python)"))
+                    "NOT DEFINED"))
+          results)
+
+    ;; Check default header args
+    (push (format "Default session: %s"
+                  (or (cdr (assq :session org-babel-default-header-args:jupyter-python))
+                      "NOT SET"))
+          results)
+
+    ;; Check kernel
+    (push (format "Default kernel: %s"
+                  (or (cdr (assq :kernel org-babel-default-header-args:jupyter-python))
+                      "NOT SET"))
+          results)
+
+    (message "%s" (string-join (nreverse results) "\n"))))
+
+(defun +jupyter/refresh-and-verify ()
+  "Refresh kernelspecs and verify setup."
+  (interactive)
+  (jupyter-refresh-kernelspecs)
+  (+jupyter/verify-setup))
+#+end_src
+
+*** ANSI Color Support
+Apply ANSI color codes to babel results for colored terminal output.
+
+#+begin_src emacs-lisp
+;; ═══════════════════════════════════════════════════════════════════════════
+;; ANSI COLOR SUPPORT IN RESULTS
+;; ═══════════════════════════════════════════════════════════════════════════
 
 (defun +org-babel-ansi-colors-h ()
-  "Apply ANSI color codes to the current org-babel result block."
+  "Apply ANSI color codes in the current babel result block."
   (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
     (save-excursion
       (goto-char beg)
@@ -417,106 +696,38 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
           (ansi-color-apply-on-region beg end))))))
 
 (add-hook 'org-babel-after-execute-hook #'+org-babel-ansi-colors-h)
+#+end_src
 
-(defun +jupyter-org-scalar (value)
-  "Handle scalar values for raw output mode."
-  (cond
-   ((stringp value) value)
-   (t (jupyter-org-scalar value))))
+*** Keybindings
 
-(defvar +jupyter-raw-output-mode nil
-  "When non-nil, display raw jupyter output without post-processing.")
+#+begin_src emacs-lisp
+;; ═══════════════════════════════════════════════════════════════════════════
+;; KEYBINDINGS
+;; ═══════════════════════════════════════════════════════════════════════════
 
-(defadvice! +jupyter-org-scalar-around-a (orig-fn value)
-  "Conditionally enable raw output for jupyter results."
-  :around #'jupyter-org-scalar
-  (if +jupyter-raw-output-mode
-      (+jupyter-org-scalar value)
-    (funcall orig-fn value)))
+(map! :leader
+      (:prefix ("j" . "jupyter")
+       :desc "Refresh kernelspecs"       "r" #'jupyter-refresh-kernelspecs
+       :desc "Verify setup"              "v" #'+jupyter/verify-setup
+       :desc "Refresh & verify"          "V" #'+jupyter/refresh-and-verify
+       :desc "Toggle request queuing"    "q" #'+jupyter/toggle-request-queuing
+       :desc "Tangle & edit with LSP"    "e" #'+jupyter/tangle-and-edit
+       :desc "Toggle :comments link"     "c" #'+org-src-lsp-toggle-comments-link))
 
-(after! jupyter-org-client
-  ;; Enable client-side request queuing
-  ;; Prevents overwhelming the kernel with multiple simultaneous requests
-  (setq jupyter-org-queue-requests t))
-
-(after! ob-jupyter
-  ;; Set directory for auto-generated images and files
-  (setq org-babel-jupyter-resource-directory
-        (expand-file-name ".jupyter-resources/" org-directory)))
-
-(after! ob-jupyter
-  ;; Convert HTML/Markdown/LaTeX results to org format using pandoc
-  ;; Enable with :pandoc t header argument
-  (when (executable-find "pandoc")
-    (setq jupyter-org-pandoc-convertable '("text/html" "text/markdown" "text/latex"))))
-
-(defun +org-src-eglot-setup-h ()
-  "Enable Eglot in org-src-mode buffers that have tangle files.
-This sets buffer-file-name to the tangle target so LSP can properly
-identify the file and project context."
-  (when (and (boundp 'org-src-mode)
-             org-src-mode
-             (or (derived-mode-p 'python-ts-mode)
-                 (derived-mode-p 'python-mode)))
-    ;; Get source block info safely
-    (when-let* ((info (ignore-errors (org-babel-get-src-block-info)))
-                (params (nth 2 info))
-                (tangle-file (cdr (assq :tangle params))))
-
-      ;; Only proceed if tangle is set to a real file (not "no" or "nil")
-      (when (and tangle-file
-                 (stringp tangle-file)
-                 (not (member tangle-file '("no" "nil")))
-                 (not (string-empty-p tangle-file)))
-
-        ;; Resolve tangle file path relative to the org file
-        (when-let* ((org-buffer (and (boundp 'org-src--beg-marker)
-                                    org-src--beg-marker
-                                    (marker-buffer org-src--beg-marker)))
-                   (org-file (buffer-file-name org-buffer))
-                   (org-dir (file-name-directory org-file))
-                   (tangle-path (expand-file-name tangle-file org-dir)))
-
-          ;; Create tangle file and directory if they don't exist
-          (let ((tangle-dir (file-name-directory tangle-path)))
-            (unless (file-directory-p tangle-dir)
-              (make-directory tangle-dir t))
-            (unless (file-exists-p tangle-path)
-              (with-temp-file tangle-path
-                (insert (format "# Tangled from: %s\n" org-file)))))
-
-          ;; Set buffer-file-name so Eglot can identify the project/file
-          (setq-local buffer-file-name tangle-path)
-
-          ;; Disable problematic UI features in org-src buffers
-          (setq-local eldoc-echo-area-use-multiline-p nil
-                      eglot-autoshutdown nil)
-
-          ;; Start Eglot
-          (eglot-ensure))))))
-
-(add-hook 'org-src-mode-hook #'+org-src-eglot-setup-h)
-
-;; Toggle request queuing interactively
-(defun +jupyter/toggle-request-queuing ()
-  "Toggle jupyter-org-queue-requests on/off."
-  (interactive)
-  (setq jupyter-org-queue-requests (not jupyter-org-queue-requests))
-  (message "Jupyter request queuing: %s"
-           (if jupyter-org-queue-requests "ON" "OFF")))
-
-;; Verify python block override is working
-(defun +jupyter/verify-override ()
-  "Check if python blocks are properly overridden with jupyter."
-  (interactive)
-  (message "Python execute function: %s"
-           (if (fboundp 'org-babel-execute:python)
-               (symbol-function 'org-babel-execute:python)
-             "NOT FOUND"))
-  (message "Python header args: %s"
-           (if (boundp 'org-babel-default-header-args:python)
-               org-babel-default-header-args:python
-             "NOT SET")))
+;; Org-src-mode keybindings for LSP features
+(map! :after org-src
+      :map org-src-mode-map
+      :localleader
+      :desc "Exit and save"        "'" #'org-edit-src-exit
+      :desc "Abort edit"           "k" #'org-edit-src-abort
+      :desc "Save"                 "s" #'org-edit-src-save
+      (:prefix ("c" . "code/LSP")
+       :desc "Format buffer"       "=" #'apheleia-format-buffer
+       :desc "Code actions"        "a" #'eglot-code-actions
+       :desc "Rename"              "r" #'eglot-rename
+       :desc "Find definition"     "d" #'xref-find-definitions
+       :desc "Find references"     "R" #'xref-find-references
+       :desc "Show documentation"  "h" #'eldoc-box-help-at-point))
 #+end_src
 
 ** Version Control
@@ -550,104 +761,91 @@ identify the file and project context."
 (setq +python-jupyter-repl-args '("--simple-prompt"))
 #+end_src
 
-** EGLOT + BASEDPYRIGHT: Type checking and language server features
+** Eglot + Basedpyright
 #+begin_src emacs-lisp
- (after! eglot
-  ;; Use basedpyright as the LSP server for Python
-  ;; Basedpyright is a Pyright fork focused on type checking, type inference,
-  ;; and module resolution - core language server features
+(after! eglot
+
   (set-eglot-client! '(python-mode python-ts-mode)
-                     '("basedpyright-langserver" "--stdio"))
+                     "pylsp" "pyls"
+                     '("basedpyright-langserver" "--stdio")
+                     '("pyright-langserver" "--stdio")
+                     '("pyrefly" "lsp")
+                     "jedi-language-server"
+                     '("ruff" "server")
+                     "ruff-lsp")
 
-  ;;; Delegate capabilities to specialized tools
-  ;; These capabilities are better handled by dedicated Emacs packages:
-  (setq eglot-ignored-server-capabilities
-        '(:hoverProvider                      ; â†’ eldoc + eldoc-box handles documentation
-          :documentFormattingProvider         ; â†’ apheleia + ruff handles formatting
-          :documentRangeFormattingProvider    ; â†’ apheleia + ruff handles range formatting
-          :documentOnTypeFormattingProvider   ; â†’ apheleia + ruff handles on-type formatting
-          :foldingRangeProvider))             ; â†’ tree-sitter handles code folding
+ (setq eglot-ignored-server-capabilities
+       '(:hoverProvider
+         :documentFormattingProvider
+         :documentRangeFormattingProvider
+         :documentOnTypeFormattingProvider
+         :foldingRangeProvider))
 
-  ;;; Keep enabled (handled by eglot):
-  ;; - :documentHighlightProvider (highlights symbol occurrences)
-  ;; - :completionProvider (code completion)
-  ;; - :definitionProvider (go-to-definition)
-  ;; - :referencesProvider (find references)
-  ;; - :renameProvider (rename symbols)
-  ;; - :codeActionProvider (code actions/quickfixes)
-  ;; - :signatureHelpProvider (function signatures)
+ (setq-default eglot-workspace-configuration
+               '(:basedpyright
+                 (:analysis
+                  (:typeCheckingMode "recommended"  ; Balance between strict and permissive
 
-  ;;; Basedpyright Configuration: Focus on TYPE CHECKING ONLY
-  ;; Division of labor:
-  ;; BASEDPYRIGHT handles: Types, module resolution, type stubs, type inference
-  ;; RUFF handles: Linting, code style, unused code, syntax errors, import sorting
-  (setq-default eglot-workspace-configuration
-                '(:basedpyright
-                  (:analysis
-                   (:typeCheckingMode "recommended"  ; Balance between strict and permissive
+                   :diagnosticSeverityOverrides
+                   (:reportUnusedImport "none"
+                    :reportUnusedVariable "none"
+                    :reportUnusedClass "none"
+                    :reportUnusedFunction "none"
+                    :reportUnusedCallResult "none"
 
-                    :diagnosticSeverityOverrides
-                    (;; Unused code detection â†’ Ruff handles via F401, F841 rules
-                     :reportUnusedImport "none"
-                     :reportUnusedVariable "none"
-                     :reportUnusedClass "none"
-                     :reportUnusedFunction "none"
-                     :reportUnusedCallResult "none"
+                    ;; Module and import analysis
+                    :reportMissingImports "warning"              ; Can't find module
+                    :reportMissingModuleSource "warning"         ; Stub exists but no source
 
-                     ;; Module and import analysis
-                     :reportMissingImports "warning"              ; Can't find module
-                     :reportMissingModuleSource "warning"         ; Stub exists but no source
+                    ;; Type consistency and safety
+                    :reportUndefinedVariable "warning"           ; Variable not defined
+                    :reportIncompatibleMethodOverride "warning"  ; Method signature mismatch
+                    :reportIncompatibleVariableOverride "warning"; Variable type mismatch
+                    :reportAttributeAccessIssue "warning"        ; Invalid attribute access
 
-                     ;; Type consistency and safety
-                     :reportUndefinedVariable "warning"           ; Variable not defined
-                     :reportIncompatibleMethodOverride "warning"  ; Method signature mismatch
-                     :reportIncompatibleVariableOverride "warning"; Variable type mismatch
-                     :reportAttributeAccessIssue "warning"        ; Invalid attribute access
+                    ;; Type stub and annotation support
+                    :reportMissingTypeStubs "none"              ; Warning if stubs missing (can be noisy)
+                    :reportMissingTypeArgument "warning"        ; Generic without type args
 
-                     ;; Type stub and annotation support
-                     :reportMissingTypeStubs "none"              ; Warning if stubs missing (can be noisy)
-                     :reportMissingTypeArgument "warning"        ; Generic without type args
+                    ;; Reduced noise from gradual typing
+                    :reportUnknownMemberType "none"             ; Unknown member types (gradual typing)
+                    :reportUnknownParameterType "none"          ; Unknown param types (gradual typing)
+                    :reportUnknownVariableType "none"           ; Unknown var types (gradual typing)
+                    :reportUnknownArgumentType "none")))))      ; Unknown arg types (gradual typing)
 
-                     ;; Reduced noise from gradual typing
-                     :reportUnknownMemberType "none"             ; Unknown member types (gradual typing)
-                     :reportUnknownParameterType "none"          ; Unknown param types (gradual typing)
-                     :reportUnknownVariableType "none"           ; Unknown var types (gradual typing)
-                     :reportUnknownArgumentType "none")))))      ; Unknown arg types (gradual typing)
-
-  ;; This ensures diagnostics from both eglot (basedpyright) and flymake (ruff)
-  ;; are shown through eldoc-box at point, avoiding duplicate popups
+  ;; Configure eldoc and flymake to work together properly
   (add-hook 'eglot-managed-mode-hook
             (lambda ()
+              ;; Disable flymake's native diagnostic display mechanisms
+              Flymake can show diagnostics at the end of lines via `flymake-show-diagnostics-at-end-of-line`, which should be disabled
+              (setq-local flymake-show-diagnostics-at-end-of-line nil)
+
               ;; Prioritize flymake-eldoc-function for diagnostics display
-              (setq eldoc-documentation-functions
-                    (cons #'flymake-eldoc-function
-                          (remove #'flymake-eldoc-function eldoc-documentation-functions)))
+              ;; This ensures flymake diagnostics appear first in eldoc
+              (setq-local eldoc-documentation-functions
+                          (cons #'flymake-eldoc-function
+                                (remove #'flymake-eldoc-function eldoc-documentation-functions)))
+
               ;; Use compose strategy to show all available documentation
-              (setq-local eldoc-documentation-strategy #'eldoc-documentation-compose))))
+              (setq-local eldoc-documentation-strategy #'eldoc-documentation-compose)
+
+              ;; Disable corfu-popupinfo to avoid display issues
+              (when (bound-and-true-p corfu-popupinfo-mode)
+                (corfu-popupinfo-mode -1))))
+
+
+ )
 #+end_src
 
 ** RUFF: Fast linting via Flymake backend
 #+begin_src emacs-lisp
-;; Ruff's responsibilities:
-;; - Code style enforcement (PEP 8 via pycodestyle rules)
-;; - Unused imports/variables (F401, F841, etc.)
-;; - Syntax error detection
-;; - Import organization and sorting (isort-equivalent)
-;; - Code complexity checks (McCabe, etc.)
-;; - Common bug patterns (flake8-bugbear equivalent)
-;; - Security issues (bandit-equivalent)
-;; - 800+ built-in rules from Flake8 ecosystem
 (use-package! flymake-ruff
   :after flymake
   :hook (eglot-managed-mode . flymake-ruff-load))
 
-;; Configure flymake to work harmoniously with eldoc-box
-;; - Diagnostics shown via eldoc-box at point (not inline at end of line)
-;; - Fringe indicators for quick visual feedback
-;; - Fast responsiveness for immediate feedback
 (after! flymake
-  (setq flymake-show-diagnostics-at-end-of-line nil
-        flymake-indicator-type 'fringes
+  (setq flymake-show-diagnostics-at-end-of-line nil  ;; Disable end-of-line diagnostics
+        flymake-indicator-type 'fringes               ;; Only show in fringes
         flymake-no-changes-timeout 0.5
         flymake-start-on-save-buffer t))
 #+end_src
