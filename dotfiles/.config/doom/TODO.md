@@ -47,7 +47,8 @@
 - [ ] Emojis from tecosaur
 
 # Issues
-- [ ] Flymake and eldoc-box showing at the same time
+- [x] Flymake and eldoc-box showing at the same time
+- [ ] Some diagnostics still appear below the modeline when the mouse is placed on an error/warning
 - [ ] eglot is not being enabled in org source blocks
 
 # Perform the following tasks in order

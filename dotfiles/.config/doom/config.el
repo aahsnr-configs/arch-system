@@ -283,21 +283,28 @@
   (corfu-popupinfo-mode -1))
 
 (use-package! eldoc-box
-  :hook (eglot-managed-mode . eldoc-box-hover-mode)
-  :init
-  (setq eldoc-box-clear-with-C-g t
-        eldoc-box-only-multi-line t
-        eldoc-box-mouse-mode nil
-        eldoc-box-hover-at-point-mode t  ;; Show at cursor point
-        eldoc-idle-delay 0.3)
+  :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
+  ;; :init
+  ;; (setq eldoc-box-clear-with-C-g t
+  ;;       eldoc-box-only-multi-line t
+  ;;       eldoc-idle-delay 0.3)
 
   :config
   (custom-set-faces!
-   '(eldoc-box-body :background "#313244"
-                    :foreground "#cdd6f4")
+   '(eldoc-box-body :background "#313244" :foreground "#cdd6f4")
    '(eldoc-box-border :background "#45475a"))
+
   (setq eldoc-box-max-pixel-width 800
         eldoc-box-max-pixel-height 400))
+
+;;; Disable flymake-popon in favor of eldoc-box
+(after! flymake-popon
+  ;; Remove the hook that automatically enables flymake-popon-mode
+  (remove-hook 'flymake-mode-hook #'flymake-popon-mode)
+
+  ;; If flymake-popon-mode is already active, turn it off globally
+  (when (fboundp 'global-flymake-popon-mode)
+    (global-flymake-popon-mode -1)))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;; JUPYTER CORE CONFIGURATION
@@ -633,8 +640,9 @@ before editing a source block."
 (after! vertico
   (setq vertico-count 10))
 
-(setq-hook! 'python-mode-hook +format-with 'ruff)
-(setq-hook! 'python-ts-mode-hook +format-with 'ruff)
+(after! apheleia
+  (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff))
+  (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff-isort ruff)))
 
 (setq +python-ipython-repl-args '("-i" "--simple-prompt" "--no-color-info"))
 (setq +python-jupyter-repl-args '("--simple-prompt"))
@@ -692,24 +700,13 @@ before editing a source block."
   ;; Configure eldoc and flymake to work together properly
   (add-hook 'eglot-managed-mode-hook
             (lambda ()
-              ;; Disable flymake's native diagnostic display mechanisms
-              Flymake can show diagnostics at the end of lines via `flymake-show-diagnostics-at-end-of-line`, which should be disabled
-              (setq-local flymake-show-diagnostics-at-end-of-line nil)
-
-              ;; Prioritize flymake-eldoc-function for diagnostics display
-              ;; This ensures flymake diagnostics appear first in eldoc
+              ;; Prioritize flymake diagnostics in eldoc
               (setq-local eldoc-documentation-functions
                           (cons #'flymake-eldoc-function
                                 (remove #'flymake-eldoc-function eldoc-documentation-functions)))
 
-              ;; Use compose strategy to show all available documentation
-              (setq-local eldoc-documentation-strategy #'eldoc-documentation-compose)
-
-              ;; Disable corfu-popupinfo to avoid display issues
-              (when (bound-and-true-p corfu-popupinfo-mode)
-                (corfu-popupinfo-mode -1))))
-
-
+              ;; Use compose strategy to show all documentation
+              (setq-local eldoc-documentation-strategy #'eldoc-documentation-compose)))
  )
 
 (use-package! flymake-ruff
