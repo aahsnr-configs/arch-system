@@ -337,42 +337,6 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 #+end_src
 
 * Development Tools
-** Corfu
-#+begin_src emacs-lisp
-(after! corfu
-  (corfu-popupinfo-mode -1))
-#+end_src
-
-** Eldoc Box
-#+begin_src emacs-lisp
-(use-package! eldoc-box
-  :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
-  ;; :init
-  ;; (setq eldoc-box-clear-with-C-g t
-  ;;       eldoc-box-only-multi-line t
-  ;;       eldoc-idle-delay 0.3)
-
-  :config
-  (custom-set-faces!
-   '(eldoc-box-body :background "#313244" :foreground "#cdd6f4")
-   '(eldoc-box-border :background "#45475a"))
-
-  (setq eldoc-box-max-pixel-width 800
-        eldoc-box-max-pixel-height 400))
-#+end_src
-
-** Flymake Popon
-#+begin_src emacs-lisp
-;;; Disable flymake-popon in favor of eldoc-box
-(after! flymake-popon
-  ;; Remove the hook that automatically enables flymake-popon-mode
-  (remove-hook 'flymake-mode-hook #'flymake-popon-mode)
-
-  ;; If flymake-popon-mode is already active, turn it off globally
-  (when (fboundp 'global-flymake-popon-mode)
-    (global-flymake-popon-mode -1)))
-#+end_src
-
 ** Jupyter
 *** Core Jupyter Setup
 Doom's =+jupyter= flag handles loading =ob-jupyter=. We configure default header
@@ -380,10 +344,6 @@ arguments and ensure python blocks are overridden with jupyter-python for
 seamless execution.
 
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; JUPYTER CORE CONFIGURATION
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (after! ob-jupyter
   ;; Default header arguments for jupyter-python blocks
   (setq org-babel-default-header-args:jupyter-python
@@ -406,10 +366,6 @@ seamless execution.
     (setq jupyter-org-pandoc-convertable
           '("text/html" "text/markdown" "text/latex"))))
 
-;; ═══════════════════════════════════════════════════════════════════════════
-;; DOOM LAZY LOADING INTEGRATION
-;; ═══════════════════════════════════════════════════════════════════════════
-
 ;; Ensure jupyter is properly loaded when executing python blocks
 (add-hook! '+org-babel-load-functions
   (defun +jupyter-load-and-override-h (lang)
@@ -426,10 +382,6 @@ Jupyter's built-in completion conflicts with Corfu. We remove it to prevent
 "wrong-type-argument markerp nil" errors while preserving LSP-based completion.
 
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; CORFU COMPATIBILITY
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (after! jupyter-org-client
   (defun +jupyter-disable-completion-h ()
     "Remove jupyter-org-completion-at-point to avoid Corfu conflicts."
@@ -453,10 +405,6 @@ with =C-c '=. It requires:
 3. The block content to appear exactly once in the tangled file
 
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; LSP SUPPORT FOR ORG SOURCE BLOCKS
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (defgroup +org-src-lsp nil
   "LSP support for org source blocks via Eglot."
   :group 'org)
@@ -561,9 +509,6 @@ The LSP server sees the complete file context for accurate analysis."
   "Setup LSP for Jupyter Python source blocks."
   (+org-src-lsp--edit-prep info))
 
-;; ═══════════════════════════════════════════════════════════════════════════
-;; CLEANUP ON SAVE/EXIT
-;; ═══════════════════════════════════════════════════════════════════════════
 
 (defun +org-src-lsp--cleanup ()
   "Remove hidden text before saving/exiting org-src buffer.
@@ -593,10 +538,6 @@ identify the source of each block. This is useful for debugging and keeping
 tangled files synchronized with the org file.
 
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; COMMENTS LINK TOGGLE (from oglot.el)
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (defconst +org-src-lsp--comments-link-re
   "\\( :comments link\\)\\|\\( *$\\)"
   "Regexp to match :comments link or end of header-args line.")
@@ -624,10 +565,6 @@ org file, which helps with synchronization and debugging."
 Utility functions for working with Jupyter and literate programming.
 
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; HELPER FUNCTIONS
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (defun +jupyter/tangle-and-edit ()
   "Tangle current block then open for editing with LSP support.
 Use this when you want to ensure the tangled file is up-to-date
@@ -690,10 +627,6 @@ before editing a source block."
 Apply ANSI color codes to babel results for colored terminal output.
 
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; ANSI COLOR SUPPORT IN RESULTS
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (defun +org-babel-ansi-colors-h ()
   "Apply ANSI color codes in the current babel result block."
   (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
@@ -710,10 +643,6 @@ Apply ANSI color codes to babel results for colored terminal output.
 *** Keybindings
 
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; KEYBINDINGS
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (map! :leader
       (:prefix ("j" . "jupyter")
        :desc "Refresh kernelspecs"       "r" #'jupyter-refresh-kernelspecs
@@ -757,6 +686,32 @@ Apply ANSI color codes to babel results for colored terminal output.
   (setq vertico-count 10))
 #+end_src
 
+** LSP Bridge
+#+begin_src emacs-lisp
+(use-package! lsp-bridge
+  :config
+  (global-lsp-bridge-mode)
+
+  ;; This provides: basedpyright for completion/navigation + ruff for linting/formatting
+  (setq lsp-bridge-python-multi-lsp-server "basedpyright_ruff"
+        lsp-bridge-tex-lsp-server "texlab"
+        lsp-bridge-nix-lsp-server "nil"
+        lsp-bridge-org-babel-lang-list nil)
+
+  ;; Asynchronous Completion
+  (setq acm-enable-doc nil
+        acm-enable-jupyter t
+        acm-enable-doc-markdown-render 'async
+        acm-enable-icon t
+        acm-candidate-match-function 'orderless-literal
+        acm-backend-search-file-words-enable-fuzzy-match t)
+
+  (setq lsp-bridge-enable-hover-diagnostic t
+        lsp-bridge-enable-auto-format-code t
+        lsp-bridge-enable-org-babel t))
+#+end_src
+
+
 * Python Programming
 ** Formatting: Use Ruff as the primary formatter
 #+begin_src emacs-lisp
@@ -769,84 +724,6 @@ Apply ANSI color codes to babel results for colored terminal output.
 #+begin_src emacs-lisp
 (setq +python-ipython-repl-args '("-i" "--simple-prompt" "--no-color-info"))
 (setq +python-jupyter-repl-args '("--simple-prompt"))
-#+end_src
-
-** Eglot + Basedpyright
-#+begin_src emacs-lisp
-(after! eglot
-
-  (set-eglot-client! '(python-mode python-ts-mode)
-                     "pylsp" "pyls"
-                     '("basedpyright-langserver" "--stdio")
-                     '("pyright-langserver" "--stdio")
-                     '("pyrefly" "lsp")
-                     "jedi-language-server"
-                     '("ruff" "server")
-                     "ruff-lsp")
-
- (setq eglot-ignored-server-capabilities
-       '(:hoverProvider
-         :documentFormattingProvider
-         :documentRangeFormattingProvider
-         :documentOnTypeFormattingProvider
-         :foldingRangeProvider))
-
- (setq-default eglot-workspace-configuration
-               '(:basedpyright
-                 (:analysis
-                  (:typeCheckingMode "recommended"  ; Balance between strict and permissive
-
-                   :diagnosticSeverityOverrides
-                   (:reportUnusedImport "none"
-                    :reportUnusedVariable "none"
-                    :reportUnusedClass "none"
-                    :reportUnusedFunction "none"
-                    :reportUnusedCallResult "none"
-
-                    ;; Module and import analysis
-                    :reportMissingImports "warning"              ; Can't find module
-                    :reportMissingModuleSource "warning"         ; Stub exists but no source
-
-                    ;; Type consistency and safety
-                    :reportUndefinedVariable "warning"           ; Variable not defined
-                    :reportIncompatibleMethodOverride "warning"  ; Method signature mismatch
-                    :reportIncompatibleVariableOverride "warning"; Variable type mismatch
-                    :reportAttributeAccessIssue "warning"        ; Invalid attribute access
-
-                    ;; Type stub and annotation support
-                    :reportMissingTypeStubs "none"              ; Warning if stubs missing (can be noisy)
-                    :reportMissingTypeArgument "warning"        ; Generic without type args
-
-                    ;; Reduced noise from gradual typing
-                    :reportUnknownMemberType "none"             ; Unknown member types (gradual typing)
-                    :reportUnknownParameterType "none"          ; Unknown param types (gradual typing)
-                    :reportUnknownVariableType "none"           ; Unknown var types (gradual typing)
-                    :reportUnknownArgumentType "none")))))      ; Unknown arg types (gradual typing)
-
-  ;; Configure eldoc and flymake to work together properly
-  (add-hook 'eglot-managed-mode-hook
-            (lambda ()
-              ;; Prioritize flymake diagnostics in eldoc
-              (setq-local eldoc-documentation-functions
-                          (cons #'flymake-eldoc-function
-                                (remove #'flymake-eldoc-function eldoc-documentation-functions)))
-
-              ;; Use compose strategy to show all documentation
-              (setq-local eldoc-documentation-strategy #'eldoc-documentation-compose)))
- )
-#+end_src
-
-** RUFF: Fast linting via Flymake backend
-#+begin_src emacs-lisp
-(use-package! flymake-ruff
-  :after flymake
-  :hook (eglot-managed-mode . flymake-ruff-load))
-
-(after! flymake
-  (setq flymake-show-diagnostics-at-end-of-line nil  ;; Disable end-of-line diagnostics
-        flymake-indicator-type 'fringes               ;; Only show in fringes
-        flymake-no-changes-timeout 0.5
-        flymake-start-on-save-buffer t))
 #+end_src
 
 * LaTeX

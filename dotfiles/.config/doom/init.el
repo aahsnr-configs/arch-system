@@ -21,10 +21,6 @@
        ;;layout            ; auie,ctsrnm is the superior home row
 
        :completion
-       (corfu
-        +icons
-        +orderless
-        +dabbrev)
        ;;company           ; the ultimate code completion backend
        ;;helm              ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
@@ -91,9 +87,6 @@
        vterm             ; the best terminal emulation in Emacs
 
        :checkers
-       (syntax
-        +flymake
-        +icons)
        ;;(spell +flyspell) ; tasing you for misspelling mispelling
        ;;grammar           ; tasing grammar mistake every you make
 
@@ -109,9 +102,6 @@
        lookup              ; navigate your code and its documentation
        ;;llm                 ; when I said you needed friends, I didn't mean...
        (magit +forge)
-       (lsp
-        +eglot
-        +booster)
        ;;make              ; run make tasks from Emacs
        ;;pass              ; password manager for nerds
        pdf                 ; pdf enhancements
@@ -160,7 +150,6 @@
        ;;kotlin            ; a better, slicker Java(Script)
        (latex
         +cdlatex
-        +lsp
         +fold)
        ;;lean              ; for folks with too much to prove
        ;;ledger            ; be audit you can be
@@ -168,7 +157,6 @@
        markdown            ; writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
        (nix
-        +lsp
         +tree-sitter)
        ;;ocaml             ; an objective camel
        (org
@@ -184,10 +172,8 @@
        ;;graphviz          ; diagrams for confusing yourself even more
        ;;purescript        ; javascript, but functional
        (python
-        +lsp
         +tree-sitter)
        (qt
-        +lsp
         +tree-sitter)
        ;;racket            ; a DSL for DSLs
        ;;raku              ; the artist formerly known as perl6
