@@ -39,6 +39,7 @@
 (package! jinx)
 (package! flymake-ruff)
 (package! eldoc-box)
+(package! oglot :recipe (:host github :repo "gav451/oglot"))
 
 ;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ;;; Unpinned Packages

@@ -284,10 +284,9 @@
 
 (use-package! eldoc-box
   :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
-  ;; :init
-  ;; (setq eldoc-box-clear-with-C-g t
-  ;;       eldoc-box-only-multi-line t
-  ;;       eldoc-idle-delay 0.3)
+  :init
+  (setq eldoc-box-clear-with-C-g t
+        eldoc-box-only-multi-line t)
 
   :config
   (custom-set-faces!
@@ -352,161 +351,6 @@
   ;; Enable request queuing for better async behavior
   (setq jupyter-org-queue-requests t))
 
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-;; LSP IN ORG SOURCE BLOCKS (ROBUST FIX)
-;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-(defgroup +org-src-lsp nil
-  "LSP support for org source blocks via Eglot."
-  :group 'org)
-
-;; 1. UTILITY: FORCE PROJECT ROOT
-;; Eglot/Basedpyright often refuses to start if it can't find a .git root.
-;; We force the tangled file's directory to be treated as a project.
-(defun +org-src-lsp--simple-project (dir)
-  (let ((root (expand-file-name dir)))
-    (list 'vc 'Git root))) ;; Pretend it's a Git root to satisfy Eglot
-
-(defun +org-src-lsp--make-project-aware (dir)
-  "Force project.el to see DIR as a project root locally."
-  (setq-local project-find-functions
-              (cons (lambda (d)
-                      (when (string-prefix-p dir d)
-                        (list 'vc 'Git dir)))
-                    project-find-functions)))
-
-;; 2. EDIT PREP FUNCTION
-(defun +org-src-lsp--edit-prep (info)
-  "Setup Eglot in org-src buffer using tangled file content."
-  (let ((ok t)
-        (point (point))
-        (body (nth 1 info))
-        (params (nth 2 info))
-        filename)
-
-    ;; 2.1 Get tangle filename
-    (when ok
-      (setq filename (cdr (assq :tangle params)))
-      (when (or (null filename) (member filename '("no" "yes")))
-        (setq ok nil)))
-
-    ;; 2.2 Expand filename relative to original org buffer
-    (when ok
-      (when-let* ((beg-marker org-src--beg-marker)
-                  (org-buffer (marker-buffer beg-marker))
-                  ((buffer-live-p org-buffer))
-                  (org-file (buffer-file-name org-buffer))
-                  (org-dir (file-name-directory org-file)))
-        (setq filename (expand-file-name filename org-dir)))
-
-      (unless (file-readable-p filename)
-        (setq ok nil)
-        (message "Tangled file %s not found - run org-babel-tangle first" filename)))
-
-    ;; 2.3 Load file and setup Eglot
-    (when ok
-      ;; Prevent Doom hooks from messing up our state
-      (remove-hook 'after-change-major-mode-hook #'+lsp-init-eglot-h t)
-
-      (erase-buffer)
-      (insert-file-contents filename 'visit nil nil 'replace)
-      (goto-char (point-min))
-
-      (if (search-forward body nil t)
-          (progn
-            ;; Narrow to the specific block
-            (goto-char (+ (match-beginning 0) (1- point)))
-            (narrow-to-region (match-beginning 0) (match-end 0))
-
-            ;; CRITICAL 1: Set the filename
-            (setq-local buffer-file-name filename)
-
-            ;; CRITICAL 2: Force project recognition
-            (+org-src-lsp--make-project-aware (file-name-directory filename))
-
-            ;; CRITICAL 3: Reset Eglot state (in case auto-start failed)
-            (setq-local eglot--managed-mode nil)
-            (setq-local eglot--current-server nil)
-
-            ;; UI Fixes
-            (setq-local eldoc-echo-area-use-multiline-p nil)
-            (when (bound-and-true-p corfu-popupinfo-mode)
-              (corfu-popupinfo-mode -1))
-
-            ;; Start Eglot
-            (message "Attempting to start Eglot for %s..." (file-name-nondirectory filename))
-            (condition-case err
-                (progn
-                  (eglot-ensure)
-                  (message "LSP started successfully."))
-              (error (message "LSP Failed to start: %s" err))))
-
-        (message "Block content not found in tangled file.")))))
-
-;; 3. HOOKS
-;; We hook into both python and jupyter-python
-(defun org-babel-edit-prep:python (info)
-  (+org-src-lsp--edit-prep info))
-
-;; Also alias for jupyter-python in case the override changes the symbol
-(defalias 'org-babel-edit-prep:jupyter-python 'org-babel-edit-prep:python)
-
-;; 4. CLEANUP ON EXIT
-(defun +org-src-lsp--cleanup ()
-  "Remove hidden text before saving/exiting org-src buffer."
-  (when (and (bound-and-true-p org-src-mode)
-             (apply #'derived-mode-p +org-src-lsp-enabled-modes)
-             (buffer-file-name)
-             (or (> (point-min) 1)
-                 (< (point-max) (buffer-size))))
-    (save-excursion
-      (let ((narrow-beg (point-min))
-            (narrow-end (point-max)))
-        (widen)
-        (delete-region (point-min) narrow-beg)
-        (delete-region narrow-end (point-max))))))
-
-(advice-add 'org-edit-src-exit :before #'+org-src-lsp--cleanup)
-(advice-add 'org-edit-src-save :before #'+org-src-lsp--cleanup)
-
-;; 5. SUPPRESS NOISY ERRORS
-;; This advice is still useful to prevent minibuffer spam
-(defun +suppress-jsonrpc-error-a (fn &rest args)
-  (condition-case nil
-      (apply fn args)
-    (jsonrpc-error nil)))
-(advice-add 'eglot--current-server-or-lose :around #'+suppress-jsonrpc-error-a)
-
-;; ═══════════════════════════════════════════════════════════════════════════
-;; COMMENTS LINK TOGGLE (from oglot.el)
-;; ═══════════════════════════════════════════════════════════════════════════
-
-(defconst +org-src-lsp--comments-link-re
-  "\\( :comments link\\)\\|\\( *$\\)"
-  "Regexp to match :comments link or end of header-args line.")
-
-(defun +org-src-lsp-toggle-comments-link ()
-  "Toggle :comments link in Python header-args property.
-When enabled, tangled files include comments linking back to the
-org file, which helps with synchronization and debugging."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (let ((ha-re "^[[:blank:]]*#\\+property:[[:blank:]]+header-args:python"))
-      (if (re-search-forward ha-re nil t)
-          (when (re-search-forward +org-src-lsp--comments-link-re (line-end-position) t)
-            (if (match-string 1)
-                (replace-match "")
-              (replace-match " :comments link"))
-            (org-ctrl-c-ctrl-c)
-            (message "Python :comments link %s"
-                     (if (match-string 1) "disabled" "enabled")))
-        (user-error "No Python header-args property found")))))
-
-;; ═══════════════════════════════════════════════════════════════════════════
-;; HELPER FUNCTIONS
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (defun +jupyter/tangle-and-edit ()
   "Tangle current block then open for editing with LSP support.
 Use this when you want to ensure the tangled file is up-to-date
@@ -564,10 +408,6 @@ before editing a source block."
   (jupyter-refresh-kernelspecs)
   (+jupyter/verify-setup))
 
-;; ═══════════════════════════════════════════════════════════════════════════
-;; ANSI COLOR SUPPORT IN RESULTS
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (defun +org-babel-ansi-colors-h ()
   "Apply ANSI color codes in the current babel result block."
   (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
@@ -579,10 +419,6 @@ before editing a source block."
           (ansi-color-apply-on-region beg end))))))
 
 (add-hook 'org-babel-after-execute-hook #'+org-babel-ansi-colors-h)
-
-;; ═══════════════════════════════════════════════════════════════════════════
-;; KEYBINDINGS
-;; ═══════════════════════════════════════════════════════════════════════════
 
 (map! :leader
       (:prefix ("j" . "jupyter")

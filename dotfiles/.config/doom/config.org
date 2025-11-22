@@ -347,10 +347,9 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 #+begin_src emacs-lisp
 (use-package! eldoc-box
   :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
-  ;; :init
-  ;; (setq eldoc-box-clear-with-C-g t
-  ;;       eldoc-box-only-multi-line t
-  ;;       eldoc-idle-delay 0.3)
+  :init
+  (setq eldoc-box-clear-with-C-g t
+        eldoc-box-only-multi-line t)
 
   :config
   (custom-set-faces!
@@ -375,15 +374,7 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 
 ** Jupyter
 *** Core Jupyter Setup
-Doom's =+jupyter= flag handles loading =ob-jupyter=. We configure default header
-arguments and ensure python blocks are overridden with jupyter-python for
-seamless execution.
-
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; JUPYTER CORE CONFIGURATION
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (after! ob-jupyter
   ;; Default header arguments for jupyter-python blocks
   (setq org-babel-default-header-args:jupyter-python
@@ -406,10 +397,6 @@ seamless execution.
     (setq jupyter-org-pandoc-convertable
           '("text/html" "text/markdown" "text/latex"))))
 
-;; ═══════════════════════════════════════════════════════════════════════════
-;; DOOM LAZY LOADING INTEGRATION
-;; ═══════════════════════════════════════════════════════════════════════════
-
 ;; Ensure jupyter is properly loaded when executing python blocks
 (add-hook! '+org-babel-load-functions
   (defun +jupyter-load-and-override-h (lang)
@@ -422,14 +409,7 @@ seamless execution.
 #+end_src
 
 *** Corfu Completion Compatibility
-Jupyter's built-in completion conflicts with Corfu. We remove it to prevent
-"wrong-type-argument markerp nil" errors while preserving LSP-based completion.
-
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; CORFU COMPATIBILITY
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (after! jupyter-org-client
   (defun +jupyter-disable-completion-h ()
     "Remove jupyter-org-completion-at-point to avoid Corfu conflicts."
@@ -445,189 +425,8 @@ Jupyter's built-in completion conflicts with Corfu. We remove it to prevent
   (setq jupyter-org-queue-requests t))
 #+end_src
 
-*** LSP in Org Source Blocks (oglot-style)
-This implementation allows full Eglot LSP support when editing source blocks
-with =C-c '=. It requires:
-1. A =:tangle= header pointing to a real file
-2. The tangled file to exist (run =org-babel-tangle= first)
-3. The block content to appear exactly once in the tangled file
-
-#+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; LSP SUPPORT FOR ORG SOURCE BLOCKS
-;; ═══════════════════════════════════════════════════════════════════════════
-
-(defgroup +org-src-lsp nil
-  "LSP support for org source blocks via Eglot."
-  :group 'org)
-
-(defcustom +org-src-lsp-enabled-modes '(python-mode python-ts-mode)
-  "Major modes where LSP should be enabled in org-src buffers.
-Add modes here that you want to have LSP support when editing
-source blocks with `org-edit-special'."
-  :type '(repeat symbol)
-  :group '+org-src-lsp)
-
-(defun +org-src-lsp--edit-prep (info)
-  "Setup Eglot in org-src buffer using tangled file content.
-INFO is the return value of `org-babel-get-src-block-info'.
-
-This implements the oglot.el approach: load the tangled file into
-the org-src buffer, narrow to the current block, then start Eglot.
-The LSP server sees the complete file context for accurate analysis."
-  (let ((ok t)
-        (point (point))
-        (body (nth 1 info))
-        (params (nth 2 info))
-        filename)
-
-    ;; Verify we're in org-src-mode
-    (unless (bound-and-true-p org-src-mode)
-      (setq ok nil))
-
-    ;; Get tangle filename
-    (when ok
-      (setq filename (cdr (assq :tangle params)))
-      (when (or (null filename)
-                (string= filename "no")
-                (string= filename "yes"))
-        (setq ok nil)
-        (message "LSP requires :tangle header with explicit filename")))
-
-    ;; Expand filename relative to org file directory
-    (when ok
-      (when-let* ((beg-marker org-src--beg-marker)
-                  (org-buffer (marker-buffer beg-marker))
-                  ((buffer-live-p org-buffer))
-                  (org-file (buffer-file-name org-buffer))
-                  (org-dir (file-name-directory org-file)))
-        (setq filename (expand-file-name filename org-dir)))
-
-      ;; Check file exists and is readable
-      (unless (file-readable-p filename)
-        (setq ok nil)
-        (message "Tangled file %s not found - run org-babel-tangle first"
-                 (abbreviate-file-name filename))))
-
-    ;; Verify block appears exactly once in tangled file
-    (when ok
-      (with-temp-buffer
-        (insert-file-contents filename 'visit nil nil 'replace)
-        (goto-char (point-min))
-        (let ((count 0))
-          (while (search-forward body nil t)
-            (cl-incf count))
-          (cond
-           ((= count 0)
-            (setq ok nil)
-            (message "Block not found in %s - tangle may be outdated"
-                     (file-name-nondirectory filename)))
-           ((> count 1)
-            (setq ok nil)
-            (message "Block appears %d times in %s - cannot disambiguate"
-                     count (file-name-nondirectory filename)))))))
-
-    ;; Load tangled file, narrow to block, start Eglot
-    (when ok
-      (goto-char (point-min))
-      (insert-file-contents filename 'visit nil nil 'replace)
-      (search-forward body)
-
-      ;; Preserve cursor position within block
-      (goto-char (+ (match-beginning 0) (1- point)))
-
-      ;; Narrow to block region
-      (narrow-to-region (match-beginning 0) (match-end 0))
-
-      ;; Associate buffer with tangled file for LSP project detection
-      (setq-local buffer-file-name filename)
-
-      ;; Configure eldoc for org-src context
-      (setq-local eldoc-echo-area-use-multiline-p nil)
-
-      ;; Disable corfu-popupinfo to avoid display issues
-      (when (bound-and-true-p corfu-popupinfo-mode)
-        (corfu-popupinfo-mode -1))
-
-      ;; Start Eglot
-      (eglot-ensure))))
-
-;; Register edit-prep functions for Python variants
-(defun org-babel-edit-prep:python (info)
-  "Setup LSP for Python source blocks."
-  (+org-src-lsp--edit-prep info))
-
-(defun org-babel-edit-prep:jupyter-python (info)
-  "Setup LSP for Jupyter Python source blocks."
-  (+org-src-lsp--edit-prep info))
-
-;; ═══════════════════════════════════════════════════════════════════════════
-;; CLEANUP ON SAVE/EXIT
-;; ═══════════════════════════════════════════════════════════════════════════
-
-(defun +org-src-lsp--cleanup ()
-  "Remove hidden text before saving/exiting org-src buffer.
-When we load the tangled file and narrow, text outside the narrowed
-region must be deleted before writing back to the org file."
-  (when (and (bound-and-true-p org-src-mode)
-             (apply #'derived-mode-p +org-src-lsp-enabled-modes)
-             ;; Only cleanup if we have hidden content (buffer was widened)
-             (or (> (point-min) 1)
-                 (< (point-max) (buffer-size))))
-    (save-excursion
-      ;; Delete content before narrowed region
-      (let ((narrow-beg (point-min))
-            (narrow-end (point-max)))
-        (widen)
-        (delete-region (point-min) narrow-beg)
-        ;; Adjust for deleted content
-        (delete-region narrow-end (point-max))))))
-
-(advice-add 'org-edit-src-exit :before #'+org-src-lsp--cleanup)
-(advice-add 'org-edit-src-save :before #'+org-src-lsp--cleanup)
-#+end_src
-
-*** Comments Link Toggle
-The =:comments link= header argument adds markers in tangled files that help
-identify the source of each block. This is useful for debugging and keeping
-tangled files synchronized with the org file.
-
-#+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; COMMENTS LINK TOGGLE (from oglot.el)
-;; ═══════════════════════════════════════════════════════════════════════════
-
-(defconst +org-src-lsp--comments-link-re
-  "\\( :comments link\\)\\|\\( *$\\)"
-  "Regexp to match :comments link or end of header-args line.")
-
-(defun +org-src-lsp-toggle-comments-link ()
-  "Toggle :comments link in Python header-args property.
-When enabled, tangled files include comments linking back to the
-org file, which helps with synchronization and debugging."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (let ((ha-re "^[[:blank:]]*#\\+property:[[:blank:]]+header-args:python"))
-      (if (re-search-forward ha-re nil t)
-          (when (re-search-forward +org-src-lsp--comments-link-re (line-end-position) t)
-            (if (match-string 1)
-                (replace-match "")
-              (replace-match " :comments link"))
-            (org-ctrl-c-ctrl-c)
-            (message "Python :comments link %s"
-                     (if (match-string 1) "disabled" "enabled")))
-        (user-error "No Python header-args property found")))))
-#+end_src
-
 *** Helper Functions
-Utility functions for working with Jupyter and literate programming.
-
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; HELPER FUNCTIONS
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (defun +jupyter/tangle-and-edit ()
   "Tangle current block then open for editing with LSP support.
 Use this when you want to ensure the tangled file is up-to-date
@@ -690,10 +489,6 @@ before editing a source block."
 Apply ANSI color codes to babel results for colored terminal output.
 
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; ANSI COLOR SUPPORT IN RESULTS
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (defun +org-babel-ansi-colors-h ()
   "Apply ANSI color codes in the current babel result block."
   (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
@@ -710,10 +505,6 @@ Apply ANSI color codes to babel results for colored terminal output.
 *** Keybindings
 
 #+begin_src emacs-lisp
-;; ═══════════════════════════════════════════════════════════════════════════
-;; KEYBINDINGS
-;; ═══════════════════════════════════════════════════════════════════════════
-
 (map! :leader
       (:prefix ("j" . "jupyter")
        :desc "Refresh kernelspecs"       "r" #'jupyter-refresh-kernelspecs
