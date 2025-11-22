@@ -33,7 +33,6 @@
     ./btop
     ./catppuccin
     ./fish
-    ./fd
     ./pay-respects
     ./lazygit
     ./niri-extras
