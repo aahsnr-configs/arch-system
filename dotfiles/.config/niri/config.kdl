@@ -35,7 +35,7 @@ output "eDP-1" {
 //     transform "normal"
 //     mode "1920x1080@60"
 // }
-
+//
 
 input {
     keyboard {
