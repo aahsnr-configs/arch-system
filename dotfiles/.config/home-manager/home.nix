@@ -28,9 +28,21 @@
   };
 
   imports = [
-    #./niri-extras
+    ./atuin
+    ./bat
+    ./btop
+    ./catppuccin
+    ./fish
+    ./fd
+    ./pay-respects
+    ./lazygit
+    ./niri-extras
     ./dev
+    ./starship
+    ./yazi
     ./xdg
+    ./zoxide
+    ./direnv
   ];
 
   nixpkgs = {
