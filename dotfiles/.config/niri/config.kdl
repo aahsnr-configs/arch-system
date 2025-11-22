@@ -1,6 +1,5 @@
 prefer-no-csd
 
-spawn-at-startup "dms" "run"
 spawn-at-startup "wl-paste" "--watch" "cliphist" "store"
 spawn-at-startup "udiskie"
 spawn-at-startup "atuin" "daemon"
@@ -76,7 +75,7 @@ overview {
 }
 
 layout {
-    gaps 7
+    gaps 8
     background-color "transparent"
 
     focus-ring {

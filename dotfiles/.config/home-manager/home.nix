@@ -28,7 +28,7 @@
   };
 
   imports = [
-    ./niri-extras
+    #./niri-extras
     ./dev
     ./xdg
   ];

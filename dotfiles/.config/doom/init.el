@@ -93,6 +93,7 @@
        :checkers
        (syntax
         +flymake
+        +childframe
         +icons)
        ;;(spell +flyspell) ; tasing you for misspelling mispelling
        ;;grammar           ; tasing grammar mistake every you make
@@ -184,6 +185,7 @@
        ;;graphviz          ; diagrams for confusing yourself even more
        ;;purescript        ; javascript, but functional
        (python
+        +pyenv
         +lsp
         +tree-sitter)
        (qt

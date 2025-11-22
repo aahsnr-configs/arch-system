@@ -43,6 +43,7 @@
   (setq doom-modeline-height 25
         doom-modeline-column-zero-based nil
         doom-modeline-bar-width 3
+        doom-modeline-env-enable-python nil
 
         ;; File/buffer name settings
         doom-modeline-buffer-file-size nil
@@ -50,8 +51,7 @@
 
         doom-modeline-buffer-encoding nil ; Hide UTF-8 encoding display
         doom-modeline-percent-position nil ; Hide percentage position
-        doom-modeline-major-mode-icon nil ; Hide major mode icon
-        doom-modeline-major-mode-color-icon nil ; Disable colored major mode icon
+        doom-modeline-major-mode-icon t ; Hide major mode icon
 
         ;; VCS settings - show icon but hide branch name
         doom-modeline-vcs-icon t ; Keep VCS icon
@@ -260,7 +260,7 @@
    org-modern-table-horizontal 0.1
    org-modern-block-name '(("src" "»" "«")
                            ("example" "»" "«")
-                           ("quote" "❝" "❞"))
+                           ("quote" """ """))
    org-modern-checkbox '((todo . "☐") (done . "☑") (cancel . "☒") (priority . "⚑") (on . "◉") (off . "○"))
    org-modern-tag-faces `((:foreground ,(face-attribute 'default :foreground) :weight bold :box (:line-width (1 . -1) :color "#45475a")))))
 
@@ -284,10 +284,6 @@
 
 (use-package! eldoc-box
   :hook (eglot-managed-mode . eldoc-box-hover-at-point-mode)
-  :init
-  (setq eldoc-box-clear-with-C-g t
-        eldoc-box-only-multi-line t)
-
   :config
   (custom-set-faces!
    '(eldoc-box-body :background "#313244" :foreground "#cdd6f4")
@@ -305,6 +301,52 @@
   (when (fboundp 'global-flymake-popon-mode)
     (global-flymake-popon-mode -1)))
 
+(use-package! oglot
+  :after (org eglot)
+  :config
+  ;; Enable oglot for Python (works with jupyter-overridden blocks)
+  (setq oglot-maybe-ensure-modes '(python-mode))
+
+  ;; CRITICAL: Define org-babel-edit-prep:python for jupyter-overridden blocks
+  ;; When org-babel-jupyter-override-src-block is "python", blocks are still
+  ;; recognized as "python" for editing purposes, even though they execute with Jupyter
+  (defun org-babel-edit-prep:python (babel-info)
+    "Prepare Python source block for editing with Eglot/LSP support.
+This works with both regular python blocks and jupyter-overridden python blocks.
+Requires :tangle header argument to be set."
+    (let* ((params (nth 2 babel-info))
+           (tangle (alist-get :tangle params)))
+      (when (and tangle (not (string= tangle "no")))
+        ;; Use oglot's helper function which handles tangling and Eglot setup
+        (oglot-org-babel-edit-prep babel-info))))
+
+  ;; Helper function to toggle :comments link for better sync
+  (defun +org-toggle-python-comments-link ()
+    "Toggle :comments link header argument for Python source blocks.
+This is recommended for oglot - enable it when using LSP, disable for clean exports."
+    (interactive)
+    (save-excursion
+      (when (org-in-src-block-p)
+        (org-babel-goto-src-block-head)
+        (let* ((info (org-babel-get-src-block-info))
+               (params (nth 2 info))
+               (comments (alist-get :comments params)))
+          (if (equal comments "link")
+              (org-babel-insert-header-arg "comments" "no")
+            (org-babel-insert-header-arg "comments" "link"))
+          (message "Python block :comments %s"
+                   (if (equal comments "link") "disabled" "enabled (link)"))))))
+
+  ;; Verify oglot integration for jupyter-overridden blocks
+  (defun +oglot/verify-setup ()
+    "Verify oglot setup for Python/Jupyter blocks."
+    (interactive)
+    (message "Oglot enabled modes: %s\norg-babel-edit-prep:python: %s\nJupyter override: %s"
+             oglot-maybe-ensure-modes
+             (if (fboundp 'org-babel-edit-prep:python) "defined" "NOT DEFINED")
+             (if (advice-member-p 'ob-jupyter (intern "org-babel-execute:python"))
+                 "active" "not active"))))
+
 (after! ob-jupyter
   ;; Default header arguments for jupyter-python blocks
   (setq org-babel-default-header-args:jupyter-python
@@ -315,7 +357,7 @@
           (:results . "output")))
 
   ;; Override python blocks with jupyter AFTER ob-jupyter loads
-  ;; This lets you use #+begin_src python instead of jupyter-python
+  ;; This means: execute with Jupyter, but edit as "python" blocks
   (org-babel-jupyter-override-src-block "python")
 
   ;; Resource directory for images and other outputs
@@ -339,7 +381,8 @@
 
 (after! jupyter-org-client
   (defun +jupyter-disable-completion-h ()
-    "Remove jupyter-org-completion-at-point to avoid Corfu conflicts."
+    "Remove jupyter-org-completion-at-point to avoid Corfu conflicts.
+LSP completion via oglot/Eglot is superior anyway."
     (setq-local completion-at-point-functions
                 (delq 'jupyter-org-completion-at-point
                       completion-at-point-functions)))
@@ -350,18 +393,6 @@
 
   ;; Enable request queuing for better async behavior
   (setq jupyter-org-queue-requests t))
-
-(defun +jupyter/tangle-and-edit ()
-  "Tangle current block then open for editing with LSP support.
-Use this when you want to ensure the tangled file is up-to-date
-before editing a source block."
-  (interactive)
-  (if (org-in-src-block-p)
-      (let ((lang (org-element-property :language (org-element-at-point))))
-        (message "Tangling %s blocks..." lang)
-        (org-babel-tangle nil nil lang)
-        (org-edit-special))
-    (user-error "Not in a source block")))
 
 (defun +jupyter/toggle-request-queuing ()
   "Toggle client-side request queuing for Jupyter."
@@ -423,13 +454,13 @@ before editing a source block."
 (map! :leader
       (:prefix ("j" . "jupyter")
        :desc "Refresh kernelspecs"       "r" #'jupyter-refresh-kernelspecs
-       :desc "Verify setup"              "v" #'+jupyter/verify-setup
+       :desc "Verify Jupyter setup"      "v" #'+jupyter/verify-setup
        :desc "Refresh & verify"          "V" #'+jupyter/refresh-and-verify
        :desc "Toggle request queuing"    "q" #'+jupyter/toggle-request-queuing
-       :desc "Tangle & edit with LSP"    "e" #'+jupyter/tangle-and-edit
-       :desc "Toggle :comments link"     "c" #'+org-src-lsp-toggle-comments-link))
+       :desc "Toggle :comments link"     "c" #'+org-toggle-python-comments-link
+       :desc "Verify oglot setup"        "o" #'+oglot/verify-setup))
 
-;; Org-src-mode keybindings for LSP features
+;; Org-src-mode keybindings for LSP features (oglot-enabled)
 (map! :after org-src
       :map org-src-mode-map
       :localleader
@@ -456,15 +487,17 @@ before editing a source block."
 (after! vertico
   (setq vertico-count 10))
 
-(after! apheleia
-  (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff))
-  (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff-isort ruff)))
+(setq-hook! 'python-mode-hook +format-with 'ruff)
+(setq-hook! 'python-ts-mode-hook +format-with 'ruff)
+
+;; (after! apheleia
+;;   (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff))
+;;   (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff-isort ruff)))
 
 (setq +python-ipython-repl-args '("-i" "--simple-prompt" "--no-color-info"))
 (setq +python-jupyter-repl-args '("--simple-prompt"))
 
 (after! eglot
-
   (set-eglot-client! '(python-mode python-ts-mode)
                      "pylsp" "pyls"
                      '("basedpyright-langserver" "--stdio")
@@ -484,7 +517,7 @@ before editing a source block."
  (setq-default eglot-workspace-configuration
                '(:basedpyright
                  (:analysis
-                  (:typeCheckingMode "recommended"  ; Balance between strict and permissive
+                  (:typeCheckingMode "recommended"
 
                    :diagnosticSeverityOverrides
                    (:reportUnusedImport "none"
@@ -494,24 +527,24 @@ before editing a source block."
                     :reportUnusedCallResult "none"
 
                     ;; Module and import analysis
-                    :reportMissingImports "warning"              ; Can't find module
-                    :reportMissingModuleSource "warning"         ; Stub exists but no source
+                    :reportMissingImports "warning"
+                    :reportMissingModuleSource "warning"
 
                     ;; Type consistency and safety
-                    :reportUndefinedVariable "warning"           ; Variable not defined
-                    :reportIncompatibleMethodOverride "warning"  ; Method signature mismatch
-                    :reportIncompatibleVariableOverride "warning"; Variable type mismatch
-                    :reportAttributeAccessIssue "warning"        ; Invalid attribute access
+                    :reportUndefinedVariable "warning"
+                    :reportIncompatibleMethodOverride "warning"
+                    :reportIncompatibleVariableOverride "warning"
+                    :reportAttributeAccessIssue "warning"
 
                     ;; Type stub and annotation support
-                    :reportMissingTypeStubs "none"              ; Warning if stubs missing (can be noisy)
-                    :reportMissingTypeArgument "warning"        ; Generic without type args
+                    :reportMissingTypeStubs "none"
+                    :reportMissingTypeArgument "warning"
 
                     ;; Reduced noise from gradual typing
-                    :reportUnknownMemberType "none"             ; Unknown member types (gradual typing)
-                    :reportUnknownParameterType "none"          ; Unknown param types (gradual typing)
-                    :reportUnknownVariableType "none"           ; Unknown var types (gradual typing)
-                    :reportUnknownArgumentType "none")))))      ; Unknown arg types (gradual typing)
+                    :reportUnknownMemberType "none"
+                    :reportUnknownParameterType "none"
+                    :reportUnknownVariableType "none"
+                    :reportUnknownArgumentType "none")))))
 
   ;; Configure eldoc and flymake to work together properly
   (add-hook 'eglot-managed-mode-hook
@@ -530,8 +563,8 @@ before editing a source block."
   :hook (eglot-managed-mode . flymake-ruff-load))
 
 (after! flymake
-  (setq flymake-show-diagnostics-at-end-of-line nil  ;; Disable end-of-line diagnostics
-        flymake-indicator-type 'fringes               ;; Only show in fringes
+  (setq flymake-show-diagnostics-at-end-of-line nil
+        flymake-indicator-type 'fringes
         flymake-no-changes-timeout 0.5
         flymake-start-on-save-buffer t))
 
@@ -609,43 +642,34 @@ before editing a source block."
     (message "Not in a project")))
 
 (after! citar
-  ;; Doom already sets up basic citar - we extend it
   (setq citar-bibliography '("~/references.bib")
         citar-library-paths '("~/Zotero/storage")
         citar-notes-paths (list my/org-roam-directory))
 
-  ;; Register indicators
   (setq citar-indicators
         (list citar-indicator-files-icons
               citar-indicator-notes-icons
               citar-indicator-links-icons))
 
-  ;; Dynamic bibliography function
   (defun +citar-get-bibliography ()
     "Return project bibliography or global fallback."
     (or (+latex-find-project-bibliographies) citar-bibliography))
 
-  ;; Override citar's bibliography detection
   (advice-add 'citar--bibliography-files :override #'+citar-get-bibliography)
 
-  ;; Set buffer-local bibliography
   (defun +citar-set-local-bibliography-h ()
     "Set buffer-local bibliography for current buffer."
     (when (and (buffer-file-name)
                (or (derived-mode-p 'org-mode)
                    (derived-mode-p 'LaTeX-mode)))
       (setq-local citar-bibliography (+citar-get-bibliography))
-      ;; Also update org-cite
       (when (derived-mode-p 'org-mode)
         (setq-local org-cite-global-bibliography (+citar-get-bibliography)))))
 
-  ;; Apply hooks after projectile is loaded
   (when (featurep 'projectile)
     (add-hook 'org-mode-hook #'+citar-set-local-bibliography-h)
     (add-hook 'LaTeX-mode-hook #'+citar-set-local-bibliography-h)))
 
-;; RefTeX configuration - handle non-citation references only
-;; Let Citar manage bibliographies
 (after! reftex
   (setq reftex-default-bibliography '()))
 
@@ -653,7 +677,6 @@ before editing a source block."
   :hook (LaTeX-mode . laas-mode)
   :config
   (aas-set-snippets 'laas-mode
-    ;; Math-only snippets
     :cond #'texmathp
     "supp" "\\supp"
     "inf" "\\infty"
@@ -663,7 +686,6 @@ before editing a source block."
     "Olog" "O(\\log n)"
     "Olon" "O(n \\log n)"
 
-    ;; Functions with yasnippet integration
     "Sum" (lambda () (interactive)
             (yas-expand-snippet "\\sum_{${1:i=1}}^{${2:n}} $0"))
     "Prod" (lambda () (interactive)
@@ -675,7 +697,6 @@ before editing a source block."
     "Span" (lambda () (interactive)
              (yas-expand-snippet "\\Span($1)$0"))
 
-    ;; Accent snippets
     :cond #'laas-object-on-left-condition
     "qq" (lambda () (interactive) (laas-wrap-previous-object "sqrt"))
     "vv" (lambda () (interactive) (laas-wrap-previous-object "vec"))
@@ -686,38 +707,26 @@ before editing a source block."
     "--" (lambda () (interactive) (laas-wrap-previous-object "bar"))))
 
 (after! tex
-  ;; Extend Doom's existing prettify symbols
   (cl-callf2 append +latex-prettify-symbols-alist
-            '(;; Additional Greek letters
-              ("\\varepsilon" . "ε")
+            '(("\\varepsilon" . "ε")
               ("\\varphi" . "φ")
-
-              ;; Additional math operators
               ("\\iint" . "∬")
               ("\\iiint" . "∭")
               ("\\oint" . "∮")
-
-              ;; Additional relations
               ("\\notin" . "∉")
               ("\\subseteq" . "⊆")
               ("\\supseteq" . "⊇")
-
-              ;; Additional logic
               ("\\nexists" . "∄")
               ("\\land" . "∧")
               ("\\lor" . "∨")
-
-              ;; Additional misc
               ("\\mp" . "∓")
               ("\\ell" . "ℓ")
               ("\\hbar" . "ℏ"))))
 
 (after! org
-  ;; Use Tectonic for Org LaTeX exports
   (setq org-latex-compiler "tectonic"
         org-latex-pdf-process '("tectonic -X compile %f"))
 
-  ;; Add Tectonic preview process
   (add-to-list 'org-preview-latex-process-alist
                '(tectonic
                  :programs ("tectonic" "convert")
@@ -733,7 +742,6 @@ before editing a source block."
 
   (setq org-preview-latex-default-process 'tectonic))
 
-;; Org-fragtog for automatic LaTeX fragment preview
 (use-package! org-fragtog
   :defer t
   :hook (org-mode . org-fragtog-mode))
@@ -741,12 +749,10 @@ before editing a source block."
 (map! :after latex
       :map LaTeX-mode-map
       :localleader
-      ;; Tectonic-specific build commands (extends Doom's defaults)
       (:prefix ("b" . "build")
        :desc "Compile with Tectonic" "t" (cmd! (TeX-command "Tectonic" 'TeX-master-file))
        :desc "Watch mode (Tectonic)" "w" (cmd! (TeX-command "Tectonic Watch" 'TeX-master-file)))
 
-      ;; Citation management (extends Doom's citar keybindings)
       (:prefix ("r" . "references")
        :desc "Insert citation" "i" #'citar-insert-citation
        :desc "Open citation" "o" #'citar-open
@@ -754,7 +760,6 @@ before editing a source block."
        :desc "Open notes" "n" #'citar-open-notes
        :desc "Create note" "N" #'citar-create-note))
 
-;; Org-mode LaTeX keybindings
 (map! :after org
       :map org-mode-map
       :localleader
@@ -794,14 +799,6 @@ before editing a source block."
                                                           (if +jupyter-raw-output-mode "ON" "OFF")))))
 
 (map! :leader
-      (:prefix ("o" . "open")
-        :desc "Insert template"         "t" #'+org-insert-scientific-template
-        :desc "Toggle Python export"    "e" #'+org-toggle-python-export
-        :desc "Set tangle file"         "f" #'+org-set-python-tangle-file
-        :desc "Set subtree export"      "x" #'+org-set-subtree-export
-        :desc "Insert source block"     "s" #'+org-insert-src-block))
-
-(map! :leader
       (:prefix ("c" . "code")
        :desc "Format buffer"            "=" #'apheleia-format-buffer
        :desc "Organize imports"         "o" #'eglot-code-action-organize-imports
@@ -824,7 +821,6 @@ before editing a source block."
        :desc "List diagnostics"        "x" #'flymake-show-buffer-diagnostics
        :desc "List project diagnostics" "X" #'flymake-show-project-diagnostics))
 
-;; Org-src-mode specific keybindings
 (map! :map org-src-mode-map
       :localleader
       :desc "Exit and save"        "'" #'org-edit-src-exit
