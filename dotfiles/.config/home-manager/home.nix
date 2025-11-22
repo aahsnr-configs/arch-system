@@ -41,7 +41,6 @@
     ./yazi
     ./xdg
     ./zoxide
-    ./direnv
   ];
 
   nixpkgs = {
