@@ -9,6 +9,29 @@
 #+end_src
 
 * UI and Theming
+** Theming
+#+begin_src emacs-lisp
+; (use-package! doom-themes
+;;   :custom
+;;   ;; Global settings (defaults)
+;;   (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
+;;   (doom-themes-enable-italic t) ; if nil, italics is universally disabled
+;;   ;; for treemacs users
+;;   (doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
+;;   :config
+;;   (load-theme 'doom-tokyo-night t)
+
+;;   ;; Enable flashing mode-line on errors
+;;   (doom-themes-visual-bell-config)
+;;   ;; Enable custom neotree theme (nerd-icons must be installed!)
+;;   (doom-themes-neotree-config)
+;;   ;; or for treemacs users
+;;   (doom-themes-treemacs-config)
+;;   ;; Corrects (and improves) org-mode's native fontification.
+;;   (doom-themes-org-config))
+#+end_src
+
+
 ** Catppuccin Theme
 #+begin_src emacs-lisp
 (use-package! catppuccin-theme
@@ -42,7 +65,10 @@
     '(minibuffer-prompt :foreground "#89dceb" :weight bold)
     '(pdf-view-highlight-face :background "#f9e2af" :foreground "#1e1e2e")
     '(pdf-view-link-face :foreground "#89b4fa")
-    '(pdf-view-active-link-face :foreground "#cba6f7")))
+    '(pdf-view-active-link-face :foreground "#cba6f7"))
+
+
+  )
 #+end_src
 
 ** Doom Modeline
@@ -420,53 +446,77 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 #+end_src
 
 * LaTeX
-** Tectonic Engine Configuration
+** Engine and Compilation Setup
+Configure latexmk as the build system with LuaLaTeX as the modern default engine.
+Doom's latex module (+cdlatex +fold) already provides AUCTeX, CDLaTeX, folding support,
+and SyncTeX integration. We extend it with latexmk for robust multi-pass compilation.
+
 #+begin_src emacs-lisp
 (after! tex
-  ;; Set Tectonic as the default engine
-  (setq TeX-engine 'default)
+  ;; Set LuaLaTeX as the default engine (modern, Unicode-aware)
+  ;; Options: 'luatex (LuaLaTeX), 'xetex (XeLaTeX), 'default (pdfLaTeX)
+  (setq TeX-engine 'luatex)
 
-  ;; Register Tectonic as a TeX engine
-  (setq TeX-engine-alist '((default
-                            "Tectonic"
-                            "tectonic -X compile -f plain %T"
-                            "tectonic -X watch"
-                            nil)))
+  ;; Use build directory for cleaner project organization
+  (setq TeX-output-dir "build/")
 
-  ;; Simplify LaTeX command style for Tectonic compatibility
-  (setq LaTeX-command-style '(("" "%(latex)")))
+  ;; Enable shell-escape for minted, gnuplot, and other external programs
+  (setq LaTeX-command "latex -shell-escape")
 
-  (setq TeX-check-TeX nil
-        TeX-process-asynchronous t)
+  ;; Auto-save before compiling
+  (setq TeX-save-query nil)
 
-  ;; Modify TeX and LaTeX commands for Tectonic
-  (let ((tex-list (assoc "TeX" TeX-command-list))
-        (latex-list (assoc "LaTeX" TeX-command-list)))
-    (setf (cadr tex-list) "%(tex)"
-          (cadr latex-list) "%l"))
+  ;; Don't ask for confirmation when cleaning auxiliary files
+  (setq TeX-clean-confirm nil))
 
-  ;; Add Tectonic compile command (V2 syntax)
+(after! latex
+  ;; Add latexmk commands for each engine
+  ;; latexmk automatically handles multiple passes for references, bibliography, etc.
   (add-to-list 'TeX-command-list
-               '("Tectonic" "tectonic -X compile -f plain %s" TeX-run-TeX nil t
-                 :help "Compile with Tectonic") t)
+               '("LaTeXmk" "latexmk -pdf -pdflatex='pdflatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk with pdfLaTeX") t)
 
-  ;; Add Tectonic Watch command for standalone files
   (add-to-list 'TeX-command-list
-               '("Tectonic Watch" "tectonic -X watch -x \"compile %s\"" TeX-run-TeX nil t
-                 :help "Run Tectonic in watch mode for standalone files") t))
+               '("LuaLaTeXmk" "latexmk -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk with LuaLaTeX") t)
 
-;; Handle Tectonic project output directories (projectile-aware)
-(defun +latex-tectonic-set-output-dir-h ()
-  "Set TeX-output-dir for Tectonic projects."
-  (when-let* ((project-p (and (featurep 'projectile)
-                              (fboundp 'projectile-project-p)
-                              (projectile-project-p)))
-              (root (projectile-project-root))
-              (toml-file (expand-file-name "Tectonic.toml" root))
-              (toml-exists (file-exists-p toml-file)))
-    (setq-local TeX-output-dir (expand-file-name "build/index" root))))
+  (add-to-list 'TeX-command-list
+               '("XeLaTeXmk" "latexmk -pdfxe -pdfxelatex='xelatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk with XeLaTeX") t)
 
-(add-hook 'LaTeX-mode-hook #'+latex-tectonic-set-output-dir-h)
+  ;; Add continuous preview mode (watch mode)
+  (add-to-list 'TeX-command-list
+               '("LaTeXmk-Watch" "latexmk -pvc -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk in continuous preview mode") t)
+
+  ;; Set default command based on engine
+  (setq-default TeX-command-default
+                (cond ((eq TeX-engine 'luatex) "LuaLaTeXmk")
+                      ((eq TeX-engine 'xetex) "XeLaTeXmk")
+                      (t "LaTeXmk")))
+
+  ;; Auxiliary files to clean
+  (setq LaTeX-clean-intermediate-suffixes
+        '("\\.aux" "\\.bbl" "\\.blg" "\\.brf" "\\.fot"
+          "\\.glo" "\\.gls" "\\.idx" "\\.ilg" "\\.ind"
+          "\\.lof" "\\.log" "\\.lot" "\\.nav" "\\.out"
+          "\\.snm" "\\.toc" "\\.url" "\\.synctex\\.gz"
+          "\\.fdb_latexmk" "\\.fls" "\\.xdv"
+          "-blx\\.bib" "\\.run\\.xml")))
+
+;; Configure pdf-tools integration with AUCTeX
+(setq +latex-viewers '(pdf-tools))
+(after! tex
+  (setq TeX-view-program-selection '((output-pdf "PDF Tools"))
+        TeX-view-program-list '(("PDF Tools" TeX-pdf-tools-sync-view)))
+
+  ;; Automatically revert PDF buffer after compilation
+  (add-hook 'TeX-after-compilation-finished-functions
+            #'TeX-revert-document-buffer))
 #+end_src
 
 ** Project-Aware Bibliography System
@@ -512,7 +562,8 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 ** Citation Management
 #+begin_src emacs-lisp
 (after! citar
-  ;; Doom already sets up basic citar - we extend it
+  ;; Doom's biblio module already provides citar with vertico
+  ;; We just need to configure paths and enable our project-aware system
   (setq citar-bibliography '("~/references.bib")
         citar-library-paths '("~/Zotero/storage")
         citar-notes-paths (list my/org-roam-directory))
@@ -553,58 +604,101 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
   (setq reftex-default-bibliography '()))
 #+end_src
 
+** Fast Math Input with LAAS
+#+begin_src emacs-lisp
+(use-package! laas
+  :hook (LaTeX-mode . laas-mode)
+  :config
+  (aas-set-snippets 'laas-mode
+    ;; Math-only snippets
+    :cond #'texmathp
+    "supp" "\\supp"
+    "inf" "\\infty"
+    "lim" "\\lim"
+    "On" "O(n)"
+    "O1" "O(1)"
+    "Olog" "O(\\log n)"
+    "Olon" "O(n \\log n)"
+
+    ;; Functions with yasnippet integration
+    "Sum" (lambda () (interactive)
+            (yas-expand-snippet "\\sum_{${1:i=1}}^{${2:n}} $0"))
+    "Prod" (lambda () (interactive)
+             (yas-expand-snippet "\\prod_{${1:i=1}}^{${2:n}} $0"))
+    "Int" (lambda () (interactive)
+            (yas-expand-snippet "\\int_{${1:a}}^{${2:b}} $0"))
+    "Lim" (lambda () (interactive)
+            (yas-expand-snippet "\\lim_{${1:x \\to \\infty}} $0"))
+    "Span" (lambda () (interactive)
+             (yas-expand-snippet "\\Span($1)$0"))
+
+    ;; Accent snippets
+    :cond #'laas-object-on-left-condition
+    "qq" (lambda () (interactive) (laas-wrap-previous-object "sqrt"))
+    "vv" (lambda () (interactive) (laas-wrap-previous-object "vec"))
+    ".." (lambda () (interactive) (laas-wrap-previous-object "dot"))
+    "::" (lambda () (interactive) (laas-wrap-previous-object "ddot"))
+    "~~" (lambda () (interactive) (laas-wrap-previous-object "tilde"))
+    "^^" (lambda () (interactive) (laas-wrap-previous-object "hat"))
+    "--" (lambda () (interactive) (laas-wrap-previous-object "bar"))))
+#+end_src
+
 ** Org Mode Integration
 #+begin_src emacs-lisp
 (after! org
-  ;; Use Tectonic for Org LaTeX exports
-  (setq org-latex-compiler "tectonic"
-        org-latex-pdf-process '("tectonic -X compile %f"))
+  ;; Use LuaLaTeX for Org exports
+  (setq org-latex-compiler "lualatex")
 
-  ;; Add Tectonic preview process
+  ;; Set scale to match 13pt JetBrains Mono
+  (setq org-format-latex-options
+        (plist-put org-format-latex-options :scale 3.5))
+
+  ;; Use latexmk for org-mode PDF export
+  (setq org-latex-pdf-process
+        '("latexmk -f -pdf -%latex -shell-escape -interaction=nonstopmode -output-directory=%o %f"))
+
+  ;; Add LuaLaTeX preview process
   (add-to-list 'org-preview-latex-process-alist
-               '(tectonic
-                 :programs ("tectonic" "magick")
-                 :description "pdf > png"
-                 :message "you need to install: tectonic and imagemagick"
+               '(lualatex
+                 :programs ("lualatex" "magick")
+                 :description "pdf > png (lualatex)"
+                 :message "you need to install lualatex and imagemagick"
                  :image-input-type "pdf"
                  :image-output-type "png"
                  :image-size-adjust (1.0 . 1.0)
                  :latex-compiler
-                 ;; ("tectonic %f --outdir %o")
-                 ("tectonic -Z shell-escape-cwd=%o --outfmt pdf --outdir %o %f")
+                 ("lualatex -interaction nonstopmode -output-directory %o %f")
                  :image-converter
-                 ("magick -density %D -trim -antialias %f -quality 300 %O")))
+                 ("magick -density %D %f -trim -antialias -quality 100 %O")))
 
-  (setq org-preview-latex-default-process 'tectonic))
+  ;; Use LuaLaTeX for previews
+  (setq org-preview-latex-default-process 'lualatex)
 
-;;Org-fragtog for automatic LaTeX fragment preview
+  ;; Add packages needed for LaTeX preview
+  (add-to-list 'org-latex-packages-alist '("" "amsmath" t))
+  (add-to-list 'org-latex-packages-alist '("" "physics" t))
+  (add-to-list 'org-latex-packages-alist '("authoryear,longnamesfirst" "natbib" t))
+
+  (setq org-latex-preview-preamble
+        (concat
+         "\\documentclass{article}\n"
+         "\\usepackage{amsmath}\n"
+         "\\usepackage{physics}\n"
+         "\\usepackage{siunitx}\n"
+         "\\usepackage{fontspec}\n"
+         "\\setmainfont{JetBrains Mono}\n"
+          "\\fontsize{13pt}{15.6pt}\\selectfont\n"
+         "[PACKAGES]\n"
+         "[DEFAULT-PACKAGES]\n"))
+
+  ;; Clear cache if you've had preview errors before
+  (setq org-latex-preview-cache 'temp))
+
+;; Org-fragtog for automatic LaTeX fragment preview
 (use-package! org-fragtog
   :hook (org-mode . org-fragtog-mode)
   :config
   (setq org-fragtog-preview-delay 0.1))
-
-(setq +latex-viewers '(pdf-tools))
-
-(after! org
-  ;; Add packages needed for LaTeX preview
-  (add-to-list 'org-latex-packages-alist '("" "amsmath" t))
-  (add-to-list 'org-latex-packages-alist '("" "physics" t))
-  ;; (add-to-list 'org-latex-packages-alist '("" "fontspec" t))
-  (add-to-list 'org-latex-packages-alist '("authoryear,longnamesfirst" "natbib" t))
-
-  ;; Ensure preview uses the same packages as export
-  (setq org-preview-latex-default-process 'tectonic
-        org-latex-preview-preamble (concat
-                                    "\\documentclass{article}\n"
-                                    "\\usepackage{amsmath}\n"
-                                    "\\usepackage{geometry}\n"
-                                    "\\usepackage{physics}\n"
-                                    "\\usepackage{siunitx}\n"
-                                    "[PACKAGES]\n"
-                                    "[DEFAULT-PACKAGES]\n"))
-
-  ;; Clear cache if you've had preview errors before
-  (setq org-latex-preview-cache 'temp))
 #+end_src
 
 ** Keybindings
@@ -612,10 +706,12 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 (map! :after latex
       :map LaTeX-mode-map
       :localleader
-      ;; Tectonic-specific build commands (extends Doom's defaults)
+      ;; We extend with latexmk-specific commands
       (:prefix ("b" . "build")
-       :desc "Compile with Tectonic" "t" (cmd! (TeX-command "Tectonic" 'TeX-master-file))
-       :desc "Watch mode (Tectonic)" "w" (cmd! (TeX-command "Tectonic Watch" 'TeX-master-file)))
+       :desc "Compile with latexmk" "m" (cmd! (TeX-command "LuaLaTeXmk" 'TeX-master-file))
+       :desc "Watch mode (continuous)" "w" (cmd! (TeX-command "LaTeXmk-Watch" 'TeX-master-file))
+       :desc "View output" "v" #'TeX-view
+       :desc "Clean auxiliary files" "k" #'TeX-clean)
 
       ;; Citation management (extends Doom's citar keybindings)
       (:prefix ("r" . "references")
@@ -623,7 +719,8 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
        :desc "Open citation" "o" #'citar-open
        :desc "Open library file" "f" #'citar-open-library-file
        :desc "Open notes" "n" #'citar-open-notes
-       :desc "Create note" "N" #'citar-create-note))
+       :desc "Create note" "N" #'citar-create-note
+       :desc "Setup project bib" "b" #'+latex-setup-project-bibliography))
 
 ;; Org-mode LaTeX keybindings
 (map! :after org
@@ -698,24 +795,14 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
        :desc "Find type definition"     "D" #'eglot-find-typeDefinition
        :desc "Go back"                  "b" #'xref-go-back))
 
-;; Flymake diagnostics navigation
-(map! :after flymake
-      :map flymake-mode-map
-      :n "]d" #'flymake-goto-next-error
-      :n "[d" #'flymake-goto-prev-error
-      :leader
-      (:prefix ("c" . "code")
-       :desc "List diagnostics"        "x" #'flymake-show-buffer-diagnostics
-       :desc "List project diagnostics" "X" #'flymake-show-project-diagnostics))
-
-;; Org-src-mode specific keybindings
-(map! :map org-src-mode-map
-      :localleader
-      :desc "Exit and save"        "'" #'org-edit-src-exit
-      :desc "Abort edit"           "k" #'org-edit-src-abort
-      :desc "Format buffer"        "=" #'apheleia-format-buffer
-      :desc "Show documentation"   "h" #'eldoc-box-help-at-point
-      :desc "Code actions"         "a" #'eglot-code-actions)
+; Org-src-mode specific keybindings
+;; (map! :map org-src-mode-map
+;;       :localleader
+;;       :desc "Exit and save"        "'" #'org-edit-src-exit
+;;       :desc "Abort edit"           "k" #'org-edit-src-abort
+;;       :desc "Format buffer"        "=" #'apheleia-format-buffer
+;;       :desc "Show documentation"   "h" #'eldoc-box-help-at-point
+;;       :desc "Code actions"         "a" #'eglot-code-actions)
 
 (map! :leader
       (:prefix ("d" . "debug/dape")
