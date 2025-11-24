@@ -21,10 +21,6 @@
        ;;layout            ; auie,ctsrnm is the superior home row
 
        :completion
-       (corfu
-        +icons
-        +orderless
-        +dabbrev)
        ;;company           ; the ultimate code completion backend
        ;;helm              ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
@@ -60,7 +56,7 @@
        (evil +everywhere); come to the dark side, we have cookies
        file-templates    ; auto-snippets for empty files
        fold              ; (nigh) universal code folding
-       (format +onsave)  ; automated prettiness
+       ;;(format +onsave)  ; automated prettiness
        ;;god               ; run Emacs commands without modifier keys
        ;;lispy             ; vim for lisp, for people who don't like vim
        ;;multiple-cursors  ; editing in many places at once
@@ -91,10 +87,6 @@
        vterm             ; the best terminal emulation in Emacs
 
        :checkers
-       (syntax
-        +flymake
-        +childframe
-        +icons)
        ;;(spell +flyspell) ; tasing you for misspelling mispelling
        ;;grammar           ; tasing grammar mistake every you make
 
@@ -110,9 +102,6 @@
        lookup              ; navigate your code and its documentation
        ;;llm                 ; when I said you needed friends, I didn't mean...
        (magit +forge)
-       (lsp
-        +eglot
-        +booster)
        ;;make              ; run make tasks from Emacs
        ;;pass              ; password manager for nerds
        pdf                 ; pdf enhancements
@@ -128,7 +117,7 @@
        ;;ada               ; In strong typing we (blindly) trust
        ;;agda              ; types of types of types of types...
        ;;beancount         ; mind the GAAP
-       (cc +lsp)         ; C > C++ == 1
+       cc                  ; C > C++ == 1
        ;;clojure           ; java with a lisp
        ;;common-lisp       ; if you've seen one lisp, you've seen them all
        ;;coq               ; proofs-as-programs
@@ -161,7 +150,6 @@
        ;;kotlin            ; a better, slicker Java(Script)
        (latex
         +cdlatex
-        +lsp
         +fold)
        ;;lean              ; for folks with too much to prove
        ;;ledger            ; be audit you can be
@@ -169,7 +157,6 @@
        markdown            ; writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
        (nix
-        +lsp
         +tree-sitter)
        ;;ocaml             ; an objective camel
        (org
@@ -185,11 +172,8 @@
        ;;graphviz          ; diagrams for confusing yourself even more
        ;;purescript        ; javascript, but functional
        (python
-        +pyenv
-        +lsp
         +tree-sitter)
        (qt
-        +lsp
         +tree-sitter)
        ;;racket            ; a DSL for DSLs
        ;;raku              ; the artist formerly known as perl6

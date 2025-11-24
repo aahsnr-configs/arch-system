@@ -1,0 +1,65 @@
+[manager]
+linemode = "size"
+show_hidden = true
+sort_by = "natural"
+sort_dir_first = true
+
+[[open.rules]]
+name = "*/"
+use = "edit"
+
+[[open.rules]]
+mime = "text/*"
+use = "edit"
+
+[[open.rules]]
+mime = "image/*"
+use = "image"
+
+[[open.rules]]
+mime = "video/*"
+use = "video"
+
+[[open.rules]]
+mime = "audio/*"
+use = "audio"
+
+[[open.rules]]
+mime = "application/pdf"
+use = "document"
+
+[[open.rules]]
+mime = "application/*zip"
+use = "archive"
+
+[[open.rules]]
+mime = "application/x-tar"
+use = "archive"
+
+[[open.rules]]
+name = "*"
+use = "fallback"
+
+[[opener.archive]]
+run = "/nix/store/vp11ln3a5mz4ydx7js62gqp100x1g6fh-file-roller-44.6/bin/file-roller \"$@\""
+
+[[opener.audio]]
+run = "mpv \"$@\""
+
+[[opener.document]]
+run = "zathura \"$@\""
+
+[[opener.edit]]
+block = true
+run = "nvim \"$@\""
+
+[[opener.fallback]]
+run = "/nix/store/i8fb7r5f6kih6pamfazqxr7nif7vb587-xdg-utils-1.2.1/bin/xdg-open \"$@\""
+
+[[opener.image]]
+run = "imv \"$@\""
+
+[[opener.video]]
+block = false
+orphan = true
+run = "mpv \"$@\""
