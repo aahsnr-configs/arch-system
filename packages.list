@@ -1199,6 +1199,10 @@ tree-sitter-query
 tree-sitter-vim
 tree-sitter-vimdoc
 tslib
+ttf-carlito
+ttf-cascadia-code
+ttf-cascadia-code-nerd
+ttf-cascadia-mono-nerd
 ttf-dejavu
 ttf-jetbrains-mono
 ttf-jetbrains-mono-nerd
