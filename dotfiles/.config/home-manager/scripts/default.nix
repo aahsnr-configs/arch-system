@@ -349,7 +349,7 @@ in
       echo "   ssh -T git@github.com-aahsnr-common"
       echo ""
       echo "4. Create your project directories:"
-      echo "   mkdir -p ~/git-repos/configs ~/git-repos/personal ~/git-repos/work ~/git-repos/common"
+      echo "   mkdir -p ~/Git/configs ~/Git/personal ~/Git/work ~/Git/common"
     '')
 
     (mkScript "launch_first_available" ''

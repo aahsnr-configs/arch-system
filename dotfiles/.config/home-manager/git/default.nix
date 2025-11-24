@@ -1,4 +1,5 @@
-{pkgs, ...}: {
+{ pkgs, ... }:
+{
   # -------------------------------------------------------------------
   # SSH Configuration for Multiple GitHub Accounts
   # -------------------------------------------------------------------
@@ -64,7 +65,7 @@
 
     includes = [
       {
-        condition = "gitdir:~/git-repos/personal/";
+        condition = "gitdir:~/Git/personal/";
         contents = {
           user = {
             name = "aahsnr-personal";
@@ -79,7 +80,7 @@
         };
       }
       {
-        condition = "gitdir:~/git-repos/work/";
+        condition = "gitdir:~/Git/work/";
         contents = {
           user = {
             name = "aahsnr-work";
@@ -94,7 +95,7 @@
         };
       }
       {
-        condition = "gitdir:~/git-repos/common/";
+        condition = "gitdir:~/Git/common/";
         contents = {
           user = {
             name = "aahsnr-common";
