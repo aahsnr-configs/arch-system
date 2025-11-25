@@ -14,7 +14,7 @@
   (doom-themes-treemacs-config)
   (doom-themes-org-config))
 
-t; (use-package! catppuccin-theme
+;; (use-package! catppuccin-theme
 ;;   :config
 ;;   (setq catppuccin-flavor 'mocha)
 ;;   ;; Enable Catppuccin quality-of-life features
@@ -93,18 +93,18 @@ t; (use-package! catppuccin-theme
   :hook ((text-mode . rainbow-delimiters-mode)
          (LaTeX-mode . rainbow-delimiters-mode)
          (org-src-mode . rainbow-delimiters-mode)
-         (prog-mode . rainbow-delimiters-mode))
-  :config
-  (custom-set-faces!
-   '(rainbow-delimiters-depth-1-face :foreground "#89b4fa")
-   '(rainbow-delimiters-depth-2-face :foreground "#cba6f7")
-   '(rainbow-delimiters-depth-3-face :foreground "#f9e2af")
-   '(rainbow-delimiters-depth-4-face :foreground "#89dceb")
-   '(rainbow-delimiters-depth-5-face :foreground "#f38ba8")
-   '(rainbow-delimiters-depth-6-face :foreground "#a6e3a1")
-   '(rainbow-delimiters-depth-7-face :foreground "#fab387")
-   '(rainbow-delimiters-depth-8-face :foreground "#cdd6f4")
-   '(rainbow-delimiters-depth-9-face :foreground "#bac2de")))
+         (prog-mode . rainbow-delimiters-mode)))
+  ;; :config
+  ;; (custom-set-faces!
+  ;;  '(rainbow-delimiters-depth-1-face :foreground "#89b4fa")
+  ;;  '(rainbow-delimiters-depth-2-face :foreground "#cba6f7")
+  ;;  '(rainbow-delimiters-depth-3-face :foreground "#f9e2af")
+  ;;  '(rainbow-delimiters-depth-4-face :foreground "#89dceb")
+  ;;  '(rainbow-delimiters-depth-5-face :foreground "#f38ba8")
+  ;;  '(rainbow-delimiters-depth-6-face :foreground "#a6e3a1")
+  ;;  '(rainbow-delimiters-depth-7-face :foreground "#fab387")
+  ;;  '(rainbow-delimiters-depth-8-face :foreground "#cdd6f4")
+  ;;  '(rainbow-delimiters-depth-9-face :foreground "#bac2de"))
 
 (use-package! rainbow-mode
   :hook ((prog-mode . rainbow-mode)
@@ -311,7 +311,7 @@ t; (use-package! catppuccin-theme
         acm-backend-search-file-words-enable-fuzzy-match t)
 
   (setq lsp-bridge-enable-hover-diagnostic t
-        lsp-bridge-enable-auto-format-code nil
+        lsp-bridge-enable-auto-format-code t
         lsp-bridge-enable-org-babel t))
 
 (after! ob-jupyter
