@@ -2,60 +2,60 @@
 (setq user-full-name "Ahsanur Rahman"
       user-mail-address "ahsanur041@proton.me")
 
-; (use-package! doom-themes
-;;   :custom
-;;   ;; Global settings (defaults)
-;;   (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
-;;   (doom-themes-enable-italic t) ; if nil, italics is universally disabled
-;;   ;; for treemacs users
-;;   (doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
-;;   :config
-;;   (load-theme 'doom-tokyo-night t)
-
-;;   ;; Enable flashing mode-line on errors
-;;   (doom-themes-visual-bell-config)
-;;   ;; Enable custom neotree theme (nerd-icons must be installed!)
-;;   (doom-themes-neotree-config)
-;;   ;; or for treemacs users
-;;   (doom-themes-treemacs-config)
-;;   ;; Corrects (and improves) org-mode's native fontification.
-;;   (doom-themes-org-config))
-
-(use-package! catppuccin-theme
+(use-package! doom-themes
+  :custom
+  ;; Global settings (defaults)
+  (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
+  (doom-themes-enable-italic t) ; if nil, italics is universally disabled
+  ;; for treemacs users
+  (doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
   :config
-  (setq catppuccin-flavor 'mocha)
-  ;; Enable Catppuccin quality-of-life features
-  (setq catppuccin-italic-comments t
-        catppuccin-italic-blockquotes t
-        catppuccin-italic-variables nil
-        catppuccin-highlight-matches t
-        catppuccin-dark-line-numbers-background t)
+  (load-theme 'doom-tokyo-night t)
 
-  (setq doom-theme 'catppuccin)
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  ;; Enable custom neotree theme (nerd-icons must be installed!)
+  (doom-themes-neotree-config)
+  ;; or for treemacs users
+  (doom-themes-treemacs-config)
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
 
-  (custom-theme-set-faces! 'catppuccin
-    '(default :background "#1e1e2e" :foreground "#cdd6f4")
-    '(corfu-default :background "#1e1e2e" :foreground "#cdd6f4")
-    '(solaire-mode-bg-face :background "#11111b")
-    '(hl-line :background "#11111b" :extend t)
-    '(org-block :background "#313244" :foreground "#cdd6f4" :extend t)
-    '(org-block-begin-line :background "#313244" :foreground "#6c7086" :extend t)
-    '(org-block-end-line :background "#313244" :foreground "#6c7086" :extend t)
-    '(org-meta-line :foreground "#6c7086")
-    '(org-document-info-keyword :foreground "#6c7086")
-    '(mode-line :background "#181825" :foreground "#cdd6f4")
-    '(mode-line-inactive :background "#11111b" :foreground "#6c7086")
-    '(region :background "#585b70" :extend t)
-    '(cursor :background "#f5e0dc")
-    '(show-paren-match :foreground "#f5c2e7" :background "#45475a" :weight bold)
-    '(sp-show-pair-match-face :background "#b4befe" :foreground "black")
-    '(minibuffer-prompt :foreground "#89dceb" :weight bold)
-    '(pdf-view-highlight-face :background "#f9e2af" :foreground "#1e1e2e")
-    '(pdf-view-link-face :foreground "#89b4fa")
-    '(pdf-view-active-link-face :foreground "#cba6f7"))
+;; (use-package! catppuccin-theme
+;;   :config
+;;   (setq catppuccin-flavor 'mocha)
+;;   ;; Enable Catppuccin quality-of-life features
+;;   (setq catppuccin-italic-comments t
+;;         catppuccin-italic-blockquotes t
+;;         catppuccin-italic-variables nil
+;;         catppuccin-highlight-matches t
+;;         catppuccin-dark-line-numbers-background t)
+
+;;   (setq doom-theme 'catppuccin)
+
+;;   (custom-theme-set-faces! 'catppuccin
+;;     '(default :background "#1e1e2e" :foreground "#cdd6f4")
+;;     '(corfu-default :background "#1e1e2e" :foreground "#cdd6f4")
+;;     '(solaire-mode-bg-face :background "#11111b")
+;;     '(hl-line :background "#11111b" :extend t)
+;;     '(org-block :background "#313244" :foreground "#cdd6f4" :extend t)
+;;     '(org-block-begin-line :background "#313244" :foreground "#6c7086" :extend t)
+;;     '(org-block-end-line :background "#313244" :foreground "#6c7086" :extend t)
+;;     '(org-meta-line :foreground "#6c7086")
+;;     '(org-document-info-keyword :foreground "#6c7086")
+;;     '(mode-line :background "#181825" :foreground "#cdd6f4")
+;;     '(mode-line-inactive :background "#11111b" :foreground "#6c7086")
+;;     '(region :background "#585b70" :extend t)
+;;     '(cursor :background "#f5e0dc")
+;;     '(show-paren-match :foreground "#f5c2e7" :background "#45475a" :weight bold)
+;;     '(sp-show-pair-match-face :background "#b4befe" :foreground "black")
+;;     '(minibuffer-prompt :foreground "#89dceb" :weight bold)
+;;     '(pdf-view-highlight-face :background "#f9e2af" :foreground "#1e1e2e")
+;;     '(pdf-view-link-face :foreground "#89b4fa")
+;;     '(pdf-view-active-link-face :foreground "#cba6f7"))
 
 
-  )
+;;   )
 
 (add-hook! 'doom-first-buffer-hook
   (size-indication-mode -1)
