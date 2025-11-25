@@ -1,11 +1,8 @@
-```el
-;; ============================================================================
-;; LATEX PREVIEW WITH STIX TWO MATH FOR ORG 9.7 + DOOM EMACS + TOKYO NIGHT
-;; ============================================================================
-;; This configuration uses STIX Two Math (recommended), Libertinus Math, or
-;; Fira Math with unicode-math for professional scientific typography.
-;; Addresses baseline alignment, transparent backgrounds, and color matching.
+This configuration uses STIX Two Math (recommended), Libertinus Math, or
+Fira Math with unicode-math for professional scientific typography.
+Addresses baseline alignment, transparent backgrounds, and color matching.
 
+```el
 (after! org
   ;; Use LuaLaTeX for Org exports
   (setq org-latex-compiler "lualatex")

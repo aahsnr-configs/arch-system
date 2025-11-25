@@ -11,64 +11,57 @@
 * UI and Theming
 ** Theming
 #+begin_src emacs-lisp
-(use-package! doom-themes
-  :custom
-  ;; Global settings (defaults)
-  (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
-  (doom-themes-enable-italic t) ; if nil, italics is universally disabled
-  ;; for treemacs users
-  (doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
-  :config
-  (load-theme 'doom-tokyo-night t)
-
-  ;; Enable flashing mode-line on errors
-  (doom-themes-visual-bell-config)
-  ;; Enable custom neotree theme (nerd-icons must be installed!)
-  (doom-themes-neotree-config)
-  ;; or for treemacs users
-  (doom-themes-treemacs-config)
-  ;; Corrects (and improves) org-mode's native fontification.
-  (doom-themes-org-config))
+;; (use-package! doom-themes
+;;   :custom
+;;   (doom-themes-enable-bold t)
+;;   (doom-themes-enable-italic t)
+;;   (doom-themes-treemacs-theme "doom-tokyo-night")
+;;   :config
+;;   (load-theme 'doom-tokyo-night t)
+;;   (doom-themes-visual-bell-config)
+;;   (doom-themes-neotree-config)
+;;   (doom-themes-treemacs-config)
+;;   (doom-themes-org-config))
 #+end_src
 
 
 ** Catppuccin Theme
 #+begin_src emacs-lisp
-;; (use-package! catppuccin-theme
-;;   :config
-;;   (setq catppuccin-flavor 'mocha)
-;;   ;; Enable Catppuccin quality-of-life features
-;;   (setq catppuccin-italic-comments t
-;;         catppuccin-italic-blockquotes t
-;;         catppuccin-italic-variables nil
-;;         catppuccin-highlight-matches t
-;;         catppuccin-dark-line-numbers-background t)
+(use-package! catppuccin-theme
+  :config
+  (setq catppuccin-flavor 'mocha)
+  ;; Enable Catppuccin quality-of-life features
+  (setq catppuccin-italic-comments t
+        catppuccin-italic-blockquotes t
+        catppuccin-italic-variables nil
+        catppuccin-highlight-matches t
+        catppuccin-dark-line-numbers-background t)
 
-;;   (setq doom-theme 'catppuccin)
+  (setq doom-theme 'catppuccin)
 
-;;   (custom-theme-set-faces! 'catppuccin
-;;     '(default :background "#1e1e2e" :foreground "#cdd6f4")
-;;     '(corfu-default :background "#1e1e2e" :foreground "#cdd6f4")
-;;     '(solaire-mode-bg-face :background "#11111b")
-;;     '(hl-line :background "#11111b" :extend t)
-;;     '(org-block :background "#313244" :foreground "#cdd6f4" :extend t)
-;;     '(org-block-begin-line :background "#313244" :foreground "#6c7086" :extend t)
-;;     '(org-block-end-line :background "#313244" :foreground "#6c7086" :extend t)
-;;     '(org-meta-line :foreground "#6c7086")
-;;     '(org-document-info-keyword :foreground "#6c7086")
-;;     '(mode-line :background "#181825" :foreground "#cdd6f4")
-;;     '(mode-line-inactive :background "#11111b" :foreground "#6c7086")
-;;     '(region :background "#585b70" :extend t)
-;;     '(cursor :background "#f5e0dc")
-;;     '(show-paren-match :foreground "#f5c2e7" :background "#45475a" :weight bold)
-;;     '(sp-show-pair-match-face :background "#b4befe" :foreground "black")
-;;     '(minibuffer-prompt :foreground "#89dceb" :weight bold)
-;;     '(pdf-view-highlight-face :background "#f9e2af" :foreground "#1e1e2e")
-;;     '(pdf-view-link-face :foreground "#89b4fa")
-;;     '(pdf-view-active-link-face :foreground "#cba6f7"))
+  (custom-theme-set-faces! 'catppuccin
+    '(default :background "#1e1e2e" :foreground "#cdd6f4")
+    '(corfu-default :background "#1e1e2e" :foreground "#cdd6f4")
+    '(solaire-mode-bg-face :background "#11111b")
+    '(hl-line :background "#11111b" :extend t)
+    '(org-block :background "#313244" :foreground "#cdd6f4" :extend t)
+    '(org-block-begin-line :background "#313244" :foreground "#6c7086" :extend t)
+    '(org-block-end-line :background "#313244" :foreground "#6c7086" :extend t)
+    '(org-meta-line :foreground "#6c7086")
+    '(org-document-info-keyword :foreground "#6c7086")
+    '(mode-line :background "#181825" :foreground "#cdd6f4")
+    '(mode-line-inactive :background "#11111b" :foreground "#6c7086")
+    '(region :background "#585b70" :extend t)
+    '(cursor :background "#f5e0dc")
+    '(show-paren-match :foreground "#f5c2e7" :background "#45475a" :weight bold)
+    '(sp-show-pair-match-face :background "#b4befe" :foreground "black")
+    '(minibuffer-prompt :foreground "#89dceb" :weight bold)
+    '(pdf-view-highlight-face :background "#f9e2af" :foreground "#1e1e2e")
+    '(pdf-view-link-face :foreground "#89b4fa")
+    '(pdf-view-active-link-face :foreground "#cba6f7"))
 
 
-;;   )
+  )
 #+end_src
 
 ** Doom Modeline
@@ -111,8 +104,6 @@
              doom-dashboard-mode-hook)
            #'(lambda () (display-line-numbers-mode -1)))
 #+end_src
-
-#+RESULTS:
 
 ** Fonts
 #+begin_src emacs-lisp
@@ -370,6 +361,7 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
   (setq lsp-bridge-python-multi-lsp-server "basedpyright_ruff"
         lsp-bridge-tex-lsp-server "texlab"
         lsp-bridge-nix-lsp-server "nil"
+        lsp-bridge-markdown-lsp-server "marksman"
         lsp-bridge-org-babel-lang-list nil)
 
   ;; Asynchronous Completion
@@ -381,7 +373,7 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
         acm-backend-search-file-words-enable-fuzzy-match t)
 
   (setq lsp-bridge-enable-hover-diagnostic t
-        lsp-bridge-enable-auto-format-code t
+        lsp-bridge-enable-auto-format-code nil
         lsp-bridge-enable-org-babel t))
 #+end_src
 
@@ -453,39 +445,17 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
 
 #+begin_src emacs-lisp
 (after! tex
-  ;; Set LuaLaTeX as the default engine (modern, Unicode-aware)
-  ;; Options: 'luatex (LuaLaTeX), 'xetex (XeLaTeX), 'default (pdfLaTeX)
   (setq TeX-engine 'luatex)
-
-  ;; Use build directory for cleaner project organization
   (setq TeX-output-dir "build/")
-
-  ;; Enable shell-escape for minted, gnuplot, and other external programs
   (setq LaTeX-command "latex -shell-escape")
-
-  ;; Auto-save before compiling
   (setq TeX-save-query nil)
-
-  ;; Don't ask for confirmation when cleaning auxiliary files
   (setq TeX-clean-confirm nil))
 
 (after! latex
-  ;; Add latexmk commands for each engine
-  ;; latexmk automatically handles multiple passes for references, bibliography, etc.
-  (add-to-list 'TeX-command-list
-               '("LaTeXmk" "latexmk -pdf -pdflatex='pdflatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
-                 TeX-run-TeX nil t
-                 :help "Run latexmk with pdfLaTeX") t)
-
   (add-to-list 'TeX-command-list
                '("LuaLaTeXmk" "latexmk -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
                  TeX-run-TeX nil t
                  :help "Run latexmk with LuaLaTeX") t)
-
-  (add-to-list 'TeX-command-list
-               '("XeLaTeXmk" "latexmk -pdfxe -pdfxelatex='xelatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
-                 TeX-run-TeX nil t
-                 :help "Run latexmk with XeLaTeX") t)
 
   ;; Add continuous preview mode (watch mode)
   (add-to-list 'TeX-command-list
@@ -493,7 +463,6 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
                  TeX-run-TeX nil t
                  :help "Run latexmk in continuous preview mode") t)
 
-  ;; Set default command based on engine
   (setq-default TeX-command-default
                 (cond ((eq TeX-engine 'luatex) "LuaLaTeXmk")
                       ((eq TeX-engine 'xetex) "XeLaTeXmk")
@@ -647,49 +616,97 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
 #+begin_src emacs-lisp
 (after! org
   ;; Use LuaLaTeX for Org exports
+  ;; Use LuaLaTeX for Org exports
   (setq org-latex-compiler "lualatex")
 
-  ;; Set scale to match 13pt JetBrains Mono
   (setq org-format-latex-options
-        (plist-put org-format-latex-options :scale 3.5))
+        (plist-put org-format-latex-options :scale 2.8))
+
+  ;; Set transparent background for dark theme compatibility
+  (plist-put org-format-latex-options :background "Transparent")
+  (plist-put org-format-latex-options :foreground "#a9b1d6")
 
   ;; Use latexmk for org-mode PDF export
   (setq org-latex-pdf-process
         '("latexmk -f -pdf -%latex -shell-escape -interaction=nonstopmode -output-directory=%o %f"))
 
-  ;; Add LuaLaTeX preview process
   (add-to-list 'org-preview-latex-process-alist
-               '(lualatex
-                 :programs ("lualatex" "magick")
-                 :description "pdf > png (lualatex)"
-                 :message "you need to install lualatex and imagemagick"
+               '(lualatex-svg
+                 :programs ("lualatex" "dvisvgm")
+                 :description "pdf > svg (LuaLaTeX - RECOMMENDED)"
+                 :message "Install lualatex, dvisvgm, and ghostscript"
+                 :image-input-type "pdf"
+                 :image-output-type "svg"
+                 :image-size-adjust (1.0 . 1.0)
+                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+                 :image-converter ("dvisvgm --pdf %f -n -b min -c %S -o %O")))
+
+  (add-to-list 'org-preview-latex-process-alist
+               '(lualatex-png
+                 :programs ("lualatex" "convert")
+                 :description "pdf > png (LuaLaTeX fallback)"
+                 :message "Install lualatex and imagemagick"
                  :image-input-type "pdf"
                  :image-output-type "png"
                  :image-size-adjust (1.0 . 1.0)
-                 :latex-compiler
-                 ("lualatex -interaction nonstopmode -output-directory %o %f")
-                 :image-converter
-                 ("magick -density %D %f -trim -antialias -quality 100 %O")))
+                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+                 :image-converter ("magick -density %D -background transparent %f -trim -antialias -quality 100 %O")))
 
   ;; Use LuaLaTeX for previews
-  (setq org-preview-latex-default-process 'lualatex)
+  (setq org-preview-latex-default-process 'lualatex-png)
 
-  ;; Add packages needed for LaTeX preview
+  (setq org-format-latex-header
+        "\\documentclass{article}
+\\usepackage[usenames]{color}
+[PACKAGES]
+[DEFAULT-PACKAGES]
+\\pagestyle{empty}             % do not remove
+% The settings below are copied from fullpage.sty
+\\setlength{\\textwidth}{\\paperwidth}
+\\addtolength{\\textwidth}{-3cm}
+\\setlength{\\oddsidemargin}{1.5cm}
+\\addtolength{\\oddsidemargin}{-2.54cm}
+\\setlength{\\evensidemargin}{\\oddsidemargin}
+\\setlength{\\textheight}{\\paperheight}
+\\addtolength{\\textheight}{-\\headheight}
+\\addtolength{\\textheight}{-\\headsep}
+\\addtolength{\\textheight}{-\\footskip}
+\\addtolength{\\textheight}{-3cm}
+\\setlength{\\topmargin}{1.5cm}
+\\addtolength{\\topmargin}{-2.54cm}
+% Modern font configuration with unicode-math
+\\usepackage{fontspec}
+\\usepackage{unicode-math}
+\\usepackage{amsmath}
+\\usepackage{physics}
+\\usepackage{siunitx}
+\\usepackage{xcolor}
+% Match doom-tokyo-night theme colors
+\\definecolor{fgcolor}{HTML}{a9b1d6}
+\\color{fgcolor}
+% Set modern math font (choose ONE of the following):
+\\setmathfont{STIX Two Math}      % RECOMMENDED: Professional, comprehensive
+% \\setmathfont{Libertinus Math}  % Alternative: Elegant, Times-like
+% \\setmathfont{Fira Math}        % Alternative: Clean, modern")
+
+  ;; (setq org-latex-preview-preamble
+  ;;       (concat
+  ;;        "\\documentclass{article}\n"
+  ;;        "\\usepackage{amsmath}\n"
+  ;;        "\\usepackage{physics}\n"
+  ;;        "\\usepackage{siunitx}\n"
+  ;;        "\\usepackage{fontspec}\n"
+  ;;        "\\setmainfont{JetBrains Mono}\n"
+  ;;         "\\fontsize{13pt}{15.6pt}\\selectfont\n"
+  ;;        "[PACKAGES]\n"
+  ;;        "[DEFAULT-PACKAGES]\n"))
+
+  (add-to-list 'org-latex-packages-alist '("" "fontspec" nil ("lualatex" "xelatex")))
+  (add-to-list 'org-latex-packages-alist '("" "unicode-math" nil ("lualatex" "xelatex")))
   (add-to-list 'org-latex-packages-alist '("" "amsmath" t))
   (add-to-list 'org-latex-packages-alist '("" "physics" t))
+  (add-to-list 'org-latex-packages-alist '("" "siunitx" t))
   (add-to-list 'org-latex-packages-alist '("authoryear,longnamesfirst" "natbib" t))
-
-  (setq org-latex-preview-preamble
-        (concat
-         "\\documentclass{article}\n"
-         "\\usepackage{amsmath}\n"
-         "\\usepackage{physics}\n"
-         "\\usepackage{siunitx}\n"
-         "\\usepackage{fontspec}\n"
-         "\\setmainfont{JetBrains Mono}\n"
-          "\\fontsize{13pt}{15.6pt}\\selectfont\n"
-         "[PACKAGES]\n"
-         "[DEFAULT-PACKAGES]\n"))
 
   ;; Clear cache if you've had preview errors before
   (setq org-latex-preview-cache 'temp))

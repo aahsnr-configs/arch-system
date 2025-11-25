@@ -20,6 +20,7 @@
 ;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━
 (package! laas)
 (package! org-fragtog)
+(package! yasnippet-snippets)
 
 ;;; ━━━━━━━━━━━━━━━━━━━━
 ;;; Version Control
