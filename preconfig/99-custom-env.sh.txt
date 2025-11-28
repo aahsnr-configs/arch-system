@@ -15,7 +15,10 @@ XDG_STATE_HOME=${XDG_STATE_HOME:-$HOME/.local/state}
 BACKUP_DIR=${BACKUP_DIR:-$HOME/backup}
 
 # Append custom directories to the system PATH
-PATH="$PATH:$HOME/.cargo/bin:$HOME/go/bin:$HOME/.bun/bin:$HOME/.local/bin:$HOME/.local/bin/hypr:$HOME/.config/emacs/bin:$HOME/.npm-global/bin"
+PATH="$PATH:$HOME/.cargo/bin:$HOME/go/bin:/usr/local/texlive/2025/bin/x86_64-linux:$HOME/.bun/bin:$HOME/.local/bin:$HOME/.local/bin/hypr:$HOME/.config/emacs/bin:$HOME/.npm-global/bin"
+
+export MANPATH=$MANPATH:/usr/local/texlive/2025/texmf-dist/doc/man
+export INFOPATH=$INFOPATH:/usr/local/texlive/2025/texmf-dist/doc/info
 
 # Export all variables
 export EDITOR PAGER TERMINAL VISUAL PATH

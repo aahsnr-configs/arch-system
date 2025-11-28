@@ -21,6 +21,10 @@
        ;;layout            ; auie,ctsrnm is the superior home row
 
        :completion
+       (corfu
+        +icons
+        +orderless
+        +dabbrev)
        ;;company           ; the ultimate code completion backend
        ;;helm              ; the *other* search engine for love and life
        ;;ido               ; the other *other* search engine...
@@ -87,10 +91,14 @@
        vterm             ; the best terminal emulation in Emacs
 
        :checkers
+       (syntax
+        +childframe
+        +icons)
        ;;(spell +flyspell) ; tasing you for misspelling mispelling
        ;;grammar           ; tasing grammar mistake every you make
 
        :tools
+       (lsp +peek)
        ;;ansible
        biblio              ; Writes a PhD for you (citation needed)
        ;;collab            ; buffers with friends
@@ -107,7 +115,7 @@
        pdf                 ; pdf enhancements
        ;;terraform         ; infrastructure as code
        tmux              ; an API for interacting with tmux
-       tree-sitter      ; syntax and parsing, sitting in a tree...
+       (tree-sitter +lsp)      ; syntax and parsing, sitting in a tree...
        ;;upload            ; map local to remote projects via ssh/ftp
 
        :os
@@ -149,6 +157,7 @@
        ;;julia             ; a better, faster MATLAB
        ;;kotlin            ; a better, slicker Java(Script)
        (latex
+        +lsp
         +cdlatex
         +fold)
        ;;lean              ; for folks with too much to prove
@@ -157,6 +166,7 @@
        markdown            ; writing docs for people to ignore
        ;;nim               ; python + lisp at the speed of c
        (nix
+        +lsp
         +tree-sitter)
        ;;ocaml             ; an objective camel
        (org
@@ -172,6 +182,8 @@
        ;;graphviz          ; diagrams for confusing yourself even more
        ;;purescript        ; javascript, but functional
        (python
+        +lsp
+        +pyright
         +tree-sitter)
        (qt
         +tree-sitter)

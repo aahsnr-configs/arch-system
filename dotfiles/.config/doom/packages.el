@@ -38,15 +38,24 @@
 (package! dired-open)
 (package! dired-ranger)
 (package! jinx)
-(package! lsp-bridge
-  :recipe (:host github
-           :repo "manateelazycat/lsp-bridge"
-           :branch "master"
-           :files ("*.el" "*.py" "acm" "core" "langserver" "multiserver" "resources")
-           ;; do not perform byte compilation or native compilation for lsp-bridge
-           :build (:not compile)))
+(package! lsp-latex)
 
 ;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ;;; Unpinned Packages
 ;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 (unpin! consult)
+(unpin! consult-dir)
+(unpin! embark)
+(unpin! embark-consult)
+(unpin! corfu)
+(unpin! nerd-icons-corfu)
+(unpin! nerd-icons-completion)
+(unpin! wgrep)
+(unpin! corfu-terminal)
+(unpin! orderless)
+(unpin! cape)
+(unpin! marginalia)
+(unpin! vertico)
+(unpin! yasnippet)
+(unpin! yasnippet-capf)
+(unpin! consult-yasnippet)

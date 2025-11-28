@@ -1,13 +1,51 @@
-# Adding to PATH
-set -e fish_user_paths
-set -U fish_user_paths $HOME/.cargo/bin $HOME/go/bin $HOME/.bun/bin $HOME/.local/bin $HOME/.config/emacs/bin $HOME/.npm-global/bin $HOME/.local/share/flatpak/exports/bin $fish_user_paths
+# --- Environment Variables ---
+# Ported from 99-custom-env.sh
+# Using -gx to make them global and exported
 
-# EXPORT
-set TERMINAL kitty
-set BROWSER brave
-set EDITOR nvim
-set VISUAL "emacsclient -c -a emacs"
-set PAGER "bat --paging=always --style=plain"
+# XDG Base Directory Specification
+set -gx XDG_BIN_HOME $HOME/.local/bin
+set -gx XDG_CACHE_HOME $HOME/.cache
+set -gx XDG_CONFIG_HOME $HOME/.config
+set -gx XDG_DATA_HOME $HOME/.local/share
+set -gx XDG_STATE_HOME $HOME/.local/state
+
+# Backup Directory
+set -gx BACKUP_DIR $HOME/backup
+
+# Default Applications
+set -gx TERMINAL kitty
+set -gx BROWSER brave
+set -gx EDITOR nvim
+set -gx VISUAL "emacsclient -c -a emacs"
+set -gx PAGER "bat --paging=always --style=plain"
+
+# --- PATH Configuration ---
+# Using fish_add_path is preferred over manipulating fish_user_paths manually.
+# It checks if the directory exists before adding it, preventing errors.
+
+# 1. Prepend generic user binary paths
+fish_add_path $HOME/.cargo/bin
+fish_add_path $HOME/go/bin
+fish_add_path $HOME/.bun/bin
+fish_add_path $HOME/.local/bin
+fish_add_path $HOME/.config/emacs/bin
+fish_add_path $HOME/.npm-global/bin
+fish_add_path $HOME/.local/share/flatpak/exports/bin
+
+# 2. Add specific tools (Hyprland, etc)
+fish_add_path $HOME/.local/bin/hypr
+
+# 3. Add TexLive 2025
+# Note: Ensure /usr/local/texlive/2025/bin/x86_64-linux actually exists.
+# If you are on ARM (M1/M2 Mac or Raspberry Pi), the folder might be 'aarch64-linux' instead.
+
+fish_add_path /usr/local/texlive/2025/bin/x86_64-linux
+
+# --- Documentation Paths (TexLive) ---
+set -gx MANPATH $MANPATH /usr/local/texlive/2025/texmf-dist/doc/man
+set -gx INFOPATH $INFOPATH /usr/local/texlive/2025/texmf-dist/doc/info
+
+# --- Tool Configuration ---
 
 # "nvim" as manpager
 set -x MANPAGER "nvim +Man!"

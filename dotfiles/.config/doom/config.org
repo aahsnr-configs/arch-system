@@ -353,32 +353,6 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 #+end_src
 
 * Development Tools
-** LSP Bridge
-#+begin_src emacs-lisp
-(use-package! lsp-bridge
-  :config
-  (global-lsp-bridge-mode)
-
-  ;; This provides: basedpyright for completion/navigation + ruff for linting/formatting
-  (setq lsp-bridge-python-multi-lsp-server "basedpyright_ruff"
-        lsp-bridge-tex-lsp-server "texlab"
-        lsp-bridge-nix-lsp-server "nil"
-        lsp-bridge-markdown-lsp-server "marksman"
-        lsp-bridge-org-babel-lang-list nil)
-
-  ;; Asynchronous Completion
-  (setq acm-enable-doc nil
-        acm-enable-jupyter t
-        acm-enable-doc-markdown-render 'async
-        acm-enable-icon t
-        acm-candidate-match-function 'orderless-literal
-        acm-backend-search-file-words-enable-fuzzy-match t)
-
-  (setq lsp-bridge-enable-hover-diagnostic t
-        lsp-bridge-enable-auto-format-code t
-        lsp-bridge-enable-org-babel t))
-#+end_src
-
 ** Jupyter
 #+begin_src emacs-lisp
 (after! ob-jupyter
@@ -492,91 +466,6 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
             #'TeX-revert-document-buffer))
 #+end_src
 
-** Project-Aware Bibliography System
-#+begin_src emacs-lisp
-(defun +latex-find-project-bibliographies ()
-  "Find all .bib files in project (root, references/, bib/, bibliography/)."
-  (when (and (featurep 'projectile)
-             (fboundp 'projectile-project-p)
-             (projectile-project-p))
-    (when-let ((root (projectile-project-root)))
-      (let ((bib-files '())
-            (search-dirs (list root
-                              (expand-file-name "references/" root)
-                              (expand-file-name "bib/" root)
-                              (expand-file-name "bibliography/" root))))
-        (dolist (dir search-dirs)
-          (when (file-directory-p dir)
-            (dolist (file (directory-files dir t "\\.bib\\'"))
-              (push file bib-files))))
-        (delete-dups (nreverse bib-files))))))
-
-(defun +latex-setup-project-bibliography ()
-  "Setup bibliography infrastructure for current project."
-  (interactive)
-  (if (and (featurep 'projectile)
-           (fboundp 'projectile-project-p)
-           (projectile-project-p))
-      (let* ((root (projectile-project-root))
-             (bib-dir (expand-file-name "references/" root))
-             (bib-file (expand-file-name "references.bib" bib-dir)))
-        (unless (file-directory-p bib-dir)
-          (make-directory bib-dir t))
-        (unless (file-exists-p bib-file)
-          (with-temp-file bib-file
-            (insert "% Bibliography for "
-                    (file-name-nondirectory (directory-file-name root)) "\n")
-            (insert "% Created: " (format-time-string "%Y-%m-%d") "\n\n")))
-        (message "Bibliography setup complete: %s" bib-file)
-        bib-file)
-    (message "Not in a project")))
-#+end_src
-
-** Citation Management
-#+begin_src emacs-lisp
-(after! citar
-  ;; Doom's biblio module already provides citar with vertico
-  ;; We just need to configure paths and enable our project-aware system
-  (setq citar-bibliography '("~/references.bib")
-        citar-library-paths '("~/Zotero/storage")
-        citar-notes-paths (list my/org-roam-directory))
-
-  ;; Register indicators
-  (setq citar-indicators
-        (list citar-indicator-files-icons
-              citar-indicator-notes-icons
-              citar-indicator-links-icons))
-
-  ;; Dynamic bibliography function
-  (defun +citar-get-bibliography ()
-    "Return project bibliography or global fallback."
-    (or (+latex-find-project-bibliographies) citar-bibliography))
-
-  ;; Override citar's bibliography detection
-  (advice-add 'citar--bibliography-files :override #'+citar-get-bibliography)
-
-  ;; Set buffer-local bibliography
-  (defun +citar-set-local-bibliography-h ()
-    "Set buffer-local bibliography for current buffer."
-    (when (and (buffer-file-name)
-               (or (derived-mode-p 'org-mode)
-                   (derived-mode-p 'LaTeX-mode)))
-      (setq-local citar-bibliography (+citar-get-bibliography))
-      ;; Also update org-cite
-      (when (derived-mode-p 'org-mode)
-        (setq-local org-cite-global-bibliography (+citar-get-bibliography)))))
-
-  ;; Apply hooks after projectile is loaded
-  (when (featurep 'projectile)
-    (add-hook 'org-mode-hook #'+citar-set-local-bibliography-h)
-    (add-hook 'LaTeX-mode-hook #'+citar-set-local-bibliography-h)))
-
-;; RefTeX configuration - handle non-citation references only
-;; Let Citar manage bibliographies
-(after! reftex
-  (setq reftex-default-bibliography '()))
-#+end_src
-
 ** Fast Math Input with LAAS
 #+begin_src emacs-lisp
 (use-package! laas
@@ -620,93 +509,45 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
 #+begin_src emacs-lisp
 (after! org
   (setq org-latex-compiler "lualatex")
-  (setq org-pretty-entities-include-sub-superscripts nil)
-
-  (plist-put org-format-latex-options :scale 3.5)
-
-  (let ((png-process (cdr (assoc 'dvipng org-preview-latex-process-alist))))
-    (when png-process
-      (plist-put png-process :image-size-adjust '(3.5 . 3.5))))
-
-  ;; Set transparent background for dark theme compatibility
-  (plist-put org-format-latex-options :background "Transparent")
-  (plist-put org-format-latex-options :foreground "#a9b1d6")
-
-  (add-to-list 'org-preview-latex-process-alist
-               '(lualatex-png
-                 :programs ("lualatex" "magick")
-                 :description "pdf > png (LuaLaTeX with proper transparency)"
-                 :message "Install lualatex and imagemagick v7+"
-                 :image-input-type "pdf"
-                 :image-output-type "png"
-                 :image-size-adjust (1.0 . 1.0)
-                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
-                 :image-converter ("magick %f -density 600 -trim +repage -transparent white -colorspace sRGB -quality 100 %O")))
-
-  (add-to-list 'org-preview-latex-process-alist
-               '(lualatex-svg
-                 :programs ("lualatex" "pdfcrop" "dvisvgm")
-                 :description "pdf > cropped pdf > svg (LuaLaTeX - RECOMMENDED)"
-                 :message "Install lualatex, pdfcrop (texlive-extra-utils), and dvisvgm"
-                 :image-input-type "pdf"
-                 :image-output-type "svg"
-                 :image-size-adjust (1.0 . 1.0)
-                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
-                 :image-converter ("pdfcrop %f %B-crop.pdf && dvisvgm --pdf --no-fonts --exact-bbox --output=%O %B-crop.pdf")))
-
-  ;; Use LuaLaTeX for previews
-  (setq org-preview-latex-default-process 'lualatex-png)
+  (setq org-preview-latex-image-directory "ltximg/")
 
   (setq org-format-latex-header
-        "\\documentclass{article}
-\\usepackage[usenames]{color}
-[PACKAGES]
-[DEFAULT-PACKAGES]
-\\pagestyle{empty}             % do not remove
-% The settings below are copied from fullpage.sty
-\\setlength{\\textwidth}{\\paperwidth}
-\\addtolength{\\textwidth}{-3cm}
-\\setlength{\\oddsidemargin}{1.5cm}
-\\addtolength{\\oddsidemargin}{-2.54cm}
-\\setlength{\\evensidemargin}{\\oddsidemargin}
-\\setlength{\\textheight}{\\paperheight}
-\\addtolength{\\textheight}{-\\headheight}
-\\addtolength{\\textheight}{-\\headsep}
-\\addtolength{\\textheight}{-\\footskip}
-\\addtolength{\\textheight}{-3cm}
-\\setlength{\\topmargin}{1.5cm}
-\\addtolength{\\topmargin}{-2.54cm}
-% Modern font configuration with unicode-math
-\\usepackage{fontspec}
-\\usepackage{unicode-math}
+        "\\documentclass[varwidth=\\maxdimen, margin=3pt]{standalone}
 \\usepackage{amsmath}
-\\usepackage{physics}
-\\usepackage{siunitx}
+\\usepackage{amssymb}
+\\usepackage{fontspec}
+\\defaultfontfeatures{Scale=MatchLowercase}
 \\usepackage{xcolor}
-% Match doom-tokyo-night theme colors
-\\definecolor{fgcolor}{HTML}{a9b1d6}
-\\color{fgcolor}
-% Set modern math font (choose ONE of the following):
-\\setmathfont{STIX Two Math}      % RECOMMENDED: Professional, comprehensive
-% \\setmathfont{Libertinus Math}  % Alternative: Elegant, Times-like
-% \\setmathfont{Fira Math}        % Alternative: Clean, modern")
+\\AtBeginDocument{\\color[HTML]{c0caf5}}
+\\pagestyle{empty}
+\\tolerance=1000")
 
-  (add-to-list 'org-latex-packages-alist '("" "fontspec" nil ("lualatex" "xelatex")))
-  (add-to-list 'org-latex-packages-alist '("" "unicode-math" nil ("lualatex" "xelatex")))
-  (add-to-list 'org-latex-packages-alist '("" "amsmath" t))
-  (add-to-list 'org-latex-packages-alist '("" "physics" t))
-  (add-to-list 'org-latex-packages-alist '("" "siunitx" t))
-  (add-to-list 'org-latex-packages-alist '("authoryear,longnamesfirst" "natbib" t))
+  (add-to-list 'org-preview-latex-process-alist
+               '(lualatex
+                 :programs ("lualatex" "dvisvgm")
+                 :description "lualatex > xdv > dvisvgm > svg"
+                 :message "you need to install 'lualatex' and 'dvisvgm'."
+                 :image-input-type "dvi"
+                 :image-output-type "svg"
+                 :image-size-adjust (1.0 . 1.0)
+                 :latex-compiler ("lualatex --output-format=dvi -interaction nonstopmode -output-directory %o %f")
+                 :image-converter ("dvisvgm --scale=1.5 --bbox=min --no-fonts --page=1- --optimize --relative --output=%O %f")))
 
-  ;; Clear cache if you've had preview errors before
-  (setq org-latex-preview-cache 'temp))
+  (setq org-preview-latex-default-process 'lualatex))
 
-;; Org-fragtog for automatic LaTeX fragment preview
 (use-package! org-fragtog
   :hook (org-mode . org-fragtog-mode)
   :config
   (setq org-fragtog-preview-delay 0.1))
 #+end_src
+
+** LSP Integration
+#+begin_src emacs-lisp
+(use-package! lsp-latex
+  :after (latex lsp-mode)
+  :hook ((tex-mode latex-mode LaTeX-mode bibtex-mode) . lsp-deferred))
+#+end_src
+
 
 ** Keybindings
 #+begin_src emacs-lisp
