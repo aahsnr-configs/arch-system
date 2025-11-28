@@ -520,42 +520,40 @@
     "--" (lambda () (interactive) (laas-wrap-previous-object "bar"))))
 
 (after! org
-  ;; Use LuaLaTeX for Org exports
-  ;; Use LuaLaTeX for Org exports
   (setq org-latex-compiler "lualatex")
+(setq org-pretty-entities-include-sub-superscripts nil)
 
-  (setq org-format-latex-options
-        (plist-put org-format-latex-options :scale 2.8))
+  (plist-put org-format-latex-options :scale 3.5)
+
+  (let ((png-process (cdr (assoc 'dvipng org-preview-latex-process-alist))))
+    (when png-process
+      (plist-put png-process :image-size-adjust '(3.5 . 3.5))))
 
   ;; Set transparent background for dark theme compatibility
   (plist-put org-format-latex-options :background "Transparent")
   (plist-put org-format-latex-options :foreground "#a9b1d6")
 
-  ;; Use latexmk for org-mode PDF export
-  (setq org-latex-pdf-process
-        '("latexmk -f -pdf -%latex -shell-escape -interaction=nonstopmode -output-directory=%o %f"))
-
-  (add-to-list 'org-preview-latex-process-alist
-               '(lualatex-svg
-                 :programs ("lualatex" "dvisvgm")
-                 :description "pdf > svg (LuaLaTeX - RECOMMENDED)"
-                 :message "Install lualatex, dvisvgm, and ghostscript"
-                 :image-input-type "pdf"
-                 :image-output-type "svg"
-                 :image-size-adjust (1.0 . 1.0)
-                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
-                 :image-converter ("dvisvgm --pdf %f -n -b min -c %S -o %O")))
-
   (add-to-list 'org-preview-latex-process-alist
                '(lualatex-png
-                 :programs ("lualatex" "convert")
-                 :description "pdf > png (LuaLaTeX fallback)"
-                 :message "Install lualatex and imagemagick"
+                 :programs ("lualatex" "magick")
+                 :description "pdf > png (LuaLaTeX with proper transparency)"
+                 :message "Install lualatex and imagemagick v7+"
                  :image-input-type "pdf"
                  :image-output-type "png"
                  :image-size-adjust (1.0 . 1.0)
                  :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
-                 :image-converter ("magick -density %D -background transparent %f -trim -antialias -quality 100 %O")))
+                 :image-converter ("magick %f -density 600 -trim +repage -transparent white -colorspace sRGB -quality 100 %O")))
+
+  (add-to-list 'org-preview-latex-process-alist
+               '(lualatex-svg
+                 :programs ("lualatex" "pdfcrop" "dvisvgm")
+                 :description "pdf > cropped pdf > svg (LuaLaTeX - RECOMMENDED)"
+                 :message "Install lualatex, pdfcrop (texlive-extra-utils), and dvisvgm"
+                 :image-input-type "pdf"
+                 :image-output-type "svg"
+                 :image-size-adjust (1.0 . 1.0)
+                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+                 :image-converter ("pdfcrop %f %B-crop.pdf && dvisvgm --pdf --no-fonts --exact-bbox --output=%O %B-crop.pdf")))
 
   ;; Use LuaLaTeX for previews
   (setq org-preview-latex-default-process 'lualatex-png)
@@ -593,18 +591,6 @@
 \\setmathfont{STIX Two Math}      % RECOMMENDED: Professional, comprehensive
 % \\setmathfont{Libertinus Math}  % Alternative: Elegant, Times-like
 % \\setmathfont{Fira Math}        % Alternative: Clean, modern")
-
-  ;; (setq org-latex-preview-preamble
-  ;;       (concat
-  ;;        "\\documentclass{article}\n"
-  ;;        "\\usepackage{amsmath}\n"
-  ;;        "\\usepackage{physics}\n"
-  ;;        "\\usepackage{siunitx}\n"
-  ;;        "\\usepackage{fontspec}\n"
-  ;;        "\\setmainfont{JetBrains Mono}\n"
-  ;;         "\\fontsize{13pt}{15.6pt}\\selectfont\n"
-  ;;        "[PACKAGES]\n"
-  ;;        "[DEFAULT-PACKAGES]\n"))
 
   (add-to-list 'org-latex-packages-alist '("" "fontspec" nil ("lualatex" "xelatex")))
   (add-to-list 'org-latex-packages-alist '("" "unicode-math" nil ("lualatex" "xelatex")))
@@ -707,15 +693,6 @@
        :desc "Find definition"          "d" #'xref-find-definitions
        :desc "Find type definition"     "D" #'eglot-find-typeDefinition
        :desc "Go back"                  "b" #'xref-go-back))
-
-; Org-src-mode specific keybindings
-;; (map! :map org-src-mode-map
-;;       :localleader
-;;       :desc "Exit and save"        "'" #'org-edit-src-exit
-;;       :desc "Abort edit"           "k" #'org-edit-src-abort
-;;       :desc "Format buffer"        "=" #'apheleia-format-buffer
-;;       :desc "Show documentation"   "h" #'eldoc-box-help-at-point
-;;       :desc "Code actions"         "a" #'eglot-code-actions)
 
 (map! :leader
       (:prefix ("d" . "debug/dape")

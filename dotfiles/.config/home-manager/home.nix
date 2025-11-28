@@ -28,19 +28,10 @@
   };
 
   imports = [
-    ./atuin
-    ./bat
-    ./btop
-    ./catppuccin
-    ./fish
-    ./pay-respects
-    ./lazygit
     ./niri-extras
     ./dev
-    ./starship
-    ./yazi
     ./xdg
-    ./zoxide
+    ./scripts
   ];
 
   nixpkgs = {

@@ -42,6 +42,7 @@ customCommands:
     title: Branch Name
     type: input
 gui:
+  animateExpansion: true
   border: rounded
   commitLength:
     show: true

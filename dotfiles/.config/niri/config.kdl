@@ -35,7 +35,7 @@ output "eDP-1" {
 //     transform "normal"
 //     mode "1920x1080@60"
 // }
-//
+
 
 input {
     keyboard {
@@ -356,7 +356,7 @@ window-rule {
     match app-id=r#"^galculator$"#
     match app-id=r#"^blueman-manager$"#
     match app-id=r#"^org\.gnome\.Nautilus$"#
-    match app-id=r#"^steam$"#
+    match app-id=r#"^steam$"$
     match app-id=r#"^xdg-desktop-portal$"#
     open-floating true
 }

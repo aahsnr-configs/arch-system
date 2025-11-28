@@ -62,7 +62,7 @@ set window-title-basename       "true"
 set statusbar-home-tilde        "true"
 set statusbar-h-padding         8
 set statusbar-v-padding         8
-set font                        "JetBrainsMono Nerd Font Medium 14"
+set font                        "JetBrains Mono Medium 14"
 
 # ----------------------------------
 # Search Settings
@@ -76,8 +76,8 @@ set search-hadjust              "true"
 set selection-clipboard         "clipboard"
 set dbus-service                "true"
 set sandbox                     "strict"
-set synctex                     "true"
-set synctex-editor-command      "nvim --headless -c 'edit +%{line} %{input}'"
+set synctex true
+set synctex-editor-command "emacsclient +%{line} %{input}"
 
 # ----------------------------------
 # Using Default Keybindings Only

@@ -51,7 +51,7 @@ alias lla='eza -la'
 alias ls='eza'
 alias lt='eza --tree'
 alias nixs='nix-shell -p'
-alias rmi='sudo rm -rf'
+alias rmi='safe-rm'
 alias sctl='systemctl'
 alias sctle='sudo systemctl enable'
 alias sctls='sudo systemctl start'
@@ -83,20 +83,20 @@ pay-respects fish --alias | source
 atuin init fish | source
 direnv hook fish | source
 
-# --- Pyenv Configuration ---
-
-# 1. Define where pyenv will store data (versions, plugins, shims)
-set -gx PYENV_ROOT $HOME/.pyenv
-
-# 2. Add pyenv binaries to PATH 
-# (Required for some edge cases, even if installed via pacman)
-fish_add_path $PYENV_ROOT/bin
-
-# 3. Initialize pyenv (Enable shims and autocompletion)
-pyenv init - | source
-
-# 4. Initialize pyenv-virtualenv (Enable auto-activation)
-# We only run this in interactive mode to speed up shell startup
-if status is-interactive
-    pyenv virtualenv-init - | source
-end
+# # --- Pyenv Configuration ---
+#
+# # 1. Define where pyenv will store data (versions, plugins, shims)
+# set -gx PYENV_ROOT $HOME/.pyenv
+#
+# # 2. Add pyenv binaries to PATH 
+# # (Required for some edge cases, even if installed via pacman)
+# fish_add_path $PYENV_ROOT/bin
+#
+# # 3. Initialize pyenv (Enable shims and autocompletion)
+# pyenv init - | source
+#
+# # 4. Initialize pyenv-virtualenv (Enable auto-activation)
+# # We only run this in interactive mode to speed up shell startup
+# if status is-interactive
+#     pyenv virtualenv-init - | source
+# end
