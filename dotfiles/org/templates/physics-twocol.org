@@ -1,0 +1,40 @@
+# -*- mode: org; -*-
+#+SETUPFILE: ~/org/templates/scientific-base.org
+
+# === OVERRIDE CLASS OPTIONS FOR TWO-COLUMN ===
+#+LATEX_CLASS_OPTIONS: [twocolumn,11pt,a4paper]
+
+# === TWO-COLUMN GEOMETRY ===
+#+LATEX_HEADER: \usepackage[margin=1in]{geometry}
+#+LATEX_HEADER: \setlength{\columnsep}{1.5em}
+
+# === PHYSICS-SPECIFIC PACKAGES ===
+#+LATEX_HEADER: \usepackage{braket}
+#+LATEX_HEADER: \usepackage{tensor}
+# For Feynman diagrams (requires additional setup):
+# #+LATEX_HEADER: \usepackage{feynmf}
+
+# === THEOREM ENVIRONMENTS ===
+#+LATEX_HEADER: \newtheorem{theorem}{Theorem}[section]
+#+LATEX_HEADER: \newtheorem{lemma}[theorem]{Lemma}
+#+LATEX_HEADER: \newtheorem{proposition}[theorem]{Proposition}
+#+LATEX_HEADER: \newtheorem{corollary}[theorem]{Corollary}
+#+LATEX_HEADER: \theoremstyle{definition}
+#+LATEX_HEADER: \newtheorem{definition}[theorem]{Definition}
+#+LATEX_HEADER: \theoremstyle{remark}
+#+LATEX_HEADER: \newtheorem{remark}{Remark}
+#+LATEX_HEADER: \newtheorem{example}{Example}
+
+# === DOCUMENT METADATA ===
+#+TITLE: Quantum Dynamics in Coupled Systems
+#+AUTHOR: Ahsanur Rahman
+#+DATE: \today
+#+EMAIL: ahsanur041@proton.me
+
+# === ABSTRACT ===
+#+BEGIN_abstract
+This article investigates the dynamics of quantum systems with environmental coupling. 
+We derive master equations and analyze steady-state solutions using modern computational methods.
+#+END_abstract
+
+#+KEYWORDS: quantum mechanics, open quantum systems, master equation

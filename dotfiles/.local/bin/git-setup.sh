@@ -28,7 +28,7 @@ ACCOUNTS["common"]="ahsan.05rahman@gmail.com"
 
 # Base name for the SSH key files and Git user names
 KEY_BASE_NAME="aahsnr"
-GIT_REPO_BASE="$HOME/git-repos"
+GIT_REPO_BASE="$HOME/Git"
 SSH_CONFIG_FILE="$HOME/.ssh/config"
 GIT_CONFIG_FILE="$HOME/.gitconfig"
 
