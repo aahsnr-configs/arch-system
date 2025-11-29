@@ -24,7 +24,6 @@
   (doom-themes-org-config))
 #+end_src
 
-
 ** Catppuccin Theme
 #+begin_src emacs-lisp
 ;; (use-package! catppuccin-theme
@@ -191,6 +190,7 @@ Configuration for Emacs's built-in file manager, *dired*. We set custom listing 
 #+begin_src emacs-lisp
 (global-so-long-mode 1)
 (size-indication-mode -1)
+(global-prettify-symbols-mode -1)
 
 (after! evil
   (setq evil-want-fine-undo t
@@ -425,7 +425,9 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
   (setq TeX-output-dir "build/")
   (setq LaTeX-command "latex -shell-escape")
   (setq TeX-save-query nil)
-  (setq TeX-clean-confirm nil))
+  (setq TeX-clean-confirm nil)
+  (setq font-latex-fontify-script 'multi-level
+        font-latex-fontify-sectioning 1.2))
 
 (after! latex
   (add-to-list 'TeX-command-list

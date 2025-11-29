@@ -1,18 +1,59 @@
 # -*- mode: org; -*-
-#+SETUPFILE: ~/org/templates/scientific-base.org
+#+STARTUP: latexpreview
+
+# === FORMATTING ===
+#+LATEX_HEADER: \setlength{\parskip}{0.5em}
+#+LATEX_HEADER: \setlength{\parindent}{0pt}
+
+# === ORG OPTIONS ===
+#+OPTIONS: toc:nil num:t
+#+OPTIONS: ^:{}  # Disable automatic sub/superscripts (use _{} and ^{} explicitly)
+#+OPTIONS: author:t date:t title:t
 
 # === OVERRIDE CLASS OPTIONS FOR TWO-COLUMN ===
-#+LATEX_CLASS_OPTIONS: [twocolumn,11pt,a4paper]
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS: [twocolumn,11pt,letter]
+
+# === MODERN FONT SYSTEM ===
+#+LATEX_HEADER: \usepackage{fontspec}
+#+LATEX_HEADER: \usepackage{unicode-math}
+
+# === MATH FONT SELECTION ===
+#+LATEX_HEADER: \setmathfont{STIX Two Math}
 
 # === TWO-COLUMN GEOMETRY ===
 #+LATEX_HEADER: \usepackage[margin=1in]{geometry}
 #+LATEX_HEADER: \setlength{\columnsep}{1.5em}
 
+# === CORE MATH PACKAGES ===
+#+LATEX_HEADER: \usepackage{amsmath}
+#+LATEX_HEADER: \usepackage{amsfonts}
+#+LATEX_HEADER: \usepackage{mathtools}
+#+LATEX_HEADER: \usepackage{physics}
+#+LATEX_HEADER: \usepackage{siunitx}
+
+# === GRAPHICS ===
+#+LATEX_HEADER: \usepackage{graphicx}
+#+LATEX_HEADER: \usepackage{float}
+
+# === REFERENCES AND LINKS ===
+#+LATEX_HEADER: \usepackage{hyperref}
+#+LATEX_HEADER: \hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+#+LATEX_HEADER: \usepackage{cleveref}
+
+# === BIBLIOGRAPHY (biblatex with biber backend) ===
+#+LATEX_HEADER: \usepackage[backend=biber,style=authoryear,natbib=true]{biblatex}
+#+LATEX_HEADER: \addbibresource{~/org/references/references.bib}
+
+# === FORMATTING ===
+#+LATEX_HEADER: \setlength{\parskip}{0.5em}
+#+LATEX_HEADER: \setlength{\parindent}{0pt}
+
 # === PHYSICS-SPECIFIC PACKAGES ===
 #+LATEX_HEADER: \usepackage{braket}
 #+LATEX_HEADER: \usepackage{tensor}
-# For Feynman diagrams (requires additional setup):
-# #+LATEX_HEADER: \usepackage{feynmf}
+#+LATEX_HEADER: \usepackage{feynmf}
+#+LATEX_HEADER: \usepackage{blindtext}
 
 # === THEOREM ENVIRONMENTS ===
 #+LATEX_HEADER: \newtheorem{theorem}{Theorem}[section]
@@ -24,17 +65,3 @@
 #+LATEX_HEADER: \theoremstyle{remark}
 #+LATEX_HEADER: \newtheorem{remark}{Remark}
 #+LATEX_HEADER: \newtheorem{example}{Example}
-
-# === DOCUMENT METADATA ===
-#+TITLE: Quantum Dynamics in Coupled Systems
-#+AUTHOR: Ahsanur Rahman
-#+DATE: \today
-#+EMAIL: ahsanur041@proton.me
-
-# === ABSTRACT ===
-#+BEGIN_abstract
-This article investigates the dynamics of quantum systems with environmental coupling. 
-We derive master equations and analyze steady-state solutions using modern computational methods.
-#+END_abstract
-
-#+KEYWORDS: quantum mechanics, open quantum systems, master equation

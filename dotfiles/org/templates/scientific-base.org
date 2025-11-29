@@ -2,9 +2,8 @@
 #+STARTUP: latexpreview
 
 # === LATEX ENGINE (REQUIRED FOR UNICODE-MATH) ===
-#+LATEX_COMPILER: lualatex
 #+LATEX_CLASS: article
-#+LATEX_CLASS_OPTIONS: [11pt,a4paper]
+#+LATEX_CLASS_OPTIONS: [11pt,letter]
 
 # === MODERN FONT SYSTEM ===
 #+LATEX_HEADER: \usepackage{fontspec}
@@ -12,9 +11,6 @@
 
 # === MATH FONT SELECTION (choose ONE - STIX Two Math recommended) ===
 #+LATEX_HEADER: \setmathfont{STIX Two Math}
-# Alternative math fonts (uncomment to use):
-# #+LATEX_HEADER: \setmathfont{Libertinus Math}
-# #+LATEX_HEADER: \setmathfont{Fira Math}
 
 # === TEXT FONT (optional - matches math font) ===
 # #+LATEX_HEADER: \setmainfont{STIX Two Text}      # Pairs with STIX Two Math

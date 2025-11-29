@@ -147,6 +147,7 @@
 
 (global-so-long-mode 1)
 (size-indication-mode -1)
+(global-prettify-symbols-mode -1)
 
 (after! evil
   (setq evil-want-fine-undo t
@@ -345,7 +346,9 @@
   (setq TeX-output-dir "build/")
   (setq LaTeX-command "latex -shell-escape")
   (setq TeX-save-query nil)
-  (setq TeX-clean-confirm nil))
+  (setq TeX-clean-confirm nil)
+  (setq font-latex-fontify-script 'multi-level
+        font-latex-fontify-sectioning 1.2))
 
 (after! latex
   (add-to-list 'TeX-command-list
