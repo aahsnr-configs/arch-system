@@ -1,4 +1,4 @@
-[manager]
+[mgr]
 linemode = "size"
 show_hidden = true
 sort_by = "natural"
@@ -48,6 +48,7 @@ run = "mpv \"$@\""
 
 [[opener.document]]
 run = "zathura \"$@\""
+orphan = true
 
 [[opener.edit]]
 block = true

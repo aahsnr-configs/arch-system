@@ -31,7 +31,6 @@
     ./niri-extras
     ./dev
     ./xdg
-    ./yazi
     ./scripts
   ];
 

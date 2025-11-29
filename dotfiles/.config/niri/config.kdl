@@ -132,9 +132,6 @@ binds {
     Mod+N hotkey-overlay-title="Notification Center" {
         spawn "dms" "ipc" "call" "notifications" "toggle";
     }
-    Mod+Y hotkey-overlay-title="Browse Wallpapers" {
-        spawn "dms" "ipc" "call" "dankdash" "wallpaper";
-    }
     Mod+Shift+N hotkey-overlay-title="Notepad" {
       spawn "dms" "ipc" "call" "notepad" "toggle";
     }
@@ -185,6 +182,10 @@ binds {
 
     Mod+E hotkey-overlay-title="Open Emacs" {
         spawn "emacsclient" "-c" "-a" "'emacs'";
+    }
+
+    Mod+Y hotkey-overlay-title="Open Yazi" {
+        spawn "kitty" "-e" "yazi";
     }
 
     Mod+B hotkey-overlay-title="Open Browser" {
