@@ -25,17 +25,18 @@ output "HDMI-A-1" {
     transform "normal"
     mode "1920x1080@60"
 }
- output "eDP-1" {
-     off
-     transform "normal"
- }
+
+output "eDP-1" {
+    off
+    transform "normal"
+}
 
 // output "eDP-1" {
 //
 //   scale 2
 //   transform "normal"
 //   mode "1920x1080@60"
-//}
+// }
 
 
 input {

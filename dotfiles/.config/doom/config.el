@@ -499,6 +499,119 @@
                (window-width . 0.5)
                (window-height . fit-window-to-buffer)))
 
+(use-package! jinx
+  :hook (doom-first-buffer . global-jinx-mode)
+  :bind (("M-$" . jinx-correct)
+         ("C-M-$" . jinx-languages))
+  :config
+  (setq jinx-languages "en_US")
+
+  (put 'jinx-local-words 'safe-local-variable #'listp)
+
+  (setq jinx-include-faces
+        '((prog-mode font-lock-comment-face font-lock-doc-face)))
+
+  (setq jinx-exclude-faces
+        '((org-mode . (org-level-1
+                       org-level-2
+                       org-level-3
+                       org-level-4
+                       org-level-5
+                       org-level-6
+                       org-level-7
+                       org-level-8
+                       org-code
+                       org-block
+                       org-block-begin-line
+                       org-block-end-line
+                       org-meta-line
+                       org-link
+                       org-property-value
+                       org-special-keyword
+                       org-tag
+                       org-verbatim
+                       org-date
+                       org-document-info-keyword))
+          (markdown-mode . (markdown-code-face
+                           markdown-reference-face
+                           markdown-link-face
+                           markdown-url-face
+                           markdown-markup-face
+                           markdown-html-attr-value-face
+                           markdown-html-attr-name-face
+                           markdown-html-tag-name-face
+                           markdown-inline-code-face))
+          (latex-mode . (font-latex-math-face
+                        font-latex-verbatim-face
+                        font-lock-function-name-face
+                        font-lock-keyword-face
+                        font-lock-variable-name-face
+                        font-latex-sedate-face))
+          (LaTeX-mode . (font-latex-math-face
+                        font-latex-verbatim-face
+                        font-lock-function-name-face
+                        font-lock-keyword-face
+                        font-lock-variable-name-face
+                        font-latex-sedate-face))))
+
+  ;; CamelCase support
+  (setq jinx-camel-modes '(prog-mode java-mode ruby-mode rust-mode
+                           javascript-mode typescript-mode python-mode))
+
+  ;; UI: Integrate with Vertico
+  (after! vertico-multiform
+    (add-to-list 'vertico-multiform-categories
+                 '(jinx grid (vertico-grid-annotate . 20))))
+
+  ;; UI: Evil Keybindings
+  (when (modulep! :editor evil)
+    (map! :map jinx-mode-map
+          :n "zg" #'jinx-add
+          :n "zw" #'jinx-remove
+          :n "[s" #'jinx-previous
+          :n "]s" #'jinx-next)))
+
+(after! citar-org-roam
+  ;; REQUIRED: Enable the integration
+  (citar-org-roam-mode)
+
+  ;; OPTIONAL: Customize note title format
+  ;; Variables: ${author}, ${editor}, ${title}, ${date}, ${year}
+  ;; ${author:%etal} shows "et al." for multiple authors
+  (setq citar-org-roam-note-title-template "${author:%etal} (${year}): ${title}")
+
+  ;; OPTIONAL: Store literature notes in subdirectory
+  ;; Default is "references" - change if you want different name
+  (setq citar-org-roam-subdir "literature")
+
+  ;; REQUIRED: Specify which org-roam capture template to use
+  (setq citar-org-roam-capture-template-key "r"))
+
+(after! citar
+  (setq citar-indicators nil)
+
+  (setq citar-templates
+        '((main . "${=key=:15} ${title:48} ${author editor:30%sn} ${date year issued:4}")
+          (suffix . " ${=type=:12} ${tags keywords:*}")
+          (preview . "${author editor:%etal} (${year issued date}) ${title}, ${journal journaltitle publisher container-title collection-title}.\n")
+          (note . "Notes on ${author editor:%etal}, ${title}"))))
+
+(use-package! org-remark
+ :after org
+ :config
+ ;; Enable global tracking mode
+ (org-remark-global-tracking-mode +1)
+
+ ;; Set mnemonic keybindings under notes prefix
+ (map! :leader
+       (:prefix ("n r" . "remark")
+        :desc "Mark region" "m" #'org-remark-mark
+        :desc "Mark line" "l" #'org-remark-mark-line
+        :desc "Open notes" "o" #'org-remark-open
+        :desc "Remove mark" "d" #'org-remark-remove
+        :desc "Next mark" "n" #'org-remark-next
+        :desc "Previous mark" "p" #'org-remark-prev)))
+
 (map! :leader
       (:prefix ("t" . "toggle")
        :desc "Toggle eshell split"            "e" #'+eshell/toggle
@@ -558,3 +671,20 @@
        :desc "Restart"             "r" #'dape-restart
        :desc "Kill debug session"  "k" #'dape-kill
        :desc "Debug REPL"          "R" #'dape-repl))
+
+(after! projectile
+  ;; Ensure clean project root detection
+  (setq projectile-project-root-files-bottom-up
+        '(".projectile" ".git"))
+  
+  ;; Use alien indexing for better performance and reliability  
+  (setq projectile-indexing-method 'alien)
+  
+  ;; Ensure proper file finding
+  (setq projectile-enable-caching t)
+  
+  ;; Fix potential path doubling issues
+  (advice-add 'projectile-find-file :around
+              (lambda (orig-fun &rest args)
+                (let ((default-directory (projectile-project-root)))
+                  (apply orig-fun args)))))

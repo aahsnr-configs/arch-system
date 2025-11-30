@@ -11,6 +11,7 @@
 # - Proper includeIf syntax with trailing slashes
 # - Comprehensive error handling and validation
 # - Safe deletion and regeneration of SSH keys
+# - Git LFS (Large File Storage) setup for handling large files
 # - Color-coded output for better readability
 
 # Exit immediately if a command exits with a non-zero status.
@@ -58,7 +59,7 @@ print_success() {
 }
 
 print_warning() {
-  echo -e "${YELLOW}⚠${NC} $1"
+  echo -e "${YELLOW}⚠ ${NC} $1"
 }
 
 print_error() {
@@ -78,7 +79,7 @@ check_prerequisites() {
 
   local missing_tools=()
 
-  for cmd in ssh-keygen git gh; do
+  for cmd in ssh-keygen git gh git-lfs; do
     if ! command -v "$cmd" &>/dev/null; then
       missing_tools+=("$cmd")
     else
@@ -90,9 +91,11 @@ check_prerequisites() {
     print_error "Missing required tools: ${missing_tools[*]}"
     echo ""
     echo "Installation instructions:"
-    echo "  - Arch Linux: sudo pacman -S openssh git github-cli"
-    echo "  - Ubuntu/Debian: sudo apt install openssh-client git gh"
-    echo "  - macOS: brew install git gh"
+    echo "  - Arch Linux: sudo pacman -S openssh git github-cli git-lfs"
+    echo "  - Ubuntu/Debian: sudo apt install openssh-client git gh git-lfs"
+    echo "  - macOS: brew install git gh git-lfs"
+    echo ""
+    echo "For Git LFS installation, you can also visit: https://git-lfs.com/"
     exit 1
   fi
 
@@ -205,6 +208,138 @@ generate_key() {
   chmod 644 "$key_path.pub"
 
   print_success "Generated new key: $key_path"
+}
+
+# Function to set up Git LFS globally
+setup_git_lfs() {
+  print_section "Setting Up Git LFS (Large File Storage)"
+
+  # Initialize Git LFS globally (this only needs to be run once per user)
+  print_info "Initializing Git LFS globally..."
+  if git lfs install --skip-smudge 2>/dev/null; then
+    print_success "Git LFS initialized successfully"
+  else
+    print_warning "Git LFS initialization encountered an issue, but continuing..."
+  fi
+
+  # Create a global .gitattributes template for common large file types
+  local lfs_template="$HOME/.gitattributes_lfs_template"
+  print_info "Creating LFS tracking template at $lfs_template..."
+
+  cat >"$lfs_template" <<'EOF'
+# Git LFS - Common Large File Types
+# Add this to your repository's .gitattributes file
+
+# Documents
+*.pdf filter=lfs diff=lfs merge=lfs -text
+*.doc filter=lfs diff=lfs merge=lfs -text
+*.docx filter=lfs diff=lfs merge=lfs -text
+*.ppt filter=lfs diff=lfs merge=lfs -text
+*.pptx filter=lfs diff=lfs merge=lfs -text
+*.xls filter=lfs diff=lfs merge=lfs -text
+*.xlsx filter=lfs diff=lfs merge=lfs -text
+
+# Images
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.gif filter=lfs diff=lfs merge=lfs -text
+*.bmp filter=lfs diff=lfs merge=lfs -text
+*.tif filter=lfs diff=lfs merge=lfs -text
+*.tiff filter=lfs diff=lfs merge=lfs -text
+*.psd filter=lfs diff=lfs merge=lfs -text
+*.ai filter=lfs diff=lfs merge=lfs -text
+*.svg filter=lfs diff=lfs merge=lfs -text
+
+# Videos
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+*.avi filter=lfs diff=lfs merge=lfs -text
+*.mkv filter=lfs diff=lfs merge=lfs -text
+*.webm filter=lfs diff=lfs merge=lfs -text
+*.flv filter=lfs diff=lfs merge=lfs -text
+*.wmv filter=lfs diff=lfs merge=lfs -text
+
+# Audio
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.flac filter=lfs diff=lfs merge=lfs -text
+*.aac filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.aiff filter=lfs diff=lfs merge=lfs -text
+
+# Archives
+*.zip filter=lfs diff=lfs merge=lfs -text
+*.tar filter=lfs diff=lfs merge=lfs -text
+*.tar.gz filter=lfs diff=lfs merge=lfs -text
+*.tgz filter=lfs diff=lfs merge=lfs -text
+*.rar filter=lfs diff=lfs merge=lfs -text
+*.7z filter=lfs diff=lfs merge=lfs -text
+
+# 3D Models & Design Files
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.obj filter=lfs diff=lfs merge=lfs -text
+*.stl filter=lfs diff=lfs merge=lfs -text
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.dae filter=lfs diff=lfs merge=lfs -text
+
+# Executables & Binaries
+*.exe filter=lfs diff=lfs merge=lfs -text
+*.dll filter=lfs diff=lfs merge=lfs -text
+*.so filter=lfs diff=lfs merge=lfs -text
+*.dylib filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text
+*.app filter=lfs diff=lfs merge=lfs -text
+*.apk filter=lfs diff=lfs merge=lfs -text
+*.dmg filter=lfs diff=lfs merge=lfs -text
+*.iso filter=lfs diff=lfs merge=lfs -text
+
+# Machine Learning & Data
+*.h5 filter=lfs diff=lfs merge=lfs -text
+*.hdf5 filter=lfs diff=lfs merge=lfs -text
+*.pkl filter=lfs diff=lfs merge=lfs -text
+*.pickle filter=lfs diff=lfs merge=lfs -text
+*.npy filter=lfs diff=lfs merge=lfs -text
+*.npz filter=lfs diff=lfs merge=lfs -text
+*.parquet filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text
+
+# Fonts
+*.ttf filter=lfs diff=lfs merge=lfs -text
+*.otf filter=lfs diff=lfs merge=lfs -text
+*.woff filter=lfs diff=lfs merge=lfs -text
+*.woff2 filter=lfs diff=lfs merge=lfs -text
+EOF
+
+  print_success "Created LFS template file: $lfs_template"
+
+  echo ""
+  print_info "To use Git LFS in a repository:"
+  echo -e "   1. Copy template to repo: ${BLUE}cp $lfs_template <repo>/.gitattributes${NC}"
+  echo -e "   2. Or track specific types: ${BLUE}git lfs track \"*.pdf\"${NC}"
+  echo -e "   3. Commit .gitattributes: ${BLUE}git add .gitattributes && git commit -m \"Add LFS tracking\"${NC}"
+  echo ""
+}
+
+# Function to initialize Git LFS in repository directories
+initialize_lfs_in_repos() {
+  print_section "Initializing Git LFS in Repository Directories"
+
+  for account_name in "${!ACCOUNTS[@]}"; do
+    local repo_path="$GIT_REPO_BASE/${account_name}"
+
+    if [[ -d "$repo_path" ]]; then
+      print_info "Setting up LFS in $repo_path..."
+
+      # Copy the LFS template to each base directory as a reference
+      if [[ -f "$HOME/.gitattributes_lfs_template" ]]; then
+        cp "$HOME/.gitattributes_lfs_template" "$repo_path/.gitattributes_lfs_reference"
+        print_success "Copied LFS reference to $repo_path"
+      fi
+    fi
+  done
+
+  print_success "LFS initialization complete for all account directories"
 }
 
 # Function to set up the main .gitconfig and conditional include files
@@ -345,6 +480,32 @@ show_next_steps() {
   echo ""
   echo "   Expected: 'Hi ${KEY_BASE_NAME}-<account>! You've successfully authenticated...'"
   echo ""
+  print_section "Git LFS Usage"
+  echo ""
+  echo "Git LFS has been initialized globally. To use it in a repository:"
+  echo ""
+  echo -e "${GREEN}Option 1:${NC} Use the template (recommended for new repos)"
+  echo -e "   ${BLUE}cd $GIT_REPO_BASE/personal/your-repo${NC}"
+  echo -e "   ${BLUE}cp ~/.gitattributes_lfs_template .gitattributes${NC}"
+  echo -e "   ${BLUE}git add .gitattributes${NC}"
+  echo -e "   ${BLUE}git commit -m \"Add LFS tracking\"${NC}"
+  echo ""
+  echo -e "${GREEN}Option 2:${NC} Track specific file types"
+  echo -e "   ${BLUE}cd $GIT_REPO_BASE/personal/your-repo${NC}"
+  echo -e "   ${BLUE}git lfs track \"*.pdf\"${NC}"
+  echo -e "   ${BLUE}git lfs track \"*.mp4\"${NC}"
+  echo -e "   ${BLUE}git add .gitattributes${NC}"
+  echo -e "   ${BLUE}git commit -m \"Track large files with LFS\"${NC}"
+  echo ""
+  echo -e "${GREEN}Option 3:${NC} Migrate existing large files"
+  echo -e "   ${BLUE}cd $GIT_REPO_BASE/personal/your-repo${NC}"
+  echo -e "   ${BLUE}git lfs migrate import --include=\"*.pdf,*.mp4\" --everything${NC}"
+  echo ""
+  echo "Check LFS status and tracked files:"
+  echo -e "   ${BLUE}git lfs status${NC}    # Show LFS files in current commit"
+  echo -e "   ${BLUE}git lfs ls-files${NC}  # List all LFS tracked files"
+  echo -e "   ${BLUE}git lfs track${NC}     # Show tracking patterns"
+  echo ""
   print_section "Usage Instructions"
   echo ""
   echo "Clone repositories into their respective directories:"
@@ -376,6 +537,13 @@ show_next_steps() {
   echo -e "   3. Check config loading: ${BLUE}git config --list --show-origin | grep user${NC}"
   echo -e "   4. Verify includeIf paths: ${BLUE}git config --list --show-origin | grep includeIf${NC}"
   echo ""
+  echo "If you encounter large file errors:"
+  echo "   1. Ensure Git LFS is tracking the file types in .gitattributes"
+  echo -e "   2. Check LFS status: ${BLUE}git lfs status${NC}"
+  echo -e "   3. Verify LFS installation: ${BLUE}git lfs version${NC}"
+  echo "   4. Files larger than 50MB should always use LFS (GitHub limit: 100MB)"
+  echo -e "   5. If files already committed: ${BLUE}git lfs migrate import --include=\"*.pdf\"${NC}"
+  echo ""
   echo "To re-run this setup (fully idempotent):"
   echo -e "   ${BLUE}bash $(basename "$0")${NC}"
   echo "   This will safely remove and regenerate all managed keys/configs"
@@ -387,8 +555,9 @@ show_next_steps() {
 # --- Main Script Execution ---
 
 echo ""
-print_section "GitHub Multi-Account Setup (Idempotent)"
+print_section "GitHub Multi-Account Setup with Git LFS (Idempotent)"
 echo -e "${CYAN}This script will safely remove and regenerate all SSH keys and configurations${NC}"
+echo -e "${CYAN}and set up Git LFS for handling large files${NC}"
 echo ""
 
 # Phase 1: Prerequisites
@@ -408,5 +577,9 @@ setup_ssh_config
 setup_git_config
 setup_gh_config
 
-# Phase 5: Display next steps
+# Phase 5: Git LFS Setup
+setup_git_lfs
+initialize_lfs_in_repos
+
+# Phase 6: Display next steps
 show_next_steps
