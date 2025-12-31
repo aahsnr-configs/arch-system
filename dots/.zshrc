@@ -332,11 +332,11 @@ zstyle ':completion:*:*:vim:*:*files' ignored-patterns '*~' '*.o' '*.pyc'
 zstyle ':completion:*:*:nvim:*:*files' ignored-patterns '*~' '*.o' '*.pyc'
 
 # Completion options
-setopt COMPLETE_IN_WORD          # Complete from both ends of a word
-setopt ALWAYS_TO_END             # Move cursor to the end of a completed word
-setopt AUTO_MENU                 # Show completion menu on successive tab press
-setopt AUTO_LIST                 # Automatically list choices on ambiguous completion
-setopt AUTO_PARAM_SLASH          # If completed parameter is a directory, add a trailing slash
+setopt COMPLETE_IN_WORD
+setopt ALWAYS_TO_END 
+setopt AUTO_MENU 
+setopt AUTO_LIST 
+setopt AUTO_PARAM_SLASH 
 setopt COMPLETE_ALIASES          # Complete aliases
 setopt LIST_PACKED               # Make completion lists more compact
 
@@ -486,7 +486,6 @@ declare -a ZSH_PLUGIN_NAMES=(
     "zsh-completions"
     "zsh-history-substring-search"
     "fzf-tab"
-    "zsh-you-should-use"
     "zsh-autopair"
 )
 
@@ -496,7 +495,6 @@ declare -a ZSH_PLUGIN_URLS=(
     "https://github.com/zsh-users/zsh-completions.git"
     "https://github.com/zsh-users/zsh-history-substring-search.git"
     "https://github.com/Aloxaf/fzf-tab.git"
-    "https://github.com/MichaelAquilina/zsh-you-should-use.git"
     "https://github.com/hlissner/zsh-autopair.git"
 )
 
@@ -580,32 +578,7 @@ if [[ -f "${ZSH_PLUGIN_DIR}/zsh-history-substring-search/zsh-history-substring-s
     HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_NOT_FOUND='bg=red,fg=white'
 fi
 
-# Load zsh-you-should-use (reminds you of existing aliases)
-if [[ -f "${ZSH_PLUGIN_DIR}/zsh-you-should-use/you-should-use.plugin.zsh" ]]; then
-    source "${ZSH_PLUGIN_DIR}/zsh-you-should-use/you-should-use.plugin.zsh"
-    
-    # Configuration
-    export YSU_MESSAGE_POSITION="after"  # Show message after command output
-    export YSU_HARDCORE=0  # Don't prevent command execution
-fi
-
-# ============================================================================
-# CUSTOM FUNCTIONS
-# ============================================================================
-
-# Org-search function (from fish config)
-org-search() {
-    local output
-    output=$(/usr/bin/emacsclient -a "" -e "(message \"%s\" (mapconcat #'substring-no-properties \
-        (mapcar #'org-link-display-format \
-        (org-ql-query \
-        :select #'org-get-heading \
-        :from  (org-agenda-files) \
-        :where (org-ql--query-string-to-sexp \"$*\"))) \
-        \"
-\"))")
-    printf "%s" "$output"
-}
+### CUSTOM FUNCTIONS
 
 # Make su launch zsh
 su() {
@@ -712,46 +685,24 @@ command_not_found_handler() {
 }
 
 ### ALIASES
-# Package management
 alias listPkgs='paru -Qq > packages.list'
-
-# Modern CLI replacements
 alias cat='bat --paging=never'
 alias du='dust'
 alias eza='eza --icons auto --git --group-directories-first --header'
 alias fd='fd --hidden --no-ignore --absolute-path'
 alias grep='rg'
-
-# Lazy git
 alias gg='lazygit'
-
-# Home manager
 alias hm-switch='home-manager switch'
-
-# Eza (ls replacement) aliases
 alias la='eza -a'
 alias ll='eza -l'
 alias lla='eza -la'
 alias ls='eza'
 alias lt='eza --tree'
-
-# Nix
-alias nixs='nix-shell -p'
-
-# Safe remove
-alias rmi='safe-rm'
-
-# Systemctl shortcuts
-alias sctl='systemctl'
-alias sctle='sudo systemctl enable'
-alias sctls='sudo systemctl start'
-
-# Neovim
 alias vi='nvim'
-
-# Distrobox
 alias box-stop='distrobox-stop --all --yes'
 alias box-rm='distrobox-rm --all --force'
+alias zsh-update='zsh_plugins_update'
+alias zsh-plugins='zsh_plugins_list'
 
 ### FZF CONFIGURATION
 # Setup fzf (if installed)
@@ -873,10 +824,8 @@ if command -v direnv &> /dev/null; then
     eval "$(direnv hook zsh)"
 fi
 
-# ============================================================================
-# ADDITIONAL QUALITY OF LIFE FEATURES
-# ============================================================================
 
+### ADDITIONAL QUALITY OF LIFE FEATURES
 # Colored man pages (multiple methods for compatibility)
 # Method 1: Using LESS_TERMCAP (works with most pagers)
 export LESS_TERMCAP_mb=$'\e[1;32m'      # Begin bold
@@ -893,24 +842,6 @@ export GROFF_NO_SGR=1
 # Better less options
 export LESS='-R -i -M -F -X'  # -R: raw control chars, -i: ignore case, -M: long prompt, -F: quit if one screen, -X: no init
 
-# Directory hashes for quick navigation
-hash -d config="${XDG_CONFIG_HOME}"
-hash -d data="${XDG_DATA_HOME}"
-hash -d cache="${XDG_CACHE_HOME}"
-hash -d state="${XDG_STATE_HOME}"
-hash -d backup="${BACKUP_DIR}"
-hash -d downloads="${HOME}/Downloads"
-hash -d documents="${HOME}/Documents"
-hash -d desktop="${HOME}/Desktop"
-hash -d pictures="${HOME}/Pictures"
-hash -d videos="${HOME}/Videos"
-hash -d music="${HOME}/Music"
-
-# Named directories usage examples:
-# cd ~config  → Goes to ~/.config
-# ls ~data    → Lists ~/.local/share
-# vim ~config/nvim/init.lua  → Opens config file
-
 # Enable automatic URL quoting
 autoload -Uz url-quote-magic
 zle -N self-insert url-quote-magic
@@ -919,19 +850,6 @@ zle -N self-insert url-quote-magic
 zshcache_time="$(date +%s%N)"
 
 autoload -Uz add-zsh-hook
-
-rehash_precmd() {
-    if [[ -a /var/cache/zsh/pacman ]]; then
-        local paccache_time
-        paccache_time="$(date -r /var/cache/zsh/pacman +%s%N)"
-        if (( zshcache_time < paccache_time )); then
-            rehash
-            zshcache_time="$paccache_time"
-        fi
-    fi
-}
-
-add-zsh-hook -Uz precmd rehash_precmd
 
 # Enable zmv for advanced file renaming
 autoload -Uz zmv
@@ -969,20 +887,8 @@ urldecode() {
 }
 
 ### PERFORMANCE TWEAKS
-# Disable automatic title setting
 DISABLE_AUTO_TITLE="true"
-
-# Skip checking for insecure directories
 ZSH_DISABLE_COMPFIX="true"
-
-# Source local configuration if it exists
 [[ -f "${HOME}/.zshrc.local" ]] && source "${HOME}/.zshrc.local"
-
-# ============================================================================
-# HELPER ALIASES FOR PLUGIN MANAGEMENT
-# ============================================================================
-
-alias zsh-update='zsh_plugins_update'
-alias zsh-plugins='zsh_plugins_list'
 
 

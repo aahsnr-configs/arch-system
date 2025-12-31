@@ -17,7 +17,6 @@ output "eDP-1" {
 //   mode "1920x1080@60"
 // }
 
-
 gestures {
     hot-corners {
         off
@@ -100,11 +99,11 @@ animations {
         spring damping-ratio=0.80 stiffness=523 epsilon=0.0001
     }
     window-open {
-        duration-ms 150
+        duration-ms 300
         curve "ease-out-expo"
     }
     window-close {
-        duration-ms 150
+        duration-ms 300
         curve "ease-out-quad"
     }
     horizontal-view-movement {
