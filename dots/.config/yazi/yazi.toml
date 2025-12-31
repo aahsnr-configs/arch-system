@@ -1,0 +1,66 @@
+[mgr]
+linemode = "size"
+show_hidden = true
+sort_by = "natural"
+sort_dir_first = true
+
+[[open.rules]]
+name = "*/"
+use = "edit"
+
+[[open.rules]]
+mime = "text/*"
+use = "edit"
+
+[[open.rules]]
+mime = "image/*"
+use = "image"
+
+[[open.rules]]
+mime = "video/*"
+use = "video"
+
+[[open.rules]]
+mime = "audio/*"
+use = "audio"
+
+[[open.rules]]
+mime = "application/pdf"
+use = "document"
+
+[[open.rules]]
+mime = "application/*zip"
+use = "archive"
+
+[[open.rules]]
+mime = "application/x-tar"
+use = "archive"
+
+[[open.rules]]
+name = "*"
+use = "fallback"
+
+[[opener.archive]]
+run = "file-roller \"$@\""
+
+[[opener.audio]]
+run = "mpv \"$@\""
+
+[[opener.document]]
+run = "zathura \"$@\""
+orphan = true
+
+[[opener.edit]]
+block = true
+run = "nvim \"$@\""
+
+[[opener.fallback]]
+run = "xdg-open \"$@\""
+
+[[opener.image]]
+run = "imv \"$@\""
+
+[[opener.video]]
+block = false
+orphan = true
+run = "mpv \"$@\""

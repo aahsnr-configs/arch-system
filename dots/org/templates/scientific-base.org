@@ -1,0 +1,46 @@
+# -*- mode: org; -*-
+#+STARTUP: latexpreview
+
+# === LATEX ENGINE (REQUIRED FOR UNICODE-MATH) ===
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS: [11pt,letter]
+
+# === MODERN FONT SYSTEM ===
+#+LATEX_HEADER: \usepackage{fontspec}
+#+LATEX_HEADER: \usepackage{unicode-math}
+
+# === MATH FONT SELECTION (choose ONE - STIX Two Math recommended) ===
+#+LATEX_HEADER: \setmathfont{STIX Two Math}
+
+# === TEXT FONT (optional - matches math font) ===
+# #+LATEX_HEADER: \setmainfont{STIX Two Text}      # Pairs with STIX Two Math
+# #+LATEX_HEADER: \setmainfont{Libertinus Serif}   # Pairs with Libertinus Math
+# #+LATEX_HEADER: \setmainfont{Fira Sans}          # Pairs with Fira Math
+
+# === CORE MATH PACKAGES ===
+#+LATEX_HEADER: \usepackage{amsmath}
+#+LATEX_HEADER: \usepackage{mathtools}
+#+LATEX_HEADER: \usepackage{physics}
+#+LATEX_HEADER: \usepackage{siunitx}
+
+# === GRAPHICS ===
+#+LATEX_HEADER: \usepackage{graphicx}
+#+LATEX_HEADER: \usepackage{float}
+
+# === REFERENCES AND LINKS ===
+#+LATEX_HEADER: \usepackage{hyperref}
+#+LATEX_HEADER: \hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+#+LATEX_HEADER: \usepackage{cleveref}
+
+# === BIBLIOGRAPHY (biblatex with biber backend) ===
+#+LATEX_HEADER: \usepackage[backend=biber,style=authoryear,natbib=true]{biblatex}
+#+LATEX_HEADER: \addbibresource{~/org/references/references.bib}
+
+# === FORMATTING ===
+#+LATEX_HEADER: \setlength{\parskip}{0.5em}
+#+LATEX_HEADER: \setlength{\parindent}{0pt}
+
+# === ORG OPTIONS ===
+#+OPTIONS: toc:nil num:t
+#+OPTIONS: ^:{}  # Disable automatic sub/superscripts (use _{} and ^{} explicitly)
+#+OPTIONS: author:t date:t title:t

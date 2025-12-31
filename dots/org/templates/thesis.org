@@ -1,0 +1,38 @@
+# -*- mode: org; -*-
+#+SETUPFILE: ~/org/templates/scientific-base.org
+
+# === BOOK CLASS FOR LONG DOCUMENTS ===
+#+LATEX_CLASS: report
+#+LATEX_CLASS_OPTIONS: [12pt,oneside,a4paper]
+
+# === THESIS-SPECIFIC GEOMETRY ===
+#+LATEX_HEADER: \usepackage[top=1in,bottom=1in,left=1.5in,right=1in]{geometry}
+#+LATEX_HEADER: \linespread{2.0}  # Double spacing
+
+# === CHAPTER FORMATTING ===
+#+LATEX_HEADER: \usepackage{titlesec}
+#+LATEX_HEADER: \titleformat{\chapter}[display]{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+#+LATEX_HEADER: \titlespacing*{\chapter}{0pt}{-20pt}{40pt}
+
+# === ENHANCED TABLES AND FIGURES ===
+#+LATEX_HEADER: \usepackage{booktabs}
+#+LATEX_HEADER: \usepackage{longtable}
+#+LATEX_HEADER: \usepackage{caption}
+#+LATEX_HEADER: \usepackage{subcaption}
+
+# === APPENDICES ===
+#+LATEX_HEADER: \usepackage[toc,page]{appendix}
+
+# === HEADERS AND FOOTERS ===
+#+LATEX_HEADER: \usepackage{fancyhdr}
+#+LATEX_HEADER: \pagestyle{fancy}
+#+LATEX_HEADER: \fancyhf{}
+#+LATEX_HEADER: \fancyhead[R]{\thepage}
+#+LATEX_HEADER: \fancyhead[L]{\leftmark}
+
+# === DOCUMENT METADATA ===
+#+TITLE: Thesis Title
+#+AUTHOR: Ahsanur Rahman
+#+DATE: \today
+
+#+OPTIONS: toc:t num:t H:3

@@ -1,0 +1,40 @@
+# -*- mode: org; -*-
+#+STARTUP: beamer latexpreview
+
+#+LATEX_CLASS: beamer
+#+LATEX_CLASS_OPTIONS: [presentation,aspectratio=169]
+#+BEAMER_THEME: metropolis
+#+BEAMER_COLOR_THEME: default
+#+BEAMER_FONT_THEME: professionalfonts
+
+# === MODERN FONT SYSTEM FOR BEAMER ===
+#+LATEX_HEADER: \usepackage{fontspec}
+#+LATEX_HEADER: \usepackage{unicode-math}
+#+LATEX_HEADER: \setmathfont{STIX Two Math}
+
+# === CORE MATH PACKAGES ===
+#+LATEX_HEADER: \usepackage{amsmath}
+#+LATEX_HEADER: \usepackage{physics}
+#+LATEX_HEADER: \usepackage{siunitx}
+#+LATEX_HEADER: \usepackage{graphicx}
+
+# === PRESENTATION METADATA ===
+#+TITLE: Your Presentation Title
+#+AUTHOR: Ahsanur Rahman
+#+DATE: \today
+#+INSTITUTE: Your Institution
+#+EMAIL: ahsanur041@proton.me
+
+#+OPTIONS: H:2 toc:t num:t
+
+# Usage:
+# - Top level (*)     = Sections (appear in navigation)
+# - Second level (**) = Frames (individual slides)
+# - Use *** for columns within frames
+#
+# Example frame with math:
+# ** Quantum Harmonic Oscillator
+# The Hamiltonian is:
+# \begin{equation}
+# \hat{H} = \frac{\hat{p}^2}{2m} + \frac{1}{2}m\omega^2\hat{x}^2
+# \end{equation}
