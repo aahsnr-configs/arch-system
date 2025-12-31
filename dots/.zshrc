@@ -287,15 +287,19 @@ unsetopt BEEP
 # Initialize completion system
 autoload -Uz compinit
 
-# Only regenerate compdump once a day for faster startup
-# This is more compatible with bash language servers while maintaining ZSH functionality
-# Use anonymous function to enable extendedglob locally for shellcheck compatibility
+# Completion initialization
+# Only regenerate .zcompdump once a day for faster startup
 () {
-    setopt local_options extendedglob
-    if [[ -n ${HOME}/.zcompdump(#qN.mh+24) ]]; then
-        compinit
-    else
+    builtin setopt local_options extendedglob
+    autoload -Uz compinit
+    
+    # Check if .zcompdump exists AND is younger than 24 hours (mh-24)
+    if [[ -n ${HOME}/.zcompdump(#qN.mh-24) ]]; then
+        # File is fresh: use cache, skip security checks (-C) for speed
         compinit -C
+    else
+        # File is old or missing: run full initialization and regenerate
+        compinit
     fi
 }
 
@@ -790,7 +794,10 @@ fi
 ### TOOL INTEGRATIONS
 # Zoxide (better cd)
 if command -v zoxide &> /dev/null; then
-    eval "$(zoxide init zsh)"
+   eval "$(zoxide init zsh)"
+   export _ZO_EXCLUDE_DIRS="$HOME:$HOME/private/*:/tmp/*:*/.git/*"
+   export _ZO_ECHO=1
+   alias zz='zi'
 fi
 
 # Starship prompt
@@ -800,8 +807,7 @@ fi
 
 # Pay-respects (modern sudo replacement with better UX)
 if command -v pay-respects &> /dev/null; then
-    eval "$(pay-respects generate shell-completion --shell zsh)"
-    alias sudo='pay-respects'
+    eval "$(pay-respects zsh --alias)"
 fi
 
 # Atuin (magical shell history)
@@ -889,6 +895,7 @@ urldecode() {
 ### PERFORMANCE TWEAKS
 DISABLE_AUTO_TITLE="true"
 ZSH_DISABLE_COMPFIX="true"
-[[ -f "${HOME}/.zshrc.local" ]] && source "${HOME}/.zshrc.local"
+[[ ! -f "${HOME}/.zshrc.local" ]] && touch "${HOME}/.zshrc.local"
+source "${HOME}/.zshrc.local"
 
 

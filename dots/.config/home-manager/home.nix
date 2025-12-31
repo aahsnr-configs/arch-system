@@ -29,8 +29,6 @@
 
   imports = [
     ./dev
-    ./xdg
-    ./scripts
     ./pkgs
   ];
 
