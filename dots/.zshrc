@@ -694,7 +694,6 @@ alias cat='bat --paging=never'
 alias du='dust'
 alias eza='eza --icons auto --git --group-directories-first --header'
 alias fd='fd --hidden --no-ignore --absolute-path'
-alias grep='rg'
 alias gg='lazygit'
 alias hm-switch='home-manager switch'
 alias la='eza -a'
@@ -874,7 +873,7 @@ alias history='fc -li 1'
 
 # Auto-correct typos in cd commands
 setopt CORRECT
-setopt CORRECT_ALL
+#setopt CORRECT_ALL
 
 # Spell check configuration
 export SPROMPT="Correct '%R' to '%r'? [Yes, No, Abort, Edit] "
@@ -898,4 +897,4 @@ ZSH_DISABLE_COMPFIX="true"
 [[ ! -f "${HOME}/.zshrc.local" ]] && touch "${HOME}/.zshrc.local"
 source "${HOME}/.zshrc.local"
 
-
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
