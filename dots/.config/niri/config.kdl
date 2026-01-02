@@ -22,6 +22,26 @@ config-notification {
 }
 
 // ============================================================================
+// STARTUP APPLICATIONS
+// ============================================================================
+
+spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store &"
+spawn-at-startup "udiskie"
+spawn-at-startup "atuin" "daemon"
+spawn-at-startup "emacs" "--daemon"
+spawn-at-startup "rog-control-center"
+
+// ============================================================================
+// ENVIRONMENT VARIABLES
+
+environment {
+  XDG_CURRENT_DESKTOP "niri"
+  QT_QPA_PLATFORM "wayland"
+  ELECTRON_OZONE_PLATFORM_HINT "auto"
+  QT_QPA_PLATFORMTHEME "gtk3"
+}
+
+// ============================================================================
 // OUTPUT CONFIGURATION
 // ============================================================================
 
@@ -99,6 +119,7 @@ layout {
         proportion 0.33333
         proportion 0.5
         proportion 0.66667
+        proportion 1.0
     }
     
     default-column-width { }
@@ -141,6 +162,10 @@ layout {
     }
     
     struts {
+        left 0
+        right 0
+        top 0
+        bottom 0
     }
 }
 
@@ -169,28 +194,6 @@ overview {
 }
 
 // ============================================================================
-// STARTUP APPLICATIONS
-// ============================================================================
-
-spawn-at-startup "bash" "-c" "wl-paste --watch cliphist store &"
-spawn-at-startup "udiskie"
-spawn-at-startup "atuin" "daemon"
-spawn-at-startup "emacs" "--daemon"
-spawn-at-startup "rog-control-center"
-
-// ============================================================================
-// ENVIRONMENT VARIABLES
-// ============================================================================
-
-environment {
-  XDG_CURRENT_DESKTOP "niri"
-  QT_QPA_PLATFORM "wayland"
-  ELECTRON_OZONE_PLATFORM_HINT "auto"
-  QT_QPA_PLATFORMTHEME "qt6ct"
-  QT_QPA_PLATFORMTHEME_QT6 "qt6ct"
-}
-
-// ============================================================================
 // HOTKEY OVERLAY
 // ============================================================================
 
@@ -214,12 +217,12 @@ animations {
     }
     
     window-open {
-        duration-ms 500
-        curve "ease-out-quad"
+        duration-ms 300
+        curve "ease-out-expo"
     }
     
     window-close {
-        duration-ms 500
+        duration-ms 300
         curve "ease-out-quad"
     }
     
@@ -479,7 +482,7 @@ binds {
     }
     
     Mod+B hotkey-overlay-title="Open Browser" {
-        spawn "brave-browser";
+        spawn "brave";
     }
     
     // ========================================================================
