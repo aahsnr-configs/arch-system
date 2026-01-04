@@ -10,7 +10,7 @@ return {
   { import = "astrocommunity.pack.docker" },
   { import = "astrocommunity.pack.toml" },
   { import = "astrocommunity.pack.typescript-all-in-one" },
-  -- { import = "astrocommunity.pack.bash" },
+  { import = "astrocommunity.pack.bash" },
   { import = "astrocommunity.pack.prettier" },
   { import = "astrocommunity.pack.lua" },
   { import = "astrocommunity.pack.python" },
