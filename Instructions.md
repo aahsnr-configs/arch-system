@@ -15,6 +15,9 @@ cfdisk /dev/nvme0n1 &&
 
 ```bash
 btrfs su cr /mnt/@ &&
+  btrfs su cr /mnt/@/.snapshots &&
+  mkdir /mnt/@/.snapshots/1 &&
+  btrfs su cr /mnt/@/.snapshots/1/snapshot &&
   btrfs su cr /mnt/@home &&
   btrfs su cr /mnt/@opt &&
   btrfs su cr /mnt/@tmp &&
@@ -30,7 +33,6 @@ btrfs su cr /mnt/@ &&
   btrfs su cr /mnt/@var@spool &&
   btrfs su cr /mnt/@var@log &&
   btrfs su cr /mnt/@var@log@audit &&
-  btrfs su cr /mnt/@snapshots &&
   umount /mnt
 ```
 

@@ -60,6 +60,7 @@ paru -S adw-gtk-theme \
   ffmpeg4.4 \
   ffmpegthumbnailer \
   firewalld \
+  flatpak \
   fwupd \
   fwupd-efi \
   fzf \
@@ -126,11 +127,13 @@ paru -S adw-gtk-theme \
   nwg-look \
   onlyoffice-bin \
   opencl-nvidia \
+  org.freedesktop.secrets \
   pacman-contrib \
   pacman-mirrorlist \
   papirus-folders \
   papirus-icon-theme \
   pay-respects-bin \
+  pciutils \
   pipewire \
   pipewire-alsa \
   pipewire-audio \
@@ -141,6 +144,7 @@ paru -S adw-gtk-theme \
   planify \
   plocate \
   plymouth \
+  podman \
   polkit \
   poppler \
   poppler-glib \
