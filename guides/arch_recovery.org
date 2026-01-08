@@ -1,9 +1,15 @@
-# Chrooting into Existing Installation
+* Chrooting into Existing Installation
+:PROPERTIES:
+:CUSTOM_ID: chrooting-into-existing-installation
+:END:
+This addendum provides instructions for accessing your installed system
+from a live Arch environment for maintenance, recovery, or
+troubleshooting purposes.
 
-This addendum provides instructions for accessing your installed system from a live Arch environment for maintenance, recovery, or troubleshooting purposes.
-
-## When You Need This
-
+** When You Need This
+:PROPERTIES:
+:CUSTOM_ID: when-you-need-this
+:END:
 - System won't boot and needs repair
 - Forgot to install a critical package
 - Need to regenerate initramfs after changes
@@ -11,32 +17,42 @@ This addendum provides instructions for accessing your installed system from a l
 - Bootloader configuration fixes
 - General system maintenance
 
-## Prerequisites
-
+** Prerequisites
+:PROPERTIES:
+:CUSTOM_ID: prerequisites
+:END:
 - Bootable Arch Linux live USB
 - Your LUKS encryption passphrase
 - Network connection (if you need to download packages)
-
-## Step-by-Step Chroot Process
-
-### Step 1: Boot into Arch Live Environment
-
+  
+** Step-by-Step Chroot Process
+:PROPERTIES:
+:CUSTOM_ID: step-by-step-chroot-process
+:END:
+*** Step 1: Boot into Arch Live Environment
+:PROPERTIES:
+:CUSTOM_ID: step-1-boot-into-arch-live-environment
+:END:
 Boot from your Arch Linux USB and wait for the live environment to load.
 
-### Step 2: Unlock the LUKS Encrypted Partition
-
-```bash
+*** Step 2: Unlock the LUKS Encrypted Partition
+:PROPERTIES:
+:CUSTOM_ID: step-2-unlock-the-luks-encrypted-partition
+:END:
+#+begin_src sh
 # Unlock the LUKS container (you'll be prompted for your passphrase)
 cryptsetup luksOpen /dev/nvme0n1p2 cryptlvm
 
 # Verify it was unlocked successfully
 ls -la /dev/mapper/
 # You should see: cryptlvm
-```
+#+end_src
 
-### Step 3: Activate LVM Volumes
-
-```bash
+*** Step 3: Activate LVM Volumes
+:PROPERTIES:
+:CUSTOM_ID: step-3-activate-lvm-volumes
+:END:
+#+begin_src sh
 # Scan for volume groups
 vgscan
 
@@ -46,11 +62,13 @@ vgchange -ay
 # Verify volumes are active
 lvs
 # You should see vg0/root and vg0/swap
-```
+#+end_src
 
-### Step 4: Mount Btrfs Root Subvolume
-
-```bash
+*** Step 4: Mount Btrfs Root Subvolume
+:PROPERTIES:
+:CUSTOM_ID: step-4-mount-btrfs-root-subvolume
+:END:
+#+begin_src sh
 # Mount options (same as installation)
 BTRFS_OPTS="noatime,compress=zstd:3,space_cache=v2,discard=async"
 
@@ -61,13 +79,16 @@ mount -o ${BTRFS_OPTS},subvol=@ /dev/mapper/vg0-root /mnt
 # Verify the directories exist
 ls -la /mnt
 # You should see: bin, boot, dev, etc, home, opt, root, srv, tmp, usr, var, etc.
-```
+#+end_src
 
-### Step 5: Mount All Other Subvolumes
+*** Step 5: Mount All Other Subvolumes
+:PROPERTIES:
+:CUSTOM_ID: step-5-mount-all-other-subvolumes
+:END:
+*Important:* The directories already exist after mounting @ - you do NOT
+need to create them!
 
-**Important:** The directories already exist after mounting @ - you do NOT need to create them!
-
-```bash
+#+begin_src sh
 # Mount all subvolumes to their existing directories
 mount -o ${BTRFS_OPTS},subvol=@home /dev/mapper/vg0-root /mnt/home
 mount -o ${BTRFS_OPTS},subvol=@opt /dev/mapper/vg0-root /mnt/opt
@@ -85,81 +106,100 @@ mount -o ${BTRFS_OPTS},subvol=@var@spool /dev/mapper/vg0-root /mnt/var/spool
 mount -o ${BTRFS_OPTS},subvol=@var@log /dev/mapper/vg0-root /mnt/var/log
 mount -o ${BTRFS_OPTS},subvol=@var@log@audit /dev/mapper/vg0-root /mnt/var/log/audit
 mount -o ${BTRFS_OPTS},subvol=@snapshots /dev/mapper/vg0-root /mnt/.snapshots
-```
+#+end_src
 
-### Step 6: Mount ESP
-
-```bash
+*** Step 6: Mount ESP
+:PROPERTIES:
+:CUSTOM_ID: step-6-mount-esp
+:END:
+#+begin_src sh
 # Mount the EFI System Partition
 mount /dev/nvme0n1p1 /mnt/boot
-```
+#+end_src
 
-### Step 7: Enable Swap (Optional)
-
-```bash
+*** Step 7: Enable Swap (Optional)
+:PROPERTIES:
+:CUSTOM_ID: step-7-enable-swap-optional
+:END:
+#+begin_src sh
 # If you need swap during maintenance
 swapon /dev/mapper/vg0-swap
-```
+#+end_src
 
-### Step 8: Verify All Mounts
-
-```bash
+*** Step 8: Verify All Mounts
+:PROPERTIES:
+:CUSTOM_ID: step-8-verify-all-mounts
+:END:
+#+begin_src sh
 # Check that everything is mounted correctly
 mount | grep /mnt
 
 # Check block devices
 lsblk
-```
+#+end_src
 
-You should see all subvolumes and /boot mounted under /mnt, similar to this:
+You should see all subvolumes and /boot mounted under /mnt, similar to
+this:
 
-```
+#+begin_example
 /dev/mapper/vg0-root on /mnt type btrfs (subvol=/@)
 /dev/mapper/vg0-root on /mnt/home type btrfs (subvol=/@home)
 /dev/mapper/vg0-root on /mnt/opt type btrfs (subvol=/@opt)
 ...
 /dev/nvme0n1p1 on /mnt/boot type vfat
-```
+#+end_example
 
-### Step 9: Chroot into the System
-
-```bash
+*** Step 9: Chroot into the System
+:PROPERTIES:
+:CUSTOM_ID: step-9-chroot-into-the-system
+:END:
+#+begin_src sh
 # Enter the chroot environment
 # arch-chroot automatically handles /dev, /proc, /sys mounting
 arch-chroot /mnt
-```
+#+end_src
 
 You are now inside your installed system and can perform maintenance.
 
-## Common Maintenance Tasks
-
-### Regenerate Initramfs
-
-```bash
+** Common Maintenance Tasks
+:PROPERTIES:
+:CUSTOM_ID: common-maintenance-tasks
+:END:
+*** Regenerate Initramfs
+:PROPERTIES:
+:CUSTOM_ID: regenerate-initramfs
+:END:
+#+begin_src sh
 # If you made changes to dracut configuration
 limine-dracut
-```
+#+end_src
 
-### Update System
-
-```bash
+*** Update System
+:PROPERTIES:
+:CUSTOM_ID: update-system
+:END:
+#+begin_src sh
 # Update all packages
 pacman -Syu
-```
+#+end_src
 
-### Fix Bootloader
-
-```bash
+*** Fix Bootloader
+:PROPERTIES:
+:CUSTOM_ID: fix-bootloader
+:END:
+#+begin_src sh
 # If Limine needs to be reinstalled
 cp /usr/share/limine/BOOTX64.EFI /boot/EFI/BOOT/BOOTX64.EFI
 
 # Regenerate boot entries
 limine-dracut
-```
+#+end_src
 
-### Check/Fix Kernel Parameters
-
-```bash
+*** Check/Fix Kernel Parameters
+:PROPERTIES:
+:CUSTOM_ID: checkfix-kernel-parameters
+:END:
+#+begin_src sh
 # View current configuration
 cat /etc/default/limine
 
@@ -168,11 +208,13 @@ nano /etc/default/limine
 
 # Apply changes
 limine-dracut
-```
+#+end_src
 
-### Repair Snapper Configuration
-
-```bash
+*** Repair Snapper Configuration
+:PROPERTIES:
+:CUSTOM_ID: repair-snapper-configuration
+:END:
+#+begin_src sh
 # List snapshots
 snapper list
 
@@ -183,81 +225,103 @@ cat /etc/snapper/configs/root
 systemctl restart snapper-timeline.timer
 systemctl restart snapper-cleanup.timer
 systemctl restart limine-snapper-sync.service
-```
+#+end_src
 
-### Reset User Password
-
-```bash
+*** Reset User Password
+:PROPERTIES:
+:CUSTOM_ID: reset-user-password
+:END:
+#+begin_src sh
 # Reset password for user
 passwd ahsan
 
 # Reset root password
 passwd
-```
+#+end_src
 
-### Fix Broken Package Database
-
-```bash
+*** Fix Broken Package Database
+:PROPERTIES:
+:CUSTOM_ID: fix-broken-package-database
+:END:
+#+begin_src sh
 # If pacman database is corrupted
 rm /var/lib/pacman/db.lck
 pacman -Syy
-```
+#+end_src
 
-## Exiting the Chroot Environment
-
-### Step 1: Exit Chroot
-
-```bash
+** Exiting the Chroot Environment
+:PROPERTIES:
+:CUSTOM_ID: exiting-the-chroot-environment
+:END:
+*** Step 1: Exit Chroot
+:PROPERTIES:
+:CUSTOM_ID: step-1-exit-chroot
+:END:
+#+begin_src sh
 # Exit the chroot
 exit
-```
+#+end_src
 
-### Step 2: Unmount Everything
-
-```bash
+*** Step 2: Unmount Everything
+:PROPERTIES:
+:CUSTOM_ID: step-2-unmount-everything
+:END:
+#+begin_src sh
 # Unmount all filesystems (recursive unmount)
 umount -R /mnt
 
 # Turn off swap if enabled
 swapoff /dev/mapper/vg0-swap
-```
+#+end_src
 
-### Step 3: Deactivate LVM
-
-```bash
+*** Step 3: Deactivate LVM
+:PROPERTIES:
+:CUSTOM_ID: step-3-deactivate-lvm
+:END:
+#+begin_src sh
 # Deactivate volume group
 vgchange -an vg0
-```
+#+end_src
 
-### Step 4: Close LUKS Container
-
-```bash
+*** Step 4: Close LUKS Container
+:PROPERTIES:
+:CUSTOM_ID: step-4-close-luks-container
+:END:
+#+begin_src sh
 # Close the encrypted container
 cryptsetup close cryptlvm
-```
+#+end_src
 
-### Step 5: Reboot
-
-```bash
+*** Step 5: Reboot
+:PROPERTIES:
+:CUSTOM_ID: step-5-reboot
+:END:
+#+begin_src sh
 # Remove the live USB and reboot
 reboot
-```
+#+end_src
 
-## Troubleshooting Chroot Issues
-
-### Can't Find LUKS Device
-
-```bash
+** Troubleshooting Chroot Issues
+:PROPERTIES:
+:CUSTOM_ID: troubleshooting-chroot-issues
+:END:
+*** Can't Find LUKS Device
+:PROPERTIES:
+:CUSTOM_ID: cant-find-luks-device
+:END:
+#+begin_src sh
 # List all block devices
 lsblk
 
 # If using a different disk name (e.g., /dev/sda instead of /dev/nvme0n1)
 cryptsetup luksOpen /dev/sdX2 cryptlvm
-```
+#+end_src
 
-### Volume Group Not Found
-
-```bash
+*** Volume Group Not Found
+:PROPERTIES:
+:CUSTOM_ID: volume-group-not-found
+:END:
+#+begin_src sh
 # Manually scan for volume groups
 vgscan --mknodes
 
@@ -266,13 +330,15 @@ vgchange -ay vg0
 
 # If still not found, check LUKS was opened correctly
 ls -la /dev/mapper/
-```
+#+end_src
 
-### Mount Fails - "Directory Not Found"
-
+*** Mount Fails - “Directory Not Found”
+:PROPERTIES:
+:CUSTOM_ID: mount-fails---directory-not-found
+:END:
 This should not happen if you mounted @ first. If it does:
 
-```bash
+#+begin_src sh
 # Verify @ is mounted
 mount | grep "on /mnt "
 
@@ -284,35 +350,41 @@ ls -la /mnt
 umount /mnt
 mount -o subvolid=5 /dev/mapper/vg0-root /mnt
 btrfs subvolume list /mnt
-```
+#+end_src
 
-### Can't Access Internet in Chroot
-
-```bash
+*** Can't Access Internet in Chroot
+:PROPERTIES:
+:CUSTOM_ID: cant-access-internet-in-chroot
+:END:
+#+begin_src sh
 # Before chroot, copy DNS configuration
 cp /etc/resolv.conf /mnt/etc/resolv.conf
 
 # After chroot, if still no network
 systemctl start NetworkManager
-```
+#+end_src
 
-### arch-chroot Says "/mnt/proc mount point does not exist"
-
+*** arch-chroot Says “/mnt/proc mount point does not exist”
+:PROPERTIES:
+:CUSTOM_ID: arch-chroot-says-mntproc-mount-point-does-not-exist
+:END:
 This means @ wasn't mounted correctly or is corrupted:
 
-```bash
+#+begin_src sh
 # Verify @ has the correct filesystem structure
 ls -la /mnt
 # Should show: bin, boot, dev, etc, home, lib, opt, proc, root, run, sbin, srv, sys, tmp, usr, var
 
 # If proc, sys, dev directories don't exist, your @ subvolume is damaged
-```
+#+end_src
 
-## Quick Reference Script
-
+** Quick Reference Script
+:PROPERTIES:
+:CUSTOM_ID: quick-reference-script
+:END:
 For convenience, here's a complete script for chrooting:
 
-```bash
+#+begin_src sh
 #!/bin/bash
 # Quick chroot script for the custom Arch installation
 
@@ -366,15 +438,18 @@ lsblk
 echo ""
 echo "=== Entering chroot ==="
 arch-chroot /mnt
-```
+#+end_src
 
-Save this as `chroot-system.sh`, make it executable with `chmod +x chroot-system.sh`, and run it when needed.
+Save this as =chroot-system.sh=, make it executable with
+=chmod +x chroot-system.sh=, and run it when needed.
 
-## Exit Script
-
+** Exit Script
+:PROPERTIES:
+:CUSTOM_ID: exit-script
+:END:
 For exiting cleanly:
 
-```bash
+#+begin_src sh
 #!/bin/bash
 # Clean exit from chroot
 
@@ -392,12 +467,18 @@ cryptsetup close cryptlvm
 
 echo "=== Done ==="
 echo "System safely unmounted and locked. You can now reboot."
-```
+#+end_src
 
-Save as `exit-chroot.sh` and run after exiting the chroot.
+Save as =exit-chroot.sh= and run after exiting the chroot.
 
-## Key Difference from Installation
+** Key Difference from Installation
+:PROPERTIES:
+:CUSTOM_ID: key-difference-from-installation
+:END:
+*During installation:* You create empty subvolumes, then manually create
+all directories with =mkdir -p= before mounting.
 
-**During installation:** You create empty subvolumes, then manually create all directories with `mkdir -p` before mounting.
-
-**During chroot/recovery:** The directories already exist in the @ subvolume from your installation. You only need to mount the @ subvolume first, which exposes all existing directories, then mount the other subvolumes to those existing directories.
+*During chroot/recovery:* The directories already exist in the @
+subvolume from your installation. You only need to mount the @ subvolume
+first, which exposes all existing directories, then mount the other
+subvolumes to those existing directories.
