@@ -99,30 +99,41 @@ BTRFS_OPTS="noatime,compress=zstd:3,space_cache=v2,discard=async"
 mount -o ${BTRFS_OPTS},subvol=@ /dev/vg0/root /mnt
 
 # Create mount points and mount all subvolumes
-mkdir -p /mnt/{home,opt,tmp,root,srv,nix,usr/local,var/{cache/pacman/pkg,crash,tmp,spool,log/audit},.snapshots,boot}
-
+mkdir /mnt/home
 mount -o ${BTRFS_OPTS},subvol=@home /dev/vg0/root /mnt/home
+mkdir /mnt/opt
 mount -o ${BTRFS_OPTS},subvol=@opt /dev/vg0/root /mnt/opt
+mkdir /mnt/tmp
 mount -o ${BTRFS_OPTS},subvol=@tmp /dev/vg0/root /mnt/tmp
+mkdir /mnt/root
 mount -o ${BTRFS_OPTS},subvol=@root /dev/vg0/root /mnt/root
+mkdir /mnt/srv
 mount -o ${BTRFS_OPTS},subvol=@srv /dev/vg0/root /mnt/srv
+mkdir /mnt/nix
 mount -o ${BTRFS_OPTS},subvol=@nix /dev/vg0/root /mnt/nix
+mkdir -p /mnt/usr/local
 mount -o ${BTRFS_OPTS},subvol=@usr@local /dev/vg0/root /mnt/usr/local
+mkdir /mnt/var
 mount -o ${BTRFS_OPTS},subvol=@var /dev/vg0/root /mnt/var
+mkdir /mnt/var/cache
 mount -o ${BTRFS_OPTS},subvol=@var@cache /dev/vg0/root /mnt/var/cache
+mkdir -p /mnt/var/cache/pacman/pkg
 mount -o ${BTRFS_OPTS},subvol=@pkg /dev/vg0/root /mnt/var/cache/pacman/pkg
+mkdir -p /mnt/var/crash
 mount -o ${BTRFS_OPTS},subvol=@var@crash /dev/vg0/root /mnt/var/crash
+mkdir /mnt/var/tmp
 mount -o ${BTRFS_OPTS},subvol=@var@tmp /dev/vg0/root /mnt/var/tmp
+mkdir /mnt/var/spool
 mount -o ${BTRFS_OPTS},subvol=@var@spool /dev/vg0/root /mnt/var/spool
+mkdir /mnt/var/log
 mount -o ${BTRFS_OPTS},subvol=@var@log /dev/vg0/root /mnt/var/log
+mkdir /mnt/var/log/audit
 mount -o ${BTRFS_OPTS},subvol=@var@log@audit /dev/vg0/root /mnt/var/log/audit
+mkdir /mnt/.snapshots
 mount -o ${BTRFS_OPTS},subvol=@snapshots /dev/vg0/root /mnt/.snapshots
 
 # Mount ESP
 mount /dev/nvme0n1p1 /mnt/boot
-
-# Enable swap
-swapon /dev/vg0/swap
 #+end_src
 
 *** Disable Copy-on-Write for Specific Directories
@@ -177,7 +188,7 @@ echo "LANG=en_US.UTF-8" > /etc/locale.conf
 echo "archlinux" > /etc/hostname
 
 # Configure hosts file
-cat >> /etc/hosts << EOF
+cat > /etc/hosts < EOF
 127.0.0.1   localhost
 ::1         localhost
 127.0.1.1   zephyrus.localdomain archlinux
@@ -446,7 +457,7 @@ cat /boot/limine.conf
 ** Final System Configuration
 *** Install Essential Packages
 #+begin_src sh
-pacman -S sof-firmware mesa vulkan-radeon nvidia-open-dkms nvidia-utils  chrony power-profiles-daemon  exfatprogs unrar unzip p7zip zip smartmontools pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber alsa-utils bluez bluez-utils lshw usbutils pciutils acpi thermald exfatprogs unrar unzip zip p7zip
+pacman -S sof-firmware mesa vulkan-radeon linux-cachyos-nvidia-open nvidia-utils  chrony power-profiles-daemon  exfatprogs unrar unzip p7zip zip smartmontools pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber alsa-utils bluez bluez-utils lshw usbutils pciutils acpi thermald exfatprogs unrar unzip zip p7zip
 #+end_src
 
 *** Enable Essential Services
@@ -1457,7 +1468,7 @@ Each zone has default rules that determine what traffic is allowed.
 # For trusted internal network - use 'internal' or 'home'
 #+end_src
 
-**  Basic Configuration
+** Basic Configuration
 *** Configure Default Zone
 #+begin_src sh
 # Set default zone for desktop/laptop

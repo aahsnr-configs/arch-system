@@ -1,8 +1,21 @@
 #!/bin/sh
+# ASUS Linux setup
+sudo pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
+sudo pacman-key --finger 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
+sudo pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
+sudo pacman-key --finger 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
+
+wget "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x8b15a6b0e9a3fa35" -O g14.sec
+sudo pacman-key -a g14.sec
+
+paru -Syyuu
+paru -S asusctl power-profiles-daemon rog-control-center
+
 # NOTE: Don't install any emacs related packages
 # NOTE: Don't install any neovim related packages
 # NOTE: Dont't install pymol
-paru -S adw-gtk-theme \
+paru -S accountsservice \
+  adw-gtk-theme \
   ananicy-cpp \
   arch-audit \
   atuin \
@@ -27,6 +40,7 @@ paru -S adw-gtk-theme \
   dms-shell-bin \
   dosfstools \
   dust \
+  emacs-wayland \
   egl-gbm \
   egl-wayland \
   egl-wayland2 \
@@ -41,6 +55,7 @@ paru -S adw-gtk-theme \
   github-cli \
   git-lfs \
   gnome-keyring \
+  greetd \
   grim \
   gst-plugin-pipewire \
   gst-plugins-bad \
@@ -66,6 +81,7 @@ paru -S adw-gtk-theme \
   lynis \
   matugen \
   mpv \
+  neovim \
   niri \
   noto-color-emoji-fontconfig \
   noto-fonts \
@@ -153,30 +169,6 @@ paru -S adw-gtk-theme \
   zram-generator \
   zsh
 
-# ASUS Linux setup
-sudo pacman-key --recv-keys 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
-sudo pacman-key --finger 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
-sudo pacman-key --lsign-key 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
-sudo pacman-key --finger 8F654886F17D497FEFE3DB448B15A6B0E9A3FA35
-
-wget "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x8b15a6b0e9a3fa35" -O g14.sec
-sudo pacman-key -a g14.sec
-
-sudo nvim /etc/pacman.conf
-
-paru -Syyuu
-paru -S asusctl power-profiles-daemon rog-control-center
-
-git clone https://gitlab.com/asus-linux/nvidia-laptop-power-cfg.git
-cd nvidia-laptop-power-cfg
-makepkg -sfi && cd
-
-sudo systemctl enable nvidia-suspend.service nvidia-hibernate.service nvidia-resume.service
-sudo systemctl enable --now nvidia-powerd
-sudo systemctl enable nvidia-suspend-then-hibernate.service
-sudo systemctl enable --now bluetooth
-
-curl -fsSL https://install.danklinux.com | sh
 ln -sv "$HOME/Git/configs/arch-system/dots/bin/" "$HOME/"
 ln -sv "$HOME/Git/configs/arch-system/dots/.zshrc" "$HOME/"
 ln -sv "$HOME/Git/configs/arch-system/dots/.config/atuin/" "$HOME/.config/"
