@@ -231,6 +231,10 @@ path=(
 )
 export PATH
 
+# Theming
+export QS_ICON_THEME=Papirus-Dark
+
+
 # MANPATH and INFOPATH - Use typeset -U for uniqueness
 typeset -U MANPATH
 export MANPATH="${MANPATH}:/usr/local/texlive/2025/texmf-dist/doc/man"
@@ -690,6 +694,8 @@ command_not_found_handler() {
 
 ### ALIASES
 alias listPkgs='paru -Qq > packages.list'
+alias delOrphans='paru -Rns $(paru -Qtdq)'
+alias delCache='paru -Scc'
 alias cat='bat --paging=never'
 alias du='dust'
 alias eza='eza --icons auto --git --group-directories-first --header'

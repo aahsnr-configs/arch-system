@@ -34,12 +34,12 @@ spawn-at-startup "rog-control-center"
 // ============================================================================
 // ENVIRONMENT VARIABLES
 
-environment {
-  XDG_CURRENT_DESKTOP "niri"
-  QT_QPA_PLATFORM "wayland"
-  ELECTRON_OZONE_PLATFORM_HINT "auto"
-  QT_QPA_PLATFORMTHEME "gtk3"
-}
+// environment {
+//   XDG_CURRENT_DESKTOP "niri"
+//   QT_QPA_PLATFORM "wayland"
+//   QT_QPA_PLATFORMTHEME "qt6ct"
+//   ELECTRON_OZONE_PLATFORM_HINT "auto"
+// }
 
 // ============================================================================
 // OUTPUT CONFIGURATION
