@@ -4,7 +4,7 @@
 // ! PLACE YOUR CUSTOM CONFIGURATION ELSEWHERE !
 
 cursor {
-    xcursor-theme "Bibata-Modern-Ice"
-    xcursor-size 24
+    xcursor-theme "Bibata-Original-Ice"
+    xcursor-size 21
     hide-when-typing
 }

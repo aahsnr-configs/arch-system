@@ -497,226 +497,6 @@ sudo reboot
 --------------
 
 * System Usage and Maintenance
-** Managing Snapshots
-*** View Snapshots
-#+begin_src sh
-# List all snapshots
-sudo snapper list
-
-# Show detailed info about a snapshot
-sudo snapper info <snapshot-number>
-
-# Compare snapshots
-sudo snapper diff <snapshot1> <snapshot2>
-#+end_src
-
-*** Create Manual Snapshot
-#+begin_src sh
-# Before major changes
-sudo snapper -c root create --description "Before major system change"
-#+end_src
-
-*** Delete Snapshots
-#+begin_src sh
-# Delete a specific snapshot
-sudo snapper delete <snapshot-number>
-
-# Delete a range
-sudo snapper delete <start>-<end>
-#+end_src
-
-*** Rollback Methods
-*Method 1: Using Notification (Easiest)*
-
-1. Boot into snapshot
-2. Click notification “Restore this snapshot?”
-3. Confirm
-4. Reboot
-
-*Method 2: Manual Command*
-
-#+begin_src sh
-# When booted into snapshot, run:
-sudo limine-snapper-restore
-#+end_src
-
-*Method 3: Traditional Snapper Rollback*
-
-#+begin_src sh
-# From any boot (not necessarily in snapshot)
-sudo snapper rollback <snapshot-number>
-sudo reboot
-#+end_src
-
-*Method 4: Manual Btrfs (Most Control)*
-
-#+begin_src sh
-# Boot into snapshot first, then:
-sudo mkdir -p /mnt/btrfs_root
-sudo mount -o subvolid=5 /dev/mapper/vg0-root /mnt/btrfs_root
-
-# Delete current @ subvolume
-sudo btrfs subvolume delete /mnt/btrfs_root/@
-
-# Create new @ from snapshot (replace 123 with snapshot ID)
-sudo btrfs subvolume snapshot /mnt/btrfs_root/@snapshots/123/snapshot /mnt/btrfs_root/@
-
-# Set as default
-NEW_ID=$(sudo btrfs subvolume list /mnt/btrfs_root | grep "path @$" | awk '{print $2}')
-sudo btrfs subvolume set-default ${NEW_ID} /mnt/btrfs_root
-
-# Clean up and reboot
-sudo umount /mnt/btrfs_root
-sudo reboot
-#+end_src
-
-** Maintenance Commands
-*** Regenerate Initramfs After Changes
-#+begin_src sh
-# After changing /etc/default/limine or kernel parameters:
-sudo limine-dracut
-
-# This regenerates initramfs AND updates Limine config
-#+end_src
-
-*** Update Kernel
-#+begin_src sh
-# Install new kernel
-sudo pacman -S linux-cachyos
-
-# limine-dracut will be called automatically via pacman hooks
-# Reboot to use new kernel
-sudo reboot
-#+end_src
-
-*** Check Disk Space
-#+begin_src sh
-# ESP space (should keep 20%+ free)
-df -h /boot
-
-# Btrfs space
-sudo btrfs filesystem usage /
-#+end_src
-
-*** Monitor ESP Space
-#+begin_src sh
-# If ESP is filling up, reduce snapshot entries
-sudo nano /etc/default/limine-snapper-sync
-# Change: MAX_SNAPSHOT_ENTRIES=5
-
-# Restart service to apply
-sudo systemctl restart limine-snapper-sync
-#+end_src
-
-** Troubleshooting
-*** System Won't Boot / Drops to Emergency Shell
-*Check kernel parameters:*
-
-#+begin_src sh
-# Boot from live USB, mount and chroot
-cryptsetup luksOpen /dev/nvme0n1p2 cryptlvm
-mount -o subvol=@ /dev/mapper/vg0-root /mnt
-mount /dev/nvme0n1p1 /mnt/boot
-arch-chroot /mnt
-
-# Verify /etc/default/limine has correct UUIDs
-cat /etc/default/limine
-
-# Verify crypttab
-cat /etc/crypttab
-
-# Regenerate everything
-limine-dracut
-
-# Exit and reboot
-exit
-umount -R /mnt
-cryptsetup close cryptlvm
-reboot
-#+end_src
-
-*Add debug parameters temporarily:*
-
-- At Limine menu, press ‘e’ to edit entry
-- Add to kernel line: =rd.debug rd.shell=
-- This gives you a shell in initramfs to debug
-
-*** Snapshots Not Appearing in Limine
-#+begin_src sh
-# Check service status
-systemctl status limine-snapper-sync
-
-# Check if snapshots exist
-snapper list
-
-# Manually trigger sync
-sudo systemctl restart limine-snapper-sync
-
-# Check Limine config
-cat /boot/limine.conf
-#+end_src
-
-*** LUKS Won't Unlock
-#+begin_src sh
-# Check if correct LUKS UUID in /etc/default/limine
-cat /etc/default/limine | grep luks
-
-# Check crypttab
-cat /etc/crypttab
-
-# Get correct UUID
-cryptsetup luksDump /dev/nvme0n1p2 | grep UUID
-#+end_src
-
-*** Dracut Errors During Generation
-#+begin_src sh
-# Check dracut config
-cat /etc/dracut.conf.d/custom.conf
-
-# Test dracut manually with debug
-sudo dracut --force --hostonly --show-modules
-
-# Check for missing modules
-lsinitrd /boot/initramfs-linux.img | grep -E 'crypt|lvm|btrfs'
-#+end_src
-
-*** ESP Full
-#+begin_src sh
-# Check space
-df -h /boot
-
-# Reduce snapshot entries
-sudo nano /etc/default/limine-snapper-sync
-# Change MAX_SNAPSHOT_ENTRIES=5
-
-# Remove old kernels if you have multiple
-sudo pacman -R linux
-
-# Delete old snapshots
-sudo snapper delete <old-snapshot-numbers>
-#+end_src
-
-*** Rollback Didn't Work
-#+begin_src sh
-# Boot from any working state
-# Check current subvolume
-mount | grep "on / "
-
-# Should show: subvol=/@
-
-# If wrong, boot from live USB and fix:
-cryptsetup luksOpen /dev/nvme0n1p2 cryptlvm
-mount -o subvolid=5 /dev/mapper/vg0-root /mnt
-
-# List subvolumes
-btrfs subvolume list /mnt
-
-# Find @ subvolume ID and set as default
-btrfs subvolume set-default <@-subvolume-id> /mnt
-umount /mnt
-reboot
-#+end_src
-
 * GENERAL COMMANDS
 #+begin_src sh
 - emacs --batch --eval "(require 'org)" --eval '(org-babel-tangle-file "file-to-tangle.org")'
@@ -1832,6 +1612,228 @@ sudo firewall-cmd --reload
 
 Remember: Security is a process, not a product. Regularly review and
 update your firewall configuration as your needs change!
+
+* Managing Snapshots
+*** View Snapshots
+#+begin_src sh
+# List all snapshots
+sudo snapper list
+
+# Show detailed info about a snapshot
+sudo snapper info <snapshot-number>
+
+# Compare snapshots
+sudo snapper diff <snapshot1> <snapshot2>
+#+end_src
+
+*** Create Manual Snapshot
+#+begin_src sh
+# Before major changes
+sudo snapper -c root create --description "Before major system change"
+#+end_src
+
+*** Delete Snapshots
+#+begin_src sh
+# Delete a specific snapshot
+sudo snapper delete <snapshot-number>
+
+# Delete a range
+sudo snapper delete <start>-<end>
+#+end_src
+
+*** Rollback Methods
+*Method 1: Using Notification (Easiest)*
+
+1. Boot into snapshot
+2. Click notification “Restore this snapshot?”
+3. Confirm
+4. Reboot
+
+*Method 2: Manual Command*
+
+#+begin_src sh
+# When booted into snapshot, run:
+sudo limine-snapper-restore
+#+end_src
+
+*Method 3: Traditional Snapper Rollback*
+
+#+begin_src sh
+# From any boot (not necessarily in snapshot)
+sudo snapper rollback <snapshot-number>
+sudo reboot
+#+end_src
+
+*Method 4: Manual Btrfs (Most Control)*
+
+#+begin_src sh
+# Boot into snapshot first, then:
+sudo mkdir -p /mnt/btrfs_root
+sudo mount -o subvolid=5 /dev/mapper/vg0-root /mnt/btrfs_root
+
+# Delete current @ subvolume
+sudo btrfs subvolume delete /mnt/btrfs_root/@
+
+# Create new @ from snapshot (replace 123 with snapshot ID)
+sudo btrfs subvolume snapshot /mnt/btrfs_root/@snapshots/123/snapshot /mnt/btrfs_root/@
+
+# Set as default
+NEW_ID=$(sudo btrfs subvolume list /mnt/btrfs_root | grep "path @$" | awk '{print $2}')
+sudo btrfs subvolume set-default ${NEW_ID} /mnt/btrfs_root
+
+# Clean up and reboot
+sudo umount /mnt/btrfs_root
+sudo reboot
+#+end_src
+
+** Maintenance Commands
+*** Regenerate Initramfs After Changes
+#+begin_src sh
+# After changing /etc/default/limine or kernel parameters:
+sudo limine-dracut
+
+# This regenerates initramfs AND updates Limine config
+#+end_src
+
+*** Update Kernel
+#+begin_src sh
+# Install new kernel
+sudo pacman -S linux-cachyos
+
+# limine-dracut will be called automatically via pacman hooks
+# Reboot to use new kernel
+sudo reboot
+#+end_src
+
+*** Check Disk Space
+#+begin_src sh
+# ESP space (should keep 20%+ free)
+df -h /boot
+
+# Btrfs space
+sudo btrfs filesystem usage /
+#+end_src
+
+*** Monitor ESP Space
+#+begin_src sh
+# If ESP is filling up, reduce snapshot entries
+sudo nano /etc/default/limine-snapper-sync
+# Change: MAX_SNAPSHOT_ENTRIES=5
+
+# Restart service to apply
+sudo systemctl restart limine-snapper-sync
+#+end_src
+
+** Troubleshooting
+*** System Won't Boot / Drops to Emergency Shell
+*Check kernel parameters:*
+
+#+begin_src sh
+# Boot from live USB, mount and chroot
+cryptsetup luksOpen /dev/nvme0n1p2 cryptlvm
+mount -o subvol=@ /dev/mapper/vg0-root /mnt
+mount /dev/nvme0n1p1 /mnt/boot
+arch-chroot /mnt
+
+# Verify /etc/default/limine has correct UUIDs
+cat /etc/default/limine
+
+# Verify crypttab
+cat /etc/crypttab
+
+# Regenerate everything
+limine-dracut
+
+# Exit and reboot
+exit
+umount -R /mnt
+cryptsetup close cryptlvm
+reboot
+#+end_src
+
+*Add debug parameters temporarily:*
+
+- At Limine menu, press ‘e’ to edit entry
+- Add to kernel line: =rd.debug rd.shell=
+- This gives you a shell in initramfs to debug
+
+*** Snapshots Not Appearing in Limine
+#+begin_src sh
+# Check service status
+systemctl status limine-snapper-sync
+
+# Check if snapshots exist
+snapper list
+
+# Manually trigger sync
+sudo systemctl restart limine-snapper-sync
+
+# Check Limine config
+cat /boot/limine.conf
+#+end_src
+
+*** LUKS Won't Unlock
+#+begin_src sh
+# Check if correct LUKS UUID in /etc/default/limine
+cat /etc/default/limine | grep luks
+
+# Check crypttab
+cat /etc/crypttab
+
+# Get correct UUID
+cryptsetup luksDump /dev/nvme0n1p2 | grep UUID
+#+end_src
+
+*** Dracut Errors During Generation
+#+begin_src sh
+# Check dracut config
+cat /etc/dracut.conf.d/custom.conf
+
+# Test dracut manually with debug
+sudo dracut --force --hostonly --show-modules
+
+# Check for missing modules
+lsinitrd /boot/initramfs-linux.img | grep -E 'crypt|lvm|btrfs'
+#+end_src
+
+*** ESP Full
+#+begin_src sh
+# Check space
+df -h /boot
+
+# Reduce snapshot entries
+sudo nano /etc/default/limine-snapper-sync
+# Change MAX_SNAPSHOT_ENTRIES=5
+
+# Remove old kernels if you have multiple
+sudo pacman -R linux
+
+# Delete old snapshots
+sudo snapper delete <old-snapshot-numbers>
+#+end_src
+
+*** Rollback Didn't Work
+#+begin_src sh
+# Boot from any working state
+# Check current subvolume
+mount | grep "on / "
+
+# Should show: subvol=/@
+
+# If wrong, boot from live USB and fix:
+cryptsetup luksOpen /dev/nvme0n1p2 cryptlvm
+mount -o subvolid=5 /dev/mapper/vg0-root /mnt
+
+# List subvolumes
+btrfs subvolume list /mnt
+
+# Find @ subvolume ID and set as default
+btrfs subvolume set-default <@-subvolume-id> /mnt
+umount /mnt
+reboot
+#+end_src
+
+
 
 * Hardening
 ** Lock Root Account

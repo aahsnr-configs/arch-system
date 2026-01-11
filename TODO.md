@@ -1,2 +1,3 @@
 - [-] Setup custom openvpn setup using piavpn
 - [ ] Snapper setup script not complete
+- [ ] Add snapper tips and tricks
