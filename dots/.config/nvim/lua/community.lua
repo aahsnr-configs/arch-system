@@ -14,5 +14,6 @@ return {
   { import = "astrocommunity.pack.prettier" },
   { import = "astrocommunity.pack.lua" },
   { import = "astrocommunity.pack.python" },
+  { import = "astrocommunity.colorscheme.tokyonight-nvim" },
   -- import/override with your plugins folder
 }

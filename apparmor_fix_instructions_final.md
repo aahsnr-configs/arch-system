@@ -11,6 +11,7 @@ Before we dive into the fix, it's essential to understand how AppArmor works:
 3. **Abstractions** (`/etc/apparmor.d/abstractions/*`): Reusable rule sets for common tasks
 
 Every AppArmor profile starts with:
+
 ```
 #include <tunables/global>
 ```
@@ -42,7 +43,7 @@ When apparmor was updated to 4.1.3-1 on January 8, 2026, here's the sequence of 
    - Pacman updated `/etc/apparmor.d/tunables/global` from base apparmor
    - This file now contains NEW variables including `pci_bus`
    - BUT: Your system also has apparmor.d's version of this file (or fragments of it)
-   
+
 3. **After the update**:
    - **Both packages' definitions are now active in the same files**
    - The tunable files contain duplicate definitions: `pci_bus` defined twice
@@ -54,11 +55,13 @@ When apparmor was updated to 4.1.3-1 on January 8, 2026, here's the sequence of 
 Both packages **must** provide these files:
 
 **Base apparmor package provides**:
+
 - Minimal tunables with basic variables
 - Simple abstractions for common tasks
 - Works standalone for basic AppArmor usage
 
 **apparmor.d package provides**:
+
 - **Comprehensive tunables** with 1500+ profiles worth of variables
 - **Extended abstractions** for complex application confinement
 - **Must replace base tunables** to work properly
@@ -75,6 +78,7 @@ apparmor.d: /etc/apparmor.d/tunables/global exists in filesystem (owned by appar
 ```
 
 Pacman sees that:
+
 1. `apparmor` package owns `/etc/apparmor.d/tunables/global`
 2. `apparmor.d` wants to install its own `/etc/apparmor.d/tunables/global`
 3. Pacman refuses because **overwriting another package's files could break things**
@@ -86,6 +90,7 @@ This is normally correct behavior! If two packages both want to provide the same
 The `--overwrite` flag tells pacman: **"I understand these files conflict, and I explicitly authorize you to replace them."**
 
 When you run:
+
 ```bash
 sudo pacman -U apparmor.d-*.pkg.tar.zst \
   --overwrite 'etc/apparmor.d/tunables/*' \
@@ -93,6 +98,7 @@ sudo pacman -U apparmor.d-*.pkg.tar.zst \
 ```
 
 You're telling pacman:
+
 1. "I know `/etc/apparmor.d/tunables/global` is owned by the apparmor package"
 2. "I explicitly want apparmor.d to replace it with its comprehensive version"
 3. "This is intentional - apparmor.d's tunables supersede the base ones"
@@ -119,35 +125,43 @@ This approach is safe because:
 When you follow the fix procedure:
 
 **Step 1-2**: Stop AppArmor and create backup
+
 - Prevents conflicts during file operations
 - Ensures you can recover if needed
 
 **Step 3**: Remove apparmor.d
+
 ```bash
 sudo pacman -R apparmor.d apparmor.d-git
 ```
+
 - Removes the broken apparmor.d installation
 - But leaves the corrupted files on disk (pacman doesn't remove config files by default)
 
 **Step 4**: Reinstall base apparmor
+
 ```bash
 sudo pacman -S apparmor
 ```
+
 - **This is the key step**: Forces pacman to reinstall ALL files from base apparmor
 - Replaces any corrupted/mixed files with clean 4.1.3 versions
 - Now `/etc/apparmor.d/tunables/global` contains ONLY base apparmor's definitions
 - **No more duplicate `pci_bus` definitions**
 
 **Step 5-6**: Install apparmor.d with --overwrite
+
 ```bash
 sudo pacman -U apparmor.d-*.pkg.tar.zst --overwrite 'etc/apparmor.d/tunables/*'
 ```
+
 - Pacman installs apparmor.d's files
 - **Overwrites** `/etc/apparmor.d/tunables/global` with apparmor.d's comprehensive version
 - **Overwrites** `/etc/apparmor.d/abstractions/*` with apparmor.d's extended abstractions
 - Result: Clean installation with NO duplicates, using apparmor.d's comprehensive definitions
 
 **Step 7**: Start AppArmor
+
 - Parser reads the tunable files
 - Finds ONLY apparmor.d's definitions (no duplicates!)
 - Successfully loads all 1500+ profiles
@@ -203,13 +217,15 @@ This is why the `--overwrite` method has been the standard installation procedur
 There are **three variants** of the apparmor.d package available in the AUR:
 
 ### 1. apparmor.d (Stable Release)
+
 - **Source**: Tagged releases from GitHub (currently v0.4900)
 - **Update frequency**: Only updates when new stable versions are released
 - **Stability**: Most tested and stable
 - **Default mode**: Complain mode (violations logged but NOT blocked)
 - **Recommended for**: Most users who want stability
 
-### 2. apparmor.d-git (Development Version)  
+### 2. apparmor.d-git (Development Version)
+
 - **Source**: Latest development code from git main branch
 - **Update frequency**: Gets latest features and fixes immediately
 - **Stability**: Less tested, may have bugs
@@ -217,6 +233,7 @@ There are **three variants** of the apparmor.d package available in the AUR:
 - **Recommended for**: Users who want bleeding-edge features or need latest fixes
 
 ### 3. apparmor.d.enforced (Stable + Enforce Mode)
+
 - **Source**: Same as stable (v0.4900) but configured differently
 - **Update frequency**: Same as stable
 - **Stability**: Same as stable
@@ -228,13 +245,15 @@ There are **three variants** of the apparmor.d package available in the AUR:
 AppArmor profiles can operate in two modes:
 
 ### Complain Mode (Default for apparmor.d and apparmor.d-git)
+
 - **What it does**: Logs policy violations but does NOT block them
 - **Purpose**: Safe for testing - won't break your system
 - **When to use**: Initial installation, testing new profiles, development
 - **Note**: Even in complain mode, explicit `deny` rules ARE enforced
 
 ### Enforce Mode (Default for apparmor.d.enforced)
-- **What it does**: Blocks policy violations AND logs them  
+
+- **What it does**: Blocks policy violations AND logs them
 - **Purpose**: Provides actual security by preventing unauthorized access
 - **When to use**: After testing in complain mode with no issues for at least a week
 - **Warning**: Can break applications if profiles aren't properly configured for your system
@@ -244,12 +263,14 @@ AppArmor profiles can operate in two modes:
 **Short answer: No, you probably don't need it.**
 
 **Use the stable version (`apparmor.d`) if:**
+
 - You want a stable, well-tested system
 - You prefer fewer updates and less potential for breakage
 - You're new to AppArmor
 - Version 0.4900 (current stable) already supports apparmor 4.1.3
 
 **Use the git version (`apparmor.d-git`) only if:**
+
 - You need a specific fix that's only in the development branch
 - You want to help test new features
 - You're comfortable troubleshooting potential issues
@@ -260,6 +281,7 @@ AppArmor profiles can operate in two modes:
 ## Your Current Problem: File Conflicts
 
 The errors you're seeing:
+
 ```
 'pci_bus' is already defined
 AppArmor parser error for /etc/apparmor.d
@@ -267,12 +289,14 @@ Error: At least one profile failed to load
 ```
 
 This is caused by **duplicate tunable definitions** from improperly merged files between:
+
 1. Base `apparmor` package (version 4.1.3-1 from official repos)
 2. Your existing `apparmor.d` installation
 
 ### Why This Happens
 
 Both packages provide files in `/etc/apparmor.d/`:
+
 - `/etc/apparmor.d/tunables/global`
 - `/etc/apparmor.d/tunables/xdg-user-dirs`
 - `/etc/apparmor.d/abstractions/trash`
@@ -283,6 +307,7 @@ The `apparmor.d` package is **designed to replace** these files with comprehensi
 ### Why the January 8, 2026 Update Made It Worse
 
 When base apparmor updated to 4.1.3-1:
+
 1. It added new tunables (like `pci_bus`) to these shared files
 2. Your existing apparmor.d installation already had its own versions
 3. Now both sets of definitions exist in the same files
@@ -342,7 +367,7 @@ sudo pacman -U apparmor.d-*.pkg.tar.zst \
 **Or using an AUR helper:**
 
 ```bash
-yay -S apparmor.d \
+paru -S apparmor.d \
   --overwrite='etc/apparmor.d/tunables/*' \
   --overwrite='etc/apparmor.d/abstractions/*'
 ```
@@ -495,6 +520,7 @@ Your profiles are actively blocking violations. If something breaks:
 #### Troubleshooting Broken Applications
 
 1. **Check recent denials**:
+
    ```bash
    sudo aa-log | tail -50
    ```
@@ -503,6 +529,7 @@ Your profiles are actively blocking violations. If something breaks:
    Look for repeated DENIED messages related to the broken application.
 
 3. **Put the profile in complain mode**:
+
    ```bash
    sudo aa-complain /etc/apparmor.d/[profile-name]
    sudo systemctl reload apparmor.service
@@ -518,13 +545,14 @@ Your profiles are actively blocking violations. If something breaks:
 
 ## Why --overwrite is Required (Not Optional)
 
-The `--overwrite` flags tell pacman: *"Yes, I know these files are owned by the base apparmor package. Replace them with apparmor.d's versions - this is intentional."*
+The `--overwrite` flags tell pacman: _"Yes, I know these files are owned by the base apparmor package. Replace them with apparmor.d's versions - this is intentional."_
 
 This is **the documented installation method** and has been standard practice since 2022 (see GitHub Issue #25). It's not a workaround - it's the correct way to install comprehensive AppArmor profile sets on Arch Linux.
 
 ### Why the PKGBUILD Doesn't Handle This
 
 The apparmor.d PKGBUILD cannot declare `conflicts=` or `replaces=` for base apparmor because:
+
 1. apparmor.d **depends on** the base apparmor package for the parser and tools
 2. The file replacement is intentional design - apparmor.d's comprehensive tunables supersede the minimal base ones
 3. Using `--overwrite` gives users explicit control over the installation
@@ -542,8 +570,9 @@ The apparmor.d package is designed to work with dbus-broker on Arch Linux. The o
 ### aa-log Limitations
 
 The `aa-log` tool has known parsing limitations with:
+
 - Profile transitions involving dbus-broker
-- Certain change_onexec operations  
+- Certain change_onexec operations
 - Some label parsing edge cases
 
 **These errors don't affect AppArmor's functionality.** Use these alternatives:
@@ -592,8 +621,9 @@ yay -S apparmor.d.enforced \
 ### For Most Users: apparmor.d (Stable)
 
 Choose the **stable version** if you want:
+
 - Tested, reliable profiles
-- Fewer updates  
+- Fewer updates
 - Less potential for issues
 - A system that "just works"
 
@@ -602,6 +632,7 @@ The stable version (0.4900) is fully compatible with apparmor 4.1.3 and provides
 ### For Advanced Users: apparmor.d-git
 
 Choose the **git version** only if you:
+
 - Need a specific fix only in development
 - Want to contribute to development
 - Enjoy living on the bleeding edge
@@ -610,6 +641,7 @@ Choose the **git version** only if you:
 ### For Security-Focused Power Users: apparmor.d.enforced
 
 Choose the **enforced version** only if you:
+
 - Have already tested profiles in complain mode for a week+
 - Are comfortable troubleshooting profile issues
 - Need maximum security with active blocking
@@ -630,7 +662,7 @@ The key insight: Your issue isn't about which variant to use - it's about using 
 ## Additional Resources
 
 - **AppArmor.d Documentation**: https://apparmor.pujol.io/
-- **AppArmor.d GitHub**: https://github.com/roddhjav/apparmor.d  
+- **AppArmor.d GitHub**: https://github.com/roddhjav/apparmor.d
 - **Installation Guide**: https://apparmor.pujol.io/install/
 - **Enforce Mode Guide**: https://apparmor.pujol.io/enforce/
 - **Arch Wiki - AppArmor**: https://wiki.archlinux.org/title/AppArmor

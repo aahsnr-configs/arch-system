@@ -104,13 +104,11 @@ BTRFS_OPTS="noatime,compress=zstd:3,space_cache=v2,discard=async" &&
     chattr +C /mnt/var/tmp
 #+end_src
 
-
 ** Install Base Packages
 #+begin_src sh
-pacstrap -K /mnt base base-devel neovim git wget curl btrfs-progs lvm2 cryptsetup dracut networkmanager sudo paru &&
-    genfstab -U /mnt >> /mnt/etc/fstab
-
-arch-chroot /mnt
+pacstrap -K /mnt base base-devel neovim git wget curl btrfs-progs lvm2 cryptsetup dracut networkmanager sudo paru linux-cachyos linux-cachyos-headers linux-cachyos-nvidia-open linux-firmware amd-ucode &&
+    genfstab -U /mnt >> /mnt/etc/fstab &&
+    arch-chroot /mnt
 #+end_src
 
 ** Basic System Configuration
@@ -128,7 +126,7 @@ nvim /etc/hosts
 127.0.1.1   zephyrus.localdomain zephyrus
 
 passwd &&
-    useradd -m -G users,wheel,audio,video -s /bin/bash ahsan &&
+    useradd -m -G users,wheel,audio,video -s /bin/bash -c "Ahsanur Rahman" ahsan &&
     passwd ahsan &&
     EDITOR=nvim visudo
 #+end_src
@@ -145,20 +143,16 @@ cd /tmp &&
 
 ** Configure Dracut for LUKS+LVM+Btrfs
 #+begin_src sh
-LUKS_UUID=$(cryptsetup luksDump /dev/nvme0n1p2 | grep "UUID:" | head -1 | awk '{print $2}')
-echo "LUKS UUID: $LUKS_UUID"
-
-ROOT_UUID=$(blkid -s UUID -o value /dev/mapper/vg0-root)
-echo "Root UUID: $ROOT_UUID"
-
-SWAP_UUID=$(blkid -s UUID -o value /dev/mapper/vg0-swap)
-echo "Swap UUID: $SWAP_UUID"
-
-# Save these for later
-echo "LUKS_UUID=$LUKS_UUID" > /tmp/uuids.txt
-echo "ROOT_UUID=$ROOT_UUID" >> /tmp/uuids.txt
-echo "SWAP_UUID=$SWAP_UUID" >> /tmp/uuids.txt
-cat /tmp/uuids.txt
+LUKS_UUID=$(cryptsetup luksDump /dev/nvme0n1p2 | grep "UUID:" | head -1 | awk '{print $2}') &&
+    echo "LUKS UUID: $LUKS_UUID" &&
+    ROOT_UUID=$(blkid -s UUID -o value /dev/mapper/vg0-root) &&
+    echo "Root UUID: $ROOT_UUID" &&
+    SWAP_UUID=$(blkid -s UUID -o value /dev/mapper/vg0-swap) &&
+    echo "Swap UUID: $SWAP_UUID" &&
+    echo "LUKS_UUID=$LUKS_UUID" > /tmp/uuids.txt &&
+    echo "ROOT_UUID=$ROOT_UUID" >> /tmp/uuids.txt &&
+    echo "SWAP_UUID=$SWAP_UUID" >> /tmp/uuids.txt &&
+    cat /tmp/uuids.txt
 #+end_src
 
 #+begin_src sh
@@ -194,38 +188,24 @@ cat > /etc/crypttab << EOF
 # <name>    <device>                                  <password>  <options>
 cryptlvm    UUID=${LUKS_UUID}                         none        luks,discard
 EOF
-
-# Verify
-cat /etc/crypttab
 #+end_src
 
 ** Install and Configure Limine Bootloader
 #+begin_src sh
-pacman -S limine jdk-openjdk paru &&
+pacman -S limine jdk-openjdk &&
     echo "ahsan ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers.d/temp_install &&
     chmod 440 /etc/sudoers.d/temp_install &&
     sudo -u ahsan paru -S limine-dracut-support --noconfirm &&
     rm /etc/sudoers.d/temp_install
 #+end_src
 
-*** Deploy Limine to ESP
 #+begin_src sh
-# Create Limine directories on ESP
-mkdir -p /boot/EFI/BOOT
-mkdir -p /boot/EFI/arch-limine
-
-# Copy Limine EFI binaries
-cp /usr/share/limine/BOOTX64.EFI /boot/EFI/BOOT/BOOTX64.EFI
-cp /usr/share/limine/BOOTX64.EFI /boot/EFI/arch-limine/BOOTX64.EFI
-
-# Register with UEFI (creates named boot entry)
-efibootmgr --create --disk /dev/nvme0n1 --part 1 \
-    --label "Arch Linux (Limine)" \
-    --loader /EFI/arch-limine/BOOTX64.EFI
+mkdir -p /boot/EFI/BOOT &&
+    mkdir -p /boot/EFI/arch-limine &&
+    cp /usr/share/limine/BOOTX64.EFI /boot/EFI/BOOT/BOOTX64.EFI &&
+    cp /usr/share/limine/BOOTX64.EFI /boot/EFI/arch-limine/BOOTX64.EFI &&
+    efibootmgr --create --disk /dev/nvme0n1 --part 1 --label "Arch Linux (Limine)" --loader /EFI/arch-limine/BOOTX64.EFI
 #+end_src
-
-*** Configure Limine (/etc/default/limine)
-This is where you set kernel parameters for dracut:
 
 #+begin_src sh
 # Create Limine configuration with dracut syntax
@@ -273,134 +253,39 @@ EOF
 cat /etc/default/limine
 #+end_src
 
-*** Initial Dracut Image Generation
 #+begin_src sh
-# Generate initramfs using limine-dracut command
-# This will:
-# - Run dracut with proper options
-# - Create /boot/limine.conf
-# - Add kernel entries to Limine
-limine-dracut
-
-# Expected output should list all modules being included, including:
-# - systemd-cryptsetup (LUKS unlock)
-# - lvm (LVM support)
-# - btrfs (Btrfs filesystem)
-# - crypt (encryption)
-# - resume (hibernation support)
-# - btrfs-snapshot-overlay (CRITICAL for bootable snapshots)
-#
-# You should see:
-# Building initramfs for linux-cachyos (or linux)
-# [list of modules]
-# Kernel stored in: /boot/[hash]/linux-cachyos/vmlinuz-linux-cachyos
-# Initramfs stored in: /boot/[hash]/linux-cachyos/initramfs-linux-cachyos
-# Updated: /boot/limine.conf
-
-# Verify Limine configuration was created
-ls -la /boot/limine.conf
-cat /boot/limine.conf
-#+end_src
-
-** Install CachyOS Kernel
-#+begin_src sh
-pacman -S linux-cachyos linux-cachyos-headers
-limine-dracut
-cat /boot/limine.conf
+limine-dracut &&
+    ls -la /boot/limine.conf &&
+    cat /boot/limine.conf
 #+end_src
 
 ** Final System Configuration
-*** Install Essential Packages
 #+begin_src sh
-pacman -S sof-firmware mesa vulkan-radeon linux-cachyos-nvidia-open nvidia-utils  chrony power-profiles-daemon  exfatprogs unrar unzip p7zip zip smartmontools pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber alsa-utils bluez bluez-utils lshw usbutils pciutils acpi thermald exfatprogs unrar unzip zip p7zip
+pacman -S --noconfirm --needed sof-firmware mesa vulkan-radeon nvidia-utils  chrony power-profiles-daemon unrar unzip smartmontools pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber alsa-utils bluez bluez-utils pciutils acpi thermald exfatprogs unrar unzip openssh firewalld gst-plugin-pipewire gst-plugins-bad gst-plugins-good gst-plugins-ugly gstreamer gtk3 gtk4 grim slurp swappy kitty kitty-shell-integration kitty-terminfo podman flatpak polkit ttf-jetbrains-mono ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols zsh fastfetch ttf-nerd-fonts-symbols-common nautilus file-roller wget which wl-clipboard mpv celluloid greetd emacs-wayland
 #+end_src
 
-*** Enable Essential Services
 #+begin_src sh
-systemctl enable NetworkManager fstrim.timer chronyd power-profiles-daemon auditd sshd bluetooth
+systemctl enable NetworkManager fstrim.timer chronyd power-profiles-daemon auditd sshd bluetooth firewalld nvidia-suspend nvidia-resume nvidia-hibernate
 #+end_src
 
 *** Final Verification
 #+begin_src sh
-# Check that Limine configuration exists
 cat /boot/limine.conf
 
-# Verify crypttab
 cat /etc/crypttab
 
-# Verify fstab
 cat /etc/fstab
 
-# Verify dracut was configured properly
 ls -la /etc/dracut.conf.d/
 
-# Test that limine-dracut command works
 limine-dracut
 #+end_src
 
-** Exit and Reboot
-#+begin_src sh
-# Exit chroot
-exit
-
-# Unmount all
-umount -R /mnt
-swapoff /dev/mapper/vg0-swap
-
-# Close encrypted volume
-vgchange -an vg0
-cryptsetup close cryptlvm
-
-# Reboot
-reboot
-#+end_src
-
---------------
-
-* POST-INSTALLATION: First Boot Configuration
-*IMPORTANT:* The following steps must be completed AFTER you have
-rebooted into your new system. Snapper setup requires a running system
-(not chroot) to function properly with DBUS and system services.
-
-** First Boot Setup
-*** Login and Verify System
-:PROPERTIES:
-:CUSTOM_ID: login-and-verify-system
-:END:
-1. *At Limine menu:*
-   - You should see “Arch Linux” entry
-   - Select it and press Enter
-2. *LUKS password prompt:*
-   - Enter your LUKS password
-   - System should unlock and boot
-3. *Login:*
-   - Login as your user (ahsan)
-   - Verify network connectivity
-
-*** Connect to Network (if needed)
-:PROPERTIES:
-:CUSTOM_ID: connect-to-network-if-needed
-:END:
-#+begin_src sh
-# Check network status
-ip a
-
-# If using WiFi, connect via NetworkManager
-nmtui
-
-# Test connectivity
-ping -c 3 archlinux.org
-#+end_src
-
-** Setup Snapper for Bootable Snapshots
-Now that you're in a running system, set up Snapper properly.
-
-*** Install Snapper and Dependencies
+* First Boot Configuration
 #+begin_src sh
 sudo pacman -S snapper inotify-tools
 #+end_src
 
-*** Configure Snapper
 #+begin_src sh
 # Unmount the snapshots directory
 sudo umount /.snapshots
@@ -432,7 +317,6 @@ echo "Root subvolume ID: $ROOT_SUBVOL_ID"
 sudo btrfs subvolume set-default ${ROOT_SUBVOL_ID} /
 #+end_src
 
-*** Configure Snapper Settings
 #+begin_src sh
 # Edit Snapper configuration
 sudo tee /etc/snapper/configs/root > /dev/null << 'EOF'
@@ -479,7 +363,6 @@ EMPTY_PRE_POST_MIN_AGE="1800"
 EOF
 #+end_src
 
-*** Install snap-pac for Automatic Snapshots
 #+begin_src sh
 # Install snap-pac - creates pre/post snapshots during pacman operations
 sudo pacman -S snap-pac
@@ -493,18 +376,14 @@ sudo systemctl status snapper-timeline.timer
 sudo systemctl status snapper-cleanup.timer
 #+end_src
 
-** Setup Limine-Snapper Integration
-*** Install limine-snapper-sync
 #+begin_src sh
 # Install from AUR
 paru -S limine-snapper-sync
 #+end_src
 
-*** Configure limine-snapper-sync
 #+begin_src sh
-sudo tee /etc/default/limine-snapper-sync > /dev/null << 'EOF'
-### OS Entry Targeting
-# Must match the OS name in limine.conf
+sudo tee /etc/limine-snapper-sync.conf > /dev/null << 'EOF'
+
 TARGET_OS_NAME="Arch Linux"
 
 ### Max Snapshot Entries
@@ -1953,3 +1832,9 @@ sudo firewall-cmd --reload
 
 Remember: Security is a process, not a product. Regularly review and
 update your firewall configuration as your needs change!
+
+* Hardening
+** Lock Root Account
+#+begin_src sh
+passwd -l root
+#+end_src

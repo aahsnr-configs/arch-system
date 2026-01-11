@@ -1,3 +1,0 @@
-sudo dnf install terminus-fonts-console
-sudo dnf remove fastfetch gcc-gfortran gnome-shell nobara-controller-config nobara-bookmarks kde* nobara-welcome --setopt=protected_packages=
-
