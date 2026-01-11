@@ -18,220 +18,139 @@ CachyOS features using:
 - UEFI system (not BIOS/Legacy)
 
 ** Disk Partitioning and Encryption Setup
-*** Partition the Disk
-#+begin_src sh
-cfdisk /dev/nvme0n1
-#+end_src
-
 Create two partitions:
-
 - =/dev/nvme0n1p1= - *2GB*, type: EFI System (ESP - needs space for
   multiple kernels + snapshots)
 - =/dev/nvme0n1p2= - Remaining space, type: Linux LVM
-
-*** Create and Configure Encrypted LVM
-#+begin_src sh
-# Format ESP
-mkfs.vfat -F 32 /dev/nvme0n1p1
-
-# Create LUKS2 encrypted container
-cryptsetup --cipher aes-xts-plain64 \
-           --hash sha512 \
-           --use-random \
-           --verify-passphrase \
-           luksFormat /dev/nvme0n1p2
-
-# Open the encrypted container
-cryptsetup luksOpen /dev/nvme0n1p2 cryptlvm
-
-# Create physical volume and volume group
-pvcreate /dev/mapper/cryptlvm
-vgcreate vg0 /dev/mapper/cryptlvm
-
-# Create logical volumes
-lvcreate -L 24G vg0 -n swap
-lvcreate -l 100%FREE vg0 -n root
-
-# Format volumes
-mkfs.btrfs -f /dev/vg0/root
-mkswap /dev/vg0/swap
-
-# Initial mount
-mount /dev/vg0/root /mnt
-swapon /dev/vg0/swap
+ 
+#+begin_src bash
+cfdisk /dev/nvme0n1 &&
+    mkfs.vfat -F 32 /dev/nvme0n1p1 &&
+    cryptsetup --cipher aes-xts-plain64 \
+               --hash sha512 \
+               --use-random \
+               --verify-passphrase \
+               luksFormat /dev/nvme0n1p2 &&
+    cryptsetup luksOpen /dev/nvme0n1p2 cryptlvm &&
+    pvcreate /dev/mapper/cryptlvm &&
+    vgcreate vg0 /dev/mapper/cryptlvm &&
+    lvcreate -L 24G vg0 -n swap &&
+    lvcreate -l 100%FREE vg0 -n root &&
+    mkfs.btrfs -f /dev/vg0/root &&
+    mkswap /dev/vg0/swap &&
+    mount /dev/vg0/root /mnt &&
+    swapon /dev/vg0/swap
 #+end_src
 
-** Btrfs Subvolume Layout
-*** Create Comprehensive Subvolume Structure
-This layout ensures snapshots only capture the root system while
-excluding caches, logs, home, and other data.
-
+** Btrfs Subvolume Layout/Mounting
 #+begin_src sh
-# Create all subvolumes
-btrfs su cr /mnt/@
-btrfs su cr /mnt/@home
-btrfs su cr /mnt/@opt
-btrfs su cr /mnt/@tmp
-btrfs su cr /mnt/@root
-btrfs su cr /mnt/@srv
-btrfs su cr /mnt/@nix
-btrfs su cr /mnt/@usr@local
-btrfs su cr /mnt/@var
-btrfs su cr /mnt/@var@cache
-btrfs su cr /mnt/@pkg
-btrfs su cr /mnt/@var@crash
-btrfs su cr /mnt/@var@tmp
-btrfs su cr /mnt/@var@spool
-btrfs su cr /mnt/@var@log
-btrfs su cr /mnt/@var@log@audit
-btrfs su cr /mnt/@snapshots
+btrfs su cr /mnt/@ &&
+    btrfs su cr /mnt/@home &&
+    btrfs su cr /mnt/@opt &&
+    btrfs su cr /mnt/@tmp &&
+    btrfs su cr /mnt/@root &&
+    btrfs su cr /mnt/@srv &&
+    btrfs su cr /mnt/@nix &&
+    btrfs su cr /mnt/@usr@local &&
+    btrfs su cr /mnt/@var &&
+    btrfs su cr /mnt/@var@cache &&
+    btrfs su cr /mnt/@pkg &&
+    btrfs su cr /mnt/@var@crash &&
+    btrfs su cr /mnt/@var@tmp &&
+    btrfs su cr /mnt/@var@spool &&
+    btrfs su cr /mnt/@var@log &&
+    btrfs su cr /mnt/@var@log@audit &&
+    btrfs su cr /mnt/@snapshots &&
+    umount /mnt
 
-# Unmount to remount with proper options
-umount /mnt
+BTRFS_OPTS="noatime,compress=zstd:3,space_cache=v2,discard=async" &&
+    mount -o ${BTRFS_OPTS},subvol=@ /dev/vg0/root /mnt &&
+    mkdir /mnt/home &&
+    mount -o ${BTRFS_OPTS},subvol=@home /dev/vg0/root /mnt/home &&
+    mkdir /mnt/opt &&
+    mount -o ${BTRFS_OPTS},subvol=@opt /dev/vg0/root /mnt/opt &&
+    mkdir /mnt/tmp &&
+    mount -o ${BTRFS_OPTS},subvol=@tmp /dev/vg0/root /mnt/tmp &&
+    mkdir /mnt/root &&
+    mount -o ${BTRFS_OPTS},subvol=@root /dev/vg0/root /mnt/root &&
+    mkdir /mnt/srv &&
+    mount -o ${BTRFS_OPTS},subvol=@srv /dev/vg0/root /mnt/srv &&
+    mkdir /mnt/nix &&
+    mount -o ${BTRFS_OPTS},subvol=@nix /dev/vg0/root /mnt/nix &&
+    mkdir -p /mnt/usr/local &&
+    mount -o ${BTRFS_OPTS},subvol=@usr@local /dev/vg0/root /mnt/usr/local &&
+    mkdir /mnt/var &&
+    mount -o ${BTRFS_OPTS},subvol=@var /dev/vg0/root /mnt/var &&
+    mkdir /mnt/var/cache &&
+    mount -o ${BTRFS_OPTS},subvol=@var@cache /dev/vg0/root /mnt/var/cache &&
+    mkdir -p /mnt/var/cache/pacman/pkg &&
+    mount -o ${BTRFS_OPTS},subvol=@pkg /dev/vg0/root /mnt/var/cache/pacman/pkg &&
+    mkdir -p /mnt/var/crash &&
+    mount -o ${BTRFS_OPTS},subvol=@var@crash /dev/vg0/root /mnt/var/crash &&
+    mkdir /mnt/var/tmp &&
+    mount -o ${BTRFS_OPTS},subvol=@var@tmp /dev/vg0/root /mnt/var/tmp &&
+    mkdir /mnt/var/spool &&
+    mount -o ${BTRFS_OPTS},subvol=@var@spool /dev/vg0/root /mnt/var/spool &&
+    mkdir /mnt/var/log &&
+    mount -o ${BTRFS_OPTS},subvol=@var@log /dev/vg0/root /mnt/var/log &&
+    mkdir /mnt/var/log/audit &&
+    mount -o ${BTRFS_OPTS},subvol=@var@log@audit /dev/vg0/root /mnt/var/log/audit &&
+    mkdir /mnt/.snapshots &&
+    mount -o ${BTRFS_OPTS},subvol=@snapshots /dev/vg0/root /mnt/.snapshots &&
+    mkdir /mnt/boot &&
+    mount /dev/nvme0n1p1 /mnt/boot &&
+    chattr +C /mnt/var/log &&
+    chattr +C /mnt/var/cache &&
+    chattr +C /mnt/var/tmp
 #+end_src
 
-*** Mount Subvolumes with Optimal Options
+
+** Install Base Packages
 #+begin_src sh
-# Mount options for performance and compression (matching CachyOS defaults)
-BTRFS_OPTS="noatime,compress=zstd:3,space_cache=v2,discard=async"
+pacstrap -K /mnt base base-devel neovim git wget curl btrfs-progs lvm2 cryptsetup dracut networkmanager sudo paru &&
+    genfstab -U /mnt >> /mnt/etc/fstab
 
-# Mount root subvolume
-mount -o ${BTRFS_OPTS},subvol=@ /dev/vg0/root /mnt
-
-# Create mount points and mount all subvolumes
-mkdir /mnt/home
-mount -o ${BTRFS_OPTS},subvol=@home /dev/vg0/root /mnt/home
-mkdir /mnt/opt
-mount -o ${BTRFS_OPTS},subvol=@opt /dev/vg0/root /mnt/opt
-mkdir /mnt/tmp
-mount -o ${BTRFS_OPTS},subvol=@tmp /dev/vg0/root /mnt/tmp
-mkdir /mnt/root
-mount -o ${BTRFS_OPTS},subvol=@root /dev/vg0/root /mnt/root
-mkdir /mnt/srv
-mount -o ${BTRFS_OPTS},subvol=@srv /dev/vg0/root /mnt/srv
-mkdir /mnt/nix
-mount -o ${BTRFS_OPTS},subvol=@nix /dev/vg0/root /mnt/nix
-mkdir -p /mnt/usr/local
-mount -o ${BTRFS_OPTS},subvol=@usr@local /dev/vg0/root /mnt/usr/local
-mkdir /mnt/var
-mount -o ${BTRFS_OPTS},subvol=@var /dev/vg0/root /mnt/var
-mkdir /mnt/var/cache
-mount -o ${BTRFS_OPTS},subvol=@var@cache /dev/vg0/root /mnt/var/cache
-mkdir -p /mnt/var/cache/pacman/pkg
-mount -o ${BTRFS_OPTS},subvol=@pkg /dev/vg0/root /mnt/var/cache/pacman/pkg
-mkdir -p /mnt/var/crash
-mount -o ${BTRFS_OPTS},subvol=@var@crash /dev/vg0/root /mnt/var/crash
-mkdir /mnt/var/tmp
-mount -o ${BTRFS_OPTS},subvol=@var@tmp /dev/vg0/root /mnt/var/tmp
-mkdir /mnt/var/spool
-mount -o ${BTRFS_OPTS},subvol=@var@spool /dev/vg0/root /mnt/var/spool
-mkdir /mnt/var/log
-mount -o ${BTRFS_OPTS},subvol=@var@log /dev/vg0/root /mnt/var/log
-mkdir /mnt/var/log/audit
-mount -o ${BTRFS_OPTS},subvol=@var@log@audit /dev/vg0/root /mnt/var/log/audit
-mkdir /mnt/.snapshots
-mount -o ${BTRFS_OPTS},subvol=@snapshots /dev/vg0/root /mnt/.snapshots
-
-# Mount ESP
-mount /dev/nvme0n1p1 /mnt/boot
-#+end_src
-
-*** Disable Copy-on-Write for Specific Directories
-#+begin_src sh
-# IMPORTANT: Must be done on EMPTY directories BEFORE any files are created
-# This disables CoW (and compression) for these directories only
-
-# Disable CoW on directories with frequent writes
-chattr +C /mnt/var/log
-chattr +C /mnt/var/cache
-chattr +C /mnt/var/tmp
-
-# If you plan to use virtual machines, also disable for VM images:
-# mkdir -p /mnt/var/lib/libvirt/images
-# chattr +C /mnt/var/lib/libvirt/images
-
-# If you plan to use databases, also disable for database directories:
-# mkdir -p /mnt/var/lib/mysql
-# chattr +C /mnt/var/lib/mysql
-# mkdir -p /mnt/var/lib/postgres
-# chattr +C /mnt/var/lib/postgres
-
-# Verify the attributes were set (should show 'C' in the output)
-lsattr -d /mnt/var/log /mnt/var/cache /mnt/var/tmp
-#+end_src
-
-** Base System Installation
-*** Install Base Packages
-#+begin_src sh
-# Install essential packages including dracut
-pacstrap -K /mnt base base-devel neovim git wget curl btrfs-progs lvm2 cryptsetup dracut networkmanager sudo
-
-# Generate fstab
-genfstab -U /mnt >> /mnt/etc/fstab
-
-# Chroot into the new system
 arch-chroot /mnt
 #+end_src
 
-*** Basic System Configuration
+** Basic System Configuration
 #+begin_src sh
-# Set timezone (adjust to your location)
-ln -sf /usr/share/zoneinfo/Asia/Dhaka /etc/localtime
-hwclock --systohc
+ln -sf /usr/share/zoneinfo/Asia/Dhaka /etc/localtime &&
+    hwclock --systohc &&
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen &&
+    locale-gen &&
+    echo "LANG=en_US.UTF-8" > /etc/locale.conf &&
+    echo "archlinux" > /etc/hostname
 
-# Configure locales
-echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
-locale-gen
-echo "LANG=en_US.UTF-8" > /etc/locale.conf
-
-# Set hostname
-echo "archlinux" > /etc/hostname
-
-# Configure hosts file
-cat > /etc/hosts < EOF
+nvim /etc/hosts
 127.0.0.1   localhost
 ::1         localhost
-127.0.1.1   zephyrus.localdomain archlinux
-EOF
+127.0.1.1   zephyrus.localdomain zephyrus
 
-# Set root password
-passwd
-
-# Create user account
-useradd -m -G users,wheel,audio,video -s /bin/bash ahsan
-passwd ahsan
-
-# Configure sudo
-EDITOR=nvim visudo
+passwd &&
+    useradd -m -G users,wheel,audio,video -s /bin/bash ahsan &&
+    passwd ahsan &&
+    EDITOR=nvim visudo
 #+end_src
 
 ** Setup CachyOS Repositories
-This gives you access to optimized packages and the CachyOS kernel.
-
-*** Install CachyOS Keyring and Repositories
 #+begin_src sh
-# Download and install CachyOS repositories (while in chroot)
-cd /tmp
-curl -O https://mirror.cachyos.org/cachyos-repo.tar.xz
-tar xvf cachyos-repo.tar.xz
-cd cachyos-repo
-./cachyos-repo.sh
-
-pacman -Syyuu
+cd /tmp &&
+    curl -O https://mirror.cachyos.org/cachyos-repo.tar.xz &&
+    tar xvf cachyos-repo.tar.xz &&
+    cd cachyos-repo &&
+    ./cachyos-repo.sh &&
+    pacman -Syu
 #+end_src
 
 ** Configure Dracut for LUKS+LVM+Btrfs
-*** Get Your UUIDs
 #+begin_src sh
-# Get LUKS UUID (the partition, not the mapper)
 LUKS_UUID=$(cryptsetup luksDump /dev/nvme0n1p2 | grep "UUID:" | head -1 | awk '{print $2}')
 echo "LUKS UUID: $LUKS_UUID"
 
-# Get root filesystem UUID (the mapper device)
 ROOT_UUID=$(blkid -s UUID -o value /dev/mapper/vg0-root)
 echo "Root UUID: $ROOT_UUID"
 
-# Get swap UUID
 SWAP_UUID=$(blkid -s UUID -o value /dev/mapper/vg0-swap)
 echo "Swap UUID: $SWAP_UUID"
 
@@ -241,9 +160,6 @@ echo "ROOT_UUID=$ROOT_UUID" >> /tmp/uuids.txt
 echo "SWAP_UUID=$SWAP_UUID" >> /tmp/uuids.txt
 cat /tmp/uuids.txt
 #+end_src
-
-*** Create Dracut Configuration Files
-*Main dracut configuration:*
 
 #+begin_src sh
 cat > /etc/dracut.conf.d/custom.conf << 'EOF'
@@ -273,12 +189,7 @@ show_modules="yes"
 EOF
 #+end_src
 
-*** Configure /etc/crypttab
-This is CRITICAL for dracut to properly unlock LUKS:
-
 #+begin_src sh
-# Create crypttab entry
-# Format: mapper-name UUID=<uuid> none luks
 cat > /etc/crypttab << EOF
 # <name>    <device>                                  <password>  <options>
 cryptlvm    UUID=${LUKS_UUID}                         none        luks,discard
@@ -288,60 +199,13 @@ EOF
 cat /etc/crypttab
 #+end_src
 
-*** Verify /etc/fstab
-:PROPERTIES:
-:CUSTOM_ID: verify-etcfstab
-:END:
-Make sure your fstab has correct UUIDs:
-
-#+begin_src sh
-cat /etc/fstab
-#+end_src
-
-It should look like:
-
-#+begin_example
-# /dev/mapper/vg0-root
-UUID=<ROOT_UUID>  /  btrfs  rw,noatime,compress=zstd:3,space_cache=v2,discard=async,subvol=/@  0 0
-
-# /dev/mapper/vg0-root
-UUID=<ROOT_UUID>  /home  btrfs  rw,noatime,compress=zstd:3,space_cache=v2,discard=async,subvol=/@home  0 0
-
-# ... (other subvolume mounts)
-
-# /dev/mapper/vg0-swap
-UUID=<SWAP_UUID>  none  swap  defaults  0 0
-
-# /dev/nvme0n1p1
-UUID=<ESP_UUID>  /boot  vfat  rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro  0 2
-#+end_example
-
 ** Install and Configure Limine Bootloader
-*** Install Limine, Java, and AUR Helper
 #+begin_src sh
-# Install Limine and Java from official repos
-pacman -S limine jdk-openjdk paru
-
-# Temporarily allow user to run sudo without password
-echo "ahsan ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers.d/temp_install
-chmod 440 /etc/sudoers.d/temp_install
-
-# Remove temporary passwordless sudo
-rm /etc/sudoers.d/temp_install
-#+end_src
-
-*** Install limine-dracut-support
-*CRITICAL:* This package integrates Limine with dracut and provides the
-=limine-dracut= command.
-
-#+begin_src sh
-echo "ahsan ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers.d/temp_install
-chmod 440 /etc/sudoers.d/temp_install
-
-sudo -u ahsan paru -S limine-dracut-support --noconfirm
-
-# Remove temporary passwordless sudo
-rm /etc/sudoers.d/temp_install
+pacman -S limine jdk-openjdk paru &&
+    echo "ahsan ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers.d/temp_install &&
+    chmod 440 /etc/sudoers.d/temp_install &&
+    sudo -u ahsan paru -S limine-dracut-support --noconfirm &&
+    rm /etc/sudoers.d/temp_install
 #+end_src
 
 *** Deploy Limine to ESP
@@ -364,15 +228,6 @@ efibootmgr --create --disk /dev/nvme0n1 --part 1 \
 This is where you set kernel parameters for dracut:
 
 #+begin_src sh
-# The variables from section 5.1 are still active in this shell session
-# Verify they are set
-echo "LUKS UUID: $LUKS_UUID"
-echo "Root UUID: $ROOT_UUID"
-echo "Swap UUID: $SWAP_UUID"
-
-# If variables are not set, source them:
-# source /tmp/uuids.txt
-
 # Create Limine configuration with dracut syntax
 cat > /etc/default/limine << EOF
 # ESP Path
