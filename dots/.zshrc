@@ -9,7 +9,6 @@ _zsh_plugin_find_source() {
     local plugin_name
     plugin_name="$(basename "${plugin_path}")"
     
-    # Common plugin file patterns (in order of preference)
     local patterns=(
         "${plugin_name}.plugin.zsh"
         "${plugin_name}.zsh"
@@ -26,8 +25,6 @@ _zsh_plugin_find_source() {
         fi
     done
     
-    # If no standard file found, look for any .zsh file
-    # Fixed: Properly group OR conditions in find command
     local zsh_file
     zsh_file=$(find "${plugin_path}" -maxdepth 1 \( -name "*.zsh" -o -name "*.plugin.zsh" \) -type f | head -n 1)
     if [[ -n "${zsh_file}" ]]; then
@@ -76,7 +73,6 @@ zsh_plugin_install() {
 
 # Function to update all plugins
 zsh_plugins_update() {
-    # Prevent concurrent updates
     if [[ -f "${ZSH_PLUGIN_LOCK}" ]]; then
         echo "⚠ Update already in progress (lock file exists)"
         echo "  If this is an error, remove: ${ZSH_PLUGIN_LOCK}"
@@ -226,22 +222,12 @@ path=(
     "${HOME}/.local/bin"
     "${HOME}/.config/emacs/bin"
     "${HOME}/.npm-global/bin"
-    "${HOME}/.local/share/flatpak/exports/bin"
-    "/usr/local/texlive/2025/bin/x86_64-linux"
     $path
 )
 export PATH
 
 # Theming
 export QS_ICON_THEME=Papirus-Dark
-
-
-# MANPATH and INFOPATH - Use typeset -U for uniqueness
-typeset -U MANPATH
-export MANPATH="${MANPATH}:/usr/local/texlive/2025/texmf-dist/doc/man"
-
-typeset -U INFOPATH
-export INFOPATH="${INFOPATH}:/usr/local/texlive/2025/texmf-dist/doc/info"
 
 # Tool Configuration
 export MANPAGER="nvim +Man!"
@@ -737,7 +723,21 @@ if command -v fzf &> /dev/null; then
     done
     
     # FZF default options (matching fish config)
-    export FZF_DEFAULT_OPTS="--layout=reverse --exact --border=bold --border=rounded --margin=3% --color=dark --height=80% --info=inline --preview-window=right:50%:wrap"
+    export FZF_DEFAULT_OPTS="\
+        --layout=reverse \
+        --exact \
+        --border=bold \
+        --border=rounded \
+        --margin=5%  \
+        --height=85% \
+        --info=inline \
+        --preview-window=right:50%:wrap \
+        --color=bg+:#313244,bg:#1E1E2E,spinner:#F5E0DC,hl:#F38BA8 \
+        --color=fg:#CDD6F4,header:#F38BA8,info:#CBA6F7,pointer:#F5E0DC \
+        --color=marker:#B4BEFE,fg+:#CDD6F4,prompt:#CBA6F7,hl+:#F38BA8 \
+        --color=selected-bg:#45475A \
+        --color=border:#6C7086,label:#CDD6F4"
+    "
     
     # FZF preview command (matching fish config)
     export FZF_PREVIEW_COMMAND='
@@ -882,9 +882,6 @@ alias history='fc -li 1'
 setopt CORRECT
 #setopt CORRECT_ALL
 
-# Spell check configuration
-export SPROMPT="Correct '%R' to '%r'? [Yes, No, Abort, Edit] "
-
 # Don't hang up background jobs on exit
 setopt NO_HUP
 setopt NO_CHECK_JOBS
@@ -905,6 +902,3 @@ ZSH_DISABLE_COMPFIX="true"
 source "${HOME}/.zshrc.local"
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-
-# bun completions
-[ -s "/home/ahsan/.bun/_bun" ] && source "/home/ahsan/.bun/_bun"

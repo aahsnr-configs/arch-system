@@ -18,6 +18,8 @@ ln -sv "$HOME/Git/configs/arch-system/dots/.config/tealdeer/" "$HOME/.config/"
 ln -sv "$HOME/Git/configs/arch-system/dots/.config/tmux/" "$HOME/.config/"
 ln -sv "$HOME/Git/configs/arch-system/dots/.config/yazi/" "$HOME/.config/"
 ln -sv "$HOME/Git/configs/arch-system/dots/.config/zathura/" "$HOME/.config/"
+sudo mkdir /root/.config
+sudo ln -sv $HOME/Git/configs/arch-system/dots/.config/nvim /root/.config
 
 # Configure User
 mkdir -p "$HOME/.npm-global"

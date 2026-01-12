@@ -5,7 +5,15 @@
 - [ ] Add script for installing flatpak apps
 - [ ] Find a way to setup proper theming with flatpak applications
 - [ ] Add script for apparmor setup
-- [ ] Add script for piavpn-bin setup
-- [ ] Replace astronvim with kickstart-nvim
-- [ ] Add script for bun setup and packages
+- [ ] Add script for piavpn setup
 - [ ] add script to set default apps using xdg-mime
+- [ ] add zsh_plugins_update to topgrade
+- [ ] add script for auditd and audit rules
+- [ ] add astronvim support for root files using sudo
+- [ ] fzf tasks in zsh
+  1. add tokyonight colors throughout fzf
+  2. for fkill, list process name as the 2nd column item
+- [ ] write a custom topgrade.toml config with the following features:
+  1.  It must be able to update the git repositories in submodules.
+  2.  After upgrading it must be able to clear cache, orphans and redundant packages.
+- [ ] In markdown file, highlighted text using `**sample**` don't have a contrasting color. Fix that neovim config

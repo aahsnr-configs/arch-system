@@ -106,7 +106,7 @@ BTRFS_OPTS="noatime,compress=zstd:3,space_cache=v2,discard=async" &&
 
 ** Install Base Packages
 #+begin_src sh
-pacstrap -K /mnt base base-devel neovim git wget curl btrfs-progs lvm2 cryptsetup dracut networkmanager sudo paru linux-cachyos linux-cachyos-headers linux-cachyos-nvidia-open linux-firmware amd-ucode &&
+pacstrap -K /mnt base base-devel neovim git wget curl btrfs-progs lvm2 cryptsetup dracut networkmanager sudo paru linux-cachyos linux-cachyos-headers nvidia-open-dkms linux-cachyos-lts linux-cachyos-lts-headers linux-firmware amd-ucode &&
     genfstab -U /mnt >> /mnt/etc/fstab &&
     arch-chroot /mnt
 #+end_src
@@ -261,11 +261,11 @@ limine-dracut &&
 
 ** Final System Configuration
 #+begin_src sh
-pacman -S --noconfirm --needed sof-firmware mesa vulkan-radeon nvidia-utils  chrony power-profiles-daemon unrar unzip smartmontools pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber alsa-utils bluez bluez-utils pciutils acpi thermald exfatprogs unrar unzip openssh firewalld gst-plugin-pipewire gst-plugins-bad gst-plugins-good gst-plugins-ugly gstreamer gtk3 gtk4 grim slurp swappy kitty kitty-shell-integration kitty-terminfo podman flatpak polkit ttf-jetbrains-mono ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols zsh fastfetch ttf-nerd-fonts-symbols-common nautilus file-roller wget which wl-clipboard mpv celluloid greetd emacs-wayland
+pacman -S --noconfirm --needed sof-firmware mesa vulkan-radeon nvidia-utils  chrony power-profiles-daemon unrar unzip smartmontools pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber alsa-utils bluez bluez-utils pciutils acpi thermald exfatprogs unrar unzip openssh firewalld gst-plugin-pipewire gst-plugins-bad gst-plugins-good gst-plugins-ugly gstreamer gtk3 gtk4 grim slurp swappy kitty kitty-shell-integration kitty-terminfo podman flatpak polkit ttf-jetbrains-mono ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols zsh fastfetch ttf-nerd-fonts-symbols-common nautilus file-roller wget which wl-clipboard mpv celluloid greetd emacs-wayland haveged rng-tools
 #+end_src
 
 #+begin_src sh
-systemctl enable NetworkManager fstrim.timer chronyd power-profiles-daemon auditd sshd bluetooth firewalld nvidia-suspend nvidia-resume nvidia-hibernate
+systemctl enable NetworkManager fstrim.timer haveged rngd chronyd power-profiles-daemon auditd sshd bluetooth firewalld nvidia-suspend nvidia-resume nvidia-hibernate
 #+end_src
 
 *** Final Verification
