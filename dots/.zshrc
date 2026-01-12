@@ -222,6 +222,7 @@ path=(
     "${HOME}/.cargo/bin"
     "${HOME}/go/bin"
     "${HOME}/.bun/bin"
+    "${HOME}/.cache/.bun/bin"
     "${HOME}/.local/bin"
     "${HOME}/.config/emacs/bin"
     "${HOME}/.npm-global/bin"
@@ -904,3 +905,6 @@ ZSH_DISABLE_COMPFIX="true"
 source "${HOME}/.zshrc.local"
 
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+# bun completions
+[ -s "/home/ahsan/.bun/_bun" ] && source "/home/ahsan/.bun/_bun"

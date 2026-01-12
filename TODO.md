@@ -7,3 +7,5 @@
 - [ ] Add script for apparmor setup
 - [ ] Add script for piavpn-bin setup
 - [ ] Replace astronvim with kickstart-nvim
+- [ ] Add script for bun setup and packages
+- [ ] add script to set default apps using xdg-mime
