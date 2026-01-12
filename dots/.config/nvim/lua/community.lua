@@ -14,12 +14,8 @@ return {
   { import = "astrocommunity.pack.prettier" },
   { import = "astrocommunity.pack.lua" },
   { import = "astrocommunity.pack.python-ruff" },
-  { import = "astrocommunity.bars-and-lines.bufferline-nvim" },
   { import = "astrocommunity.bars-and-lines.dropbar-nvim" },
   { import = "astrocommunity.bars-and-lines.scope-nvim" },
-  { import = "astrocommunity.bars-and-lines.smartcolumn-nvim" },
-  { import = "astrocommunity.bars-and-lines.lualine-nvim" },
-  { import = "astrocommunity.bars-and-lines.statuscol-nvim" },
   { import = "astrocommunity.bars-and-lines.vim-illuminate" },
   -- import/override with your plugins folder
 }

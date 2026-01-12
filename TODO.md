@@ -6,4 +6,4 @@
 - [ ] Find a way to setup proper theming with flatpak applications
 - [ ] Add script for apparmor setup
 - [ ] Add script for piavpn-bin setup
-- [ ] Customize astronvim so that you add separata lua files to replace astrocommunity modules. And in these separate lua files, no tools should be automatically installed. Instead these tools will be managed by homebrew.
+- [ ] Replace astronvim with kickstart-nvim
