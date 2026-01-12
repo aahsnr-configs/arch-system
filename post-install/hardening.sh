@@ -18,19 +18,3 @@ sudo tee /etc/security/limits.d/99-custom-limits.conf >/dev/null <<'EOF'
 * soft nofile 65536
 * hard nofile 1048576
 EOF
-
-sudo tee /etc/ssh/sshd_config.d/99-hardening.conf >/dev/null <<'EOF'
-Port 47
-LogLevel VERBOSE
-PermitRootLogin no
-PasswordAuthentication no
-PubkeyAuthentication yes
-ChallengeResponseAuthentication no
-X11Forwarding no
-AllowTcpForwarding no
-AllowAgentForwarding no
-TCPKeepAlive no
-ClientAliveCountMax 2
-MaxAuthTries 3
-MaxSessions 2
-EOF
