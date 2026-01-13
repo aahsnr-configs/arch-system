@@ -17,4 +17,6 @@
 - [ ] write a custom topgrade.toml config with the following features:
   - It must be able to update the git repositories in submodules.
   - After upgrading it must be able to clear cache, orphans and redundant packages.
-- [ ] In markdown file, highlighted text using `**sample**` don't have a contrasting color. Fix that neovim config
+- [ ] Add script for emacs setup
+- [ ] [Important] In markdown file, highlighted text using `**sample**` don't have a contrasting color. Fix that neovim config
+- [ ] [Important] Modify niri configuration so that it is compatible with dms, but make sure to make a backup niri config for separate kdl files before applying changes using dms
