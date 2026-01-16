@@ -1,3 +1,4 @@
+.obsidian/
 setup-log*
 new-setup-script/requirements.txt
 dotfiles/.config/fish/completions/

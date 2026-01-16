@@ -503,8 +503,6 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
 ** Org Mode Integration
 #+begin_src emacs-lisp
 (after! org
-  ;; LaTeX preview process configuration for LuaLaTeX with dvisvgm
-  ;; CRITICAL: LuaLaTeX needs --output-format=dvi to work with dvisvgm
   (add-to-list 'org-preview-latex-process-alist
                '(luamagick
                  :programs ("lualatex" "magick")
@@ -516,18 +514,6 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
                  :image-size-adjust (1.0 . 1.0)
                  :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
                  :image-converter ("magick convert -density 130 -trim -antialias %f -quality 100 %O")))
-
-  ;; Alternative: LuaLaTeX with ImageMagick (PNG) - uncomment if dvisvgm issues
-  ;; (add-to-list 'org-preview-latex-process-alist
-  ;;              '(lualatex-png
-  ;;                :programs ("lualatex" "convert")
-  ;;                :description "pdf > png (LuaLaTeX)"
-  ;;                :message "You need to install lualatex and imagemagick."
-  ;;                :image-input-type "pdf"
-  ;;                :image-output-type "png"
-  ;;                :image-size-adjust (1.0 . 1.0)
-  ;;                :latex-compiler ("lualatex -interaction=nonstopmode -output-directory=%o %f")
-  ;;                :image-converter ("convert -density %D -trim -antialias %f -quality 100 %O")))
 
   ;; Set default preview process
   (setq org-preview-latex-default-process 'luamagick)
@@ -551,10 +537,7 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
           ("" "unicode-math" t ("lualatex" "xelatex"))
           ("" "amsmath" t)
           ("" "amssymb" t)
-          ("" "mathtools" nil)))
-
-  ;; Don't start with previews enabled (can be slow on large files)
-  (setq org-startup-with-latex-preview nil))
+          ("" "mathtools" nil))))
 
 (use-package! org-fragtog
   :hook (org-mode . org-fragtog-mode)
@@ -562,11 +545,11 @@ and SyncTeX integration. We extend it with latexmk for robust multi-pass compila
   (setq org-fragtog-preview-delay 0.2))
 
 ;; Alternative for Org 9.7+ users (uncomment if using newer Org):
-;; (after! org
-;;   ;; Use the new built-in preview system
-;;   (add-hook 'org-mode-hook 'org-latex-preview-auto-mode)
-;;   (setq org-latex-preview-live t)
-;;   (setq org-latex-preview-auto-mode-inline-preview-delay 0.25))
+(after! org
+  ;; Use the new built-in preview system
+  (add-hook 'org-mode-hook 'org-latex-preview-auto-mode)
+  (setq org-latex-preview-live t)
+  (setq org-latex-preview-auto-mode-inline-preview-delay 0.25))
 #+end_src
 
 ** LSP Integration

@@ -207,8 +207,8 @@ export BACKUP_DIR="${HOME}/backup"
 # Default Applications
 export TERMINAL="kitty"
 export BROWSER="brave"
-export EDITOR="nvim"
-export VISUAL="emacsclient -c -a emacs"
+export EDITOR="emacsclient -t -a 'emacs'"
+export VISUAL="emacsclient -t -a 'emacs'"
 export PAGER="bat --paging=always --style=plain"
 
 # Path Configuration - Use typeset -U to keep unique entries
@@ -680,9 +680,11 @@ command_not_found_handler() {
 }
 
 ### ALIASES
+alias upgrade="topgrade"
 alias listPkgs='paru -Qq > packages.list'
 alias delOrphans='paru -Rns $(paru -Qtdq)'
 alias delCache='paru -Scc'
+alias tuimacs="emacsclient -t -a 'emacs'"
 alias cat='bat --paging=never'
 alias du='dust'
 alias eza='eza --icons auto --git --group-directories-first --header'
@@ -835,6 +837,17 @@ if command -v direnv &> /dev/null; then
     eval "$(direnv hook zsh)"
 fi
 
+# pixi
+if command -v piri &> /dev/null; then
+    eval "$(pixi completion --shell zsh)"
+fi
+
+# Homebrew
+if command -v brew &> /dev/null; then
+   eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi
+
+
 
 ### ADDITIONAL QUALITY OF LIFE FEATURES
 # Colored man pages (multiple methods for compatibility)
@@ -878,7 +891,7 @@ export LSCOLORS=ExGxBxDxCxEgEdxbxgxcxd
 alias history='fc -li 1'
 
 # Auto-correct typos in cd commands
-setopt CORRECT
+#setopt CORRECT
 #setopt CORRECT_ALL
 
 # Don't hang up background jobs on exit
@@ -900,4 +913,23 @@ ZSH_DISABLE_COMPFIX="true"
 [[ ! -f "${HOME}/.zshrc.local" ]] && touch "${HOME}/.zshrc.local"
 source "${HOME}/.zshrc.local"
 
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+# # Lazy load conda/mamba
+# function conda() {
+#     unset -f conda mamba
+#     if [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+#         . "$HOME/miniforge3/etc/profile.d/conda.sh"
+#     fi
+#     conda "$@"
+# }
+#
+# function mamba() {
+#     unset -f conda mamba
+#     if [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+#         . "$HOME/miniforge3/etc/profile.d/conda.sh"
+#     fi
+#     mamba "$@"
+# }
+
+export PATH="/home/ahsan/.pixi/bin:$PATH"
+
