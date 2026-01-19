@@ -713,8 +713,6 @@ if command -v fzf &> /dev/null; then
         "/usr/share/doc/fzf/examples/completion.zsh"
         "${HOME}/.fzf/shell/key-bindings.zsh"
         "${HOME}/.fzf/shell/completion.zsh"
-        "/opt/homebrew/opt/fzf/shell/key-bindings.zsh"
-        "/opt/homebrew/opt/fzf/shell/completion.zsh"
         "/usr/local/opt/fzf/shell/key-bindings.zsh"
         "/usr/local/opt/fzf/shell/completion.zsh"
     )
@@ -842,12 +840,6 @@ if command -v piri &> /dev/null; then
     eval "$(pixi completion --shell zsh)"
 fi
 
-# Homebrew
-if command -v brew &> /dev/null; then
-   eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-fi
-
-
 
 ### ADDITIONAL QUALITY OF LIFE FEATURES
 # Colored man pages (multiple methods for compatibility)
@@ -931,5 +923,18 @@ source "${HOME}/.zshrc.local"
 #     mamba "$@"
 # }
 
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	command yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
+}
+
 export PATH="/home/ahsan/.pixi/bin:$PATH"
+
+# bun setup
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+[ -s "/home/ahsan/.bun/_bun" ] && source "/home/ahsan/.bun/_bun"
 
