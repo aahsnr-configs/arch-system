@@ -96,17 +96,17 @@
          (LaTeX-mode . rainbow-delimiters-mode)
          (org-src-mode . rainbow-delimiters-mode)
          (prog-mode . rainbow-delimiters-mode)))
-  ;; :config
-  ;; (custom-set-faces!
-  ;;  '(rainbow-delimiters-depth-1-face :foreground "#89b4fa")
-  ;;  '(rainbow-delimiters-depth-2-face :foreground "#cba6f7")
-  ;;  '(rainbow-delimiters-depth-3-face :foreground "#f9e2af")
-  ;;  '(rainbow-delimiters-depth-4-face :foreground "#89dceb")
-  ;;  '(rainbow-delimiters-depth-5-face :foreground "#f38ba8")
-  ;;  '(rainbow-delimiters-depth-6-face :foreground "#a6e3a1")
-  ;;  '(rainbow-delimiters-depth-7-face :foreground "#fab387")
-  ;;  '(rainbow-delimiters-depth-8-face :foreground "#cdd6f4")
-  ;;  '(rainbow-delimiters-depth-9-face :foreground "#bac2de"))
+;; :config
+;; (custom-set-faces!
+;;  '(rainbow-delimiters-depth-1-face :foreground "#89b4fa")
+;;  '(rainbow-delimiters-depth-2-face :foreground "#cba6f7")
+;;  '(rainbow-delimiters-depth-3-face :foreground "#f9e2af")
+;;  '(rainbow-delimiters-depth-4-face :foreground "#89dceb")
+;;  '(rainbow-delimiters-depth-5-face :foreground "#f38ba8")
+;;  '(rainbow-delimiters-depth-6-face :foreground "#a6e3a1")
+;;  '(rainbow-delimiters-depth-7-face :foreground "#fab387")
+;;  '(rainbow-delimiters-depth-8-face :foreground "#cdd6f4")
+;;  '(rainbow-delimiters-depth-9-face :foreground "#bac2de"))
 
 (use-package! rainbow-mode
   :hook ((prog-mode . rainbow-mode)
@@ -388,37 +388,37 @@
   :hook (LaTeX-mode . laas-mode)
   :config
   (aas-set-snippets 'laas-mode
-    ;; Math-only snippets
-    :cond #'texmathp
-    "supp" "\\supp"
-    "inf" "\\infty"
-    "lim" "\\lim"
-    "On" "O(n)"
-    "O1" "O(1)"
-    "Olog" "O(\\log n)"
-    "Olon" "O(n \\log n)"
+                    ;; Math-only snippets
+                    :cond #'texmathp
+                    "supp" "\\supp"
+                    "inf" "\\infty"
+                    "lim" "\\lim"
+                    "On" "O(n)"
+                    "O1" "O(1)"
+                    "Olog" "O(\\log n)"
+                    "Olon" "O(n \\log n)"
 
-    ;; Functions with yasnippet integration
-    "Sum" (lambda () (interactive)
-            (yas-expand-snippet "\\sum_{${1:i=1}}^{${2:n}} $0"))
-    "Prod" (lambda () (interactive)
-             (yas-expand-snippet "\\prod_{${1:i=1}}^{${2:n}} $0"))
-    "Int" (lambda () (interactive)
-            (yas-expand-snippet "\\int_{${1:a}}^{${2:b}} $0"))
-    "Lim" (lambda () (interactive)
-            (yas-expand-snippet "\\lim_{${1:x \\to \\infty}} $0"))
-    "Span" (lambda () (interactive)
-             (yas-expand-snippet "\\Span($1)$0"))
+                    ;; Functions with yasnippet integration
+                    "Sum" (lambda () (interactive)
+                            (yas-expand-snippet "\\sum_{${1:i=1}}^{${2:n}} $0"))
+                    "Prod" (lambda () (interactive)
+                             (yas-expand-snippet "\\prod_{${1:i=1}}^{${2:n}} $0"))
+                    "Int" (lambda () (interactive)
+                            (yas-expand-snippet "\\int_{${1:a}}^{${2:b}} $0"))
+                    "Lim" (lambda () (interactive)
+                            (yas-expand-snippet "\\lim_{${1:x \\to \\infty}} $0"))
+                    "Span" (lambda () (interactive)
+                             (yas-expand-snippet "\\Span($1)$0"))
 
-    ;; Accent snippets
-    :cond #'laas-object-on-left-condition
-    "qq" (lambda () (interactive) (laas-wrap-previous-object "sqrt"))
-    "vv" (lambda () (interactive) (laas-wrap-previous-object "vec"))
-    ".." (lambda () (interactive) (laas-wrap-previous-object "dot"))
-    "::" (lambda () (interactive) (laas-wrap-previous-object "ddot"))
-    "~~" (lambda () (interactive) (laas-wrap-previous-object "tilde"))
-    "^^" (lambda () (interactive) (laas-wrap-previous-object "hat"))
-    "--" (lambda () (interactive) (laas-wrap-previous-object "bar"))))
+                    ;; Accent snippets
+                    :cond #'laas-object-on-left-condition
+                    "qq" (lambda () (interactive) (laas-wrap-previous-object "sqrt"))
+                    "vv" (lambda () (interactive) (laas-wrap-previous-object "vec"))
+                    ".." (lambda () (interactive) (laas-wrap-previous-object "dot"))
+                    "::" (lambda () (interactive) (laas-wrap-previous-object "ddot"))
+                    "~~" (lambda () (interactive) (laas-wrap-previous-object "tilde"))
+                    "^^" (lambda () (interactive) (laas-wrap-previous-object "hat"))
+                    "--" (lambda () (interactive) (laas-wrap-previous-object "bar"))))
 
 (after! org
   ;; LaTeX preview process configuration for LuaLaTeX with dvisvgm
@@ -562,7 +562,7 @@
   :hook (nix-mode . lsp-deferred))
 
 (use-package! nix-ts-mode
- :mode "\\.nix\\'")
+  :mode "\\.nix\\'")
 
 (setq-default pdf-view-display-size 'fit-page)
 (add-hook! 'pdf-view-mode-hook #'pdf-view-midnight-minor-mode)
@@ -675,13 +675,13 @@
           (note . "Notes on ${author editor:%etal}, ${title}"))))
 
 (use-package! org-remark
- :after org
- :config
- ;; Enable global tracking mode
- (org-remark-global-tracking-mode +1)
+  :after org
+  :config
+  ;; Enable global tracking mode
+  (org-remark-global-tracking-mode +1)
 
- ;; Set mnemonic keybindings under notes prefix
- (map! :leader
+  ;; Set mnemonic keybindings under notes prefix
+  (map! :leader
        (:prefix ("n r" . "remark")
         :desc "Mark region" "m" #'org-remark-mark
         :desc "Mark line" "l" #'org-remark-mark-line
@@ -719,11 +719,11 @@
 
 (map! :leader
       (:prefix ("o" . "open")
-        :desc "Insert template"         "t" #'+org-insert-scientific-template
-        :desc "Toggle Python export"    "e" #'+org-toggle-python-export
-        :desc "Set tangle file"         "f" #'+org-set-python-tangle-file
-        :desc "Set subtree export"      "x" #'+org-set-subtree-export
-        :desc "Insert source block"     "s" #'+org-insert-src-block))
+       :desc "Insert template"         "t" #'+org-insert-scientific-template
+       :desc "Toggle Python export"    "e" #'+org-toggle-python-export
+       :desc "Set tangle file"         "f" #'+org-set-python-tangle-file
+       :desc "Set subtree export"      "x" #'+org-set-subtree-export
+       :desc "Insert source block"     "s" #'+org-insert-src-block))
 
 (map! :leader
       (:prefix ("c" . "code")
