@@ -902,9 +902,6 @@ urldecode() {
 ### PERFORMANCE TWEAKS
 DISABLE_AUTO_TITLE="true"
 ZSH_DISABLE_COMPFIX="true"
-[[ ! -f "${HOME}/.zshrc.local" ]] && touch "${HOME}/.zshrc.local"
-source "${HOME}/.zshrc.local"
-
 
 # # Lazy load conda/mamba
 # function conda() {
@@ -932,9 +929,3 @@ function y() {
 }
 
 export PATH="/home/ahsan/.pixi/bin:$PATH"
-
-# bun setup
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-[ -s "/home/ahsan/.bun/_bun" ] && source "/home/ahsan/.bun/_bun"
-

@@ -30,6 +30,8 @@ spawn-at-startup "udiskie"
 spawn-at-startup "atuin" "daemon"
 spawn-at-startup "emacs" "--daemon"
 spawn-at-startup "rog-control-center"
+spawn-at-startup "kdeconnect"
+// spawn-at-startup "qs" "-c" "noctalia-shell"
 
 // ============================================================================
 // OUTPUT CONFIGURATION
@@ -462,7 +464,12 @@ binds {
     Mod+E hotkey-overlay-title="Open Emacs" {
         spawn "emacsclient" "-c" "-a" "'emacs'";
     }
-    
+
+    // Mod+E hotkey-overlay-title="Open Emacs" {
+    //     spawn "emacs";
+    // }
+
+
     Mod+Shift+E hotkey-overlay-title="Open Neovim" {
         spawn "kitty" "-e" "nvim";
     }
