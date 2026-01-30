@@ -929,3 +929,6 @@ function y() {
 }
 
 export PATH="/home/ahsan/.pixi/bin:$PATH"
+
+
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv zsh)"
