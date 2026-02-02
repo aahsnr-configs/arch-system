@@ -1,0 +1,145 @@
+# Piri Configuration File
+# Copy this file to ~/.config/niri/piri.toml
+
+[niri]
+# Optional: Path to niri socket
+# If not specified, will use $XDG_RUNTIME_DIR/niri or /tmp/niri
+# socket_path = "/tmp/niri"
+
+# Plugin control: enable/disable plugins
+# If not specified, plugins are disabled by default
+[piri.plugins]
+scratchpads = true
+empty = true
+window_rule = true
+autofill = true
+singleton = true
+window_order = true
+swallow = true
+
+[piri.scratchpad]
+default_size = "40% 60%"
+default_margin = 50
+# Optional: move hidden scratchpads to a specific workspace
+# move_to_workspace = "tmp"
+
+# Plugins configuration
+# Empty plugin: executes commands when switching to empty workspaces
+# Format: [empty.{workspace}]
+# Workspace identifier can be:
+# - name (String): workspace name, e.g., "main", "work"
+# - idx (u8): workspace index, e.g., "1", "2", "3"
+# Note: Matching order is name first, then idx. ID (u64) is not used for matching.
+[empty.1] # workspace index
+command = "notify-send 'Workspace 1 is empty'"
+
+[empty.browser] # workspace name
+command = "google-chrome-stable"
+
+
+# Scratchpads configuration
+# Format: [scratchpads.{name}]
+[scratchpads.term]
+direction = "fromRight"
+command = "GTK_IM_MODULE=wayland ghostty --class=float.dropterm"
+app_id = "float.dropterm"
+size = "40% 60%"
+margin = 50
+
+# Example: scratchpad with swallow_to_focus enabled
+# When shown, the window will be swallowed into the currently focused window
+[scratchpads.preview]
+direction = "fromRight"
+command = "imv"
+app_id = "imv"
+size = "60% 80%"
+margin = 50
+swallow_to_focus = true  # Optional: swallow into focused window when shown
+
+
+# Window rules: automatically move windows to workspaces based on app_id or title
+# Format: [[window_rule]]
+# - app_id: regex pattern to match window app_id (optional, but at least one of app_id or title must be specified)
+# - title: regex pattern to match window title (optional, but at least one of app_id or title must be specified)
+# - open_on_workspace: workspace to move matching windows to (exact name or idx match, name first, then idx)
+# - focus_command: command to execute when window gains focus (optional)
+# Note:
+#   - If both app_id and title are specified, the rule matches if EITHER matches (OR logic)
+#   - At least one of open_on_workspace or focus_command must be specified
+#   - Workspace matching: exact name match first, then exact idx match
+#   - Matching order: first matching rule is applied
+# Example: match by app_id regex pattern, move to workspace by idx
+[[window_rule]]
+app_id = ".*firefox.*"
+open_on_workspace = "2"
+
+# Example: match by title regex pattern, move to workspace by idx, with focus_command
+[[window_rule]]
+title = ".*Chrome.*"
+open_on_workspace = "3"
+focus_command = "[[ $(fcitx5-remote) -eq 2 ]] && fcitx5-remote -c"
+
+# Example: match by either app_id OR title, move to workspace by name
+[[window_rule]]
+app_id = "code"
+title = ".*VS Code.*"
+open_on_workspace = "browser"
+
+# Example: only focus_command, don't move window
+[[window_rule]]
+title = ".*Chrome.*"
+focus_command = "notify-send 'Chrome focused'"
+
+# Example: exact app_id match (using regex anchors)
+[[window_rule]]
+app_id = "^code$"
+open_on_workspace = "dev"
+
+# Example: app_id as a list (any one matches)
+[[window_rule]]
+app_id = ["code", "code-oss", "codium"]
+open_on_workspace = "dev"
+
+# Example: title as a list (any one matches)
+[[window_rule]]
+title = ".*Chrome.*"
+open_on_workspace = "browser"
+
+[singleton.browser]
+command = 'google-chrome-stable'
+
+
+[singleton.term]
+command = 'GTK_IM_MODULE=wayland ghostty --class=singleton.term'
+app_id = 'singleton.term'
+
+# Window order: reorder windows in workspace based on app_id
+# Format: [piri.window_order] for plugin config, [window_order] for app_id weights
+# - enable_event_listener: enable automatic reordering on events (default: false)
+# - default_weight: default weight for windows not specified (default: 0)
+# - workspaces: list of workspace names/indices to apply ordering (default: all workspaces)
+# Use 'piri window_order toggle' to manually reorder windows in current workspace
+[piri.window_order]
+enable_event_listener = false
+default_weight = 0
+# workspaces = ["1", "2", "dev"]  # Optional: only apply to specific workspaces (empty = all)
+
+[window_order]
+# Window-specific weights
+google-chrome = 100
+code = 80
+ghostty = 70
+
+[piri.swallow]
+use_pid_matching=false
+
+[piri.swallow.exclude]
+app_id = ".*mpv*."
+
+[[swallow]]
+child_app_id='.*google-chrome.*'
+parent_app_id='.*ghostty.*'
+
+[[swallow]]
+child_app_id='.*firefox*.'
+parent_app_id='.*ghostty.*'

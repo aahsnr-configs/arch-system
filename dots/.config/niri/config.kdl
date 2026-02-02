@@ -466,7 +466,7 @@ binds {
     }
 
     // Mod+E hotkey-overlay-title="Open Emacs" {
-    //     spawn "emacsclient";
+    //     spawn "emacs";
     // }
 
 
